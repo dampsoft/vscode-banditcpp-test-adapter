@@ -1,30 +1,43 @@
 import * as vscode from 'vscode';
-import { TestHub, testExplorerExtensionId } from 'vscode-test-adapter-api';
-import { Log, TestAdapterRegistrar } from 'vscode-test-adapter-util';
-import { ExampleAdapter } from './adapter';
+import {TestExplorerExtension, testExplorerExtensionId} from 'vscode-test-adapter-api';
+import {GoogleTestAdapter} from './adapter';
 
 export async function activate(context: vscode.ExtensionContext) {
+  const testExplorerExtension =
+      vscode.extensions.getExtension<TestExplorerExtension>(
+          testExplorerExtensionId);
 
-	const workspaceFolder = (vscode.workspace.workspaceFolders || [])[0];
+  if (testExplorerExtension) {
+    if (!testExplorerExtension.isActive) {
+      await testExplorerExtension.activate();
+    }
 
-	// create a simple logger that can be configured with the configuration variables
-	// `exampleExplorer.logpanel` and `exampleExplorer.logfile`
-	const log = new Log('exampleExplorer', workspaceFolder, 'Example Explorer Log');
-	context.subscriptions.push(log);
+    const registeredAdapters =
+        new Map<vscode.WorkspaceFolder, GoogleTestAdapter>();
 
-	// get the Test Explorer extension
-	const testExplorerExtension = vscode.extensions.getExtension<TestHub>(testExplorerExtensionId);
-	if (log.enabled) log.info(`Test Explorer ${testExplorerExtension ? '' : 'not '}found`);
+    if (vscode.workspace.workspaceFolders) {
+      for (const workspaceFolder of vscode.workspace.workspaceFolders) {
+        const adapter = new GoogleTestAdapter(workspaceFolder);
+        registeredAdapters.set(workspaceFolder, adapter);
+        testExplorerExtension.exports.registerAdapter(adapter);
+      }
+    }
 
-	if (testExplorerExtension) {
+    vscode.workspace.onDidChangeWorkspaceFolders((event) => {
 
-		const testHub = testExplorerExtension.exports;
+      for (const workspaceFolder of event.removed) {
+        const adapter = registeredAdapters.get(workspaceFolder);
+        if (adapter) {
+          testExplorerExtension.exports.unregisterAdapter(adapter);
+          registeredAdapters.delete(workspaceFolder);
+        }
+      }
 
-		// this will register an ExampleTestAdapter for each WorkspaceFolder
-		context.subscriptions.push(new TestAdapterRegistrar(
-			testHub,
-			workspaceFolder => new ExampleAdapter(workspaceFolder, log),
-			log
-		));
-	}
+      for (const workspaceFolder of event.added) {
+        const adapter = new GoogleTestAdapter(workspaceFolder);
+        registeredAdapters.set(workspaceFolder, adapter);
+        testExplorerExtension.exports.registerAdapter(adapter);
+      }
+    });
+  }
 }

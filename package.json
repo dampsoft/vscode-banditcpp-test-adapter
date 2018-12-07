@@ -1,10 +1,10 @@
 {
   "name": "vscode-banditcpp-test-adapter",
-  "displayName": "Bandit-C++ Test Explorer",
-  "description": "Run your Example tests in the Sidebar of Visual Studio Code",
+  "displayName": "Bandit Test Explorer",
+  "description": "Run your Bandit tests in the Sidebar of Visual Studio Code",
   "icon": "img/icon.png",
-  "author": "Holger Benl <hbenl@evandor.de>",
-  "publisher": "hbenl",
+  "author": "Matthias Füg <matthias.fueg@dampsoft.de>",
+  "publisher": "mf",
   "version": "0.0.1",
   "license": "MIT",
   "homepage": "https://github.com/hbenl/vscode-example-test-adapter",
@@ -20,7 +20,10 @@
   ],
   "keywords": [
     "test",
-    "testing"
+    "testing",
+    "unit test",
+    "bandit",
+    "c++"
   ],
   "main": "out/main.js",
   "scripts": {
@@ -33,11 +36,16 @@
     "publish": "vsce publish"
   },
   "dependencies": {
+    "entities": "^1.1.1",
     "tslib": "^1.9.3",
     "vscode-test-adapter-api": "^1.0.1",
-    "vscode-test-adapter-util": "^0.5.0"
+    "vscode-test-adapter-util": "^0.5.0",
+    "xml2js": "^0.4.19"
   },
   "devDependencies": {
+    "@types/xml2js": "^0.4.2",
+    "@types/xml-parser": "^1.2.29",
+    "@types/entities": "^1.1.0",
     "typescript": "^3.0.3",
     "vsce": "^1.47.0",
     "vscode": "^1.1.21"
@@ -49,20 +57,29 @@
     "hbenl.vscode-test-explorer"
   ],
   "activationEvents": [
-    "*"
+    "onView:test-explorer"
   ],
   "contributes": {
     "configuration": {
       "type": "object",
-      "title": "Example Test Explorer configuration",
+      "title": "Bandit Test Explorer configuration",
       "properties": {
-        "exampleExplorer.logpanel": {
-          "description": "write diagnotic logs to an output panel",
-          "type": "boolean",
+        "banditTestExplorer.executable": {
+          "description": "The glob describing the location of your test executable (relative to the workspace folder)",
+          "type": "string",
           "scope": "resource"
         },
-        "exampleExplorer.logfile": {
-          "description": "write diagnostic logs to the given file",
+        "banditTestExplorer.env": {
+          "description": "Environment variables to be set when running the tests",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "scope": "resource"
+        },
+        "banditTestExplorer.cwd": {
+          "description": "The working directory where mocha is run (relative to the workspace folder)",
           "type": "string",
           "scope": "resource"
         }
