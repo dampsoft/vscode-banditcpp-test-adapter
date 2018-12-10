@@ -1,0 +1,15 @@
+describe ein User Repository
+        - it sollte ein User anlegen k├Ânnen ... OK
+        - it sollte einen Status einem User zuweisen k├Ânnen ... OK
+        - it sollte einem User mehrere Stats zuweisen k├Ânnen ... OK
+        - it sollte ein TestUser l├Âschen k├Ânnen ... OK
+describe ein ViewHistory Repository
+        - it sollte ein ViewHistory anlegen, finden und l├Âschen k├Ânnen ... OK
+        - it mittels getPrevious die zuletzt aufgerufene View liefern ... OK
+        - it mittels getPrevious die zuletzt aufgerufene View liefern (unter ber├╝cksichtigung der viewHistoryId) ... OK
+        - it mittels getPrevious die zuletzt aufgerufene View liefern (unter ber├╝cksichtigung der viewHistoryId) mit abweichendem ControlParam ... OK
+        - it mittels getPrevious die zuletzt aufgerufene View liefern (ShowcaseBeispiel) ... OK
+describe Apache FOP
+        - it soll aus einer FO-Datei eine PDF-Datei erzeugen k├Ânnen ... SKIPPED
+        - it sollte aus einer XML- und einer XSLT-Datei eine PDF-Datei erzeugen k├Ânnen ... SKIPPED
+        - it soll aus einer FO-Datei eine PDF/A-Datei erzeugen k├Ânnen ... SKIPPED

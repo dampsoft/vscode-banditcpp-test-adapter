@@ -4,12 +4,17 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestInfo, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 import * as xml2js from 'xml2js'
+import {resolveVariables} from './helper';
 
 export class BanditTestAdapter implements TestAdapter {
   private readonly testStatesEmitter =
       new vscode.EventEmitter<TestSuiteEvent|TestEvent>();
   private readonly reloadEmitter = new vscode.EventEmitter<void>();
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
+  private readonly _variableToValue: [string, string][] = [
+    ['${workspaceDirectory}', this.workspaceFolder.uri.fsPath],
+    ['${workspaceFolder}', this.workspaceFolder.uri.fsPath]
+  ];
 
   private runningTestProcess: ChildProcess|undefined;
 
@@ -29,10 +34,9 @@ export class BanditTestAdapter implements TestAdapter {
     const config = this.getConfiguration();
     const executable = this.getExecutable(config);
     if (executable) {
-      fs.watchFile(executable, (curr, prev) => {
+      fs.watchFile(executable, (curr: any, prev: any) => {
         console.log(`the current mtime is: ${curr.mtime}`);
         console.log(`the previous mtime was: ${prev.mtime}`);
-
         this.autorunEmitter.fire();
       });
     }
@@ -48,30 +52,48 @@ export class BanditTestAdapter implements TestAdapter {
         resolve();
         return;
       }
+      const library = this.getTestLibrary(config);
+      if (!library) {
+        resolve();
+        return;
+      }
+      const executableArguments = this.getExecutableArguments(config);
 
-      execFile(executable, ['--gtest_list_tests'], (error, stdout, stderr) => {
-        if (error) {
-          reject(error);
-        } else {
-          let lines = stdout.split(/[\n\r]+/);
-          var allTestsSuite = this.makeSuite('AllTests', 'AllTests');
+      // Aufruf zusammenbauen
+      var execArguments = new Array();
+      execArguments.push(['--dry-run', '--reporter=spec']);
+      execArguments.push(['-testlib', library]);
+      if (executableArguments.length > 0) {
+        execArguments.push(executableArguments);
+      }
 
-          var current_suite = allTestsSuite;
-          for (var line of lines) {
-            if (line[0] == ' ') {
-              let test_name = line.trim().split(' ')[0];
-              var test_info =
-                  this.makeTest(current_suite.id + '.' + test_name, test_name);
-              current_suite.children.push(test_info);
-            } else if (line.endsWith('.')) {
-              let name = line.slice(0, line.length - 1);
-              current_suite = this.makeSuite(name, name);
-              allTestsSuite.children.push(current_suite);
-            }  // else ignore the line
-          }
-          resolve(allTestsSuite);
-        }
-      });
+      execFile(
+          executable, execArguments, (error: any, stdout: any, stderr: any) => {
+            if (error) {
+              reject(error);
+            } else {
+              var allTestsSuite = this.makeSuite('AllTests', 'AllTests');
+              var current_suite = allTestsSuite;
+              let lines = stdout.split(/[\n\r]+/);
+              for (var line of lines) {
+                line = line.trim();
+                if (line.startsWith('describe')) {
+                  var name = line.slice('describe'.length).trim();
+                  current_suite = this.makeSuite(name, name);
+                  allTestsSuite.children.push(current_suite);
+                } else {
+                  var matches = line.match(/(?<=- it ).*(?= \.\.\.)/ig);
+                  if (matches.length) {
+                    var test_name = matches[0].trim();
+                    var test_info = this.makeTest(
+                        current_suite.id + '.' + test_name, test_name);
+                    current_suite.children.push(test_info);
+                  }
+                }
+              }
+              resolve(allTestsSuite);
+            }
+          });
     });
   }
 
@@ -95,7 +117,6 @@ export class BanditTestAdapter implements TestAdapter {
     };
 
     await new Promise<void>((resolve, reject) => {
-      let filter = info.id == 'AllTests' ? '*' : info.id + '*';
       let exec_options: ExecFileOptionsWithBufferEncoding = {
         cwd: this.getCwd(config),
         env: this.getEnv(config),
@@ -107,83 +128,125 @@ export class BanditTestAdapter implements TestAdapter {
         resolve();
         return;
       }
+      const library = this.getTestLibrary(config);
+      if (!library) {
+        resolve();
+        return;
+      }
+      const executableArguments = this.getExecutableArguments(config);
+
+      // Aufruf zusammenbauen
+      var execArguments = new Array();
+      execArguments.push(['--reporter=spec']);
+      if (info.name) {
+        execArguments.push(['--only', info.name]);
+      }
+      execArguments.push(['-testlib', library]);
+      if (executableArguments.length > 0) {
+        execArguments.push(executableArguments);
+      }
+
       this.runningTestProcess = execFile(
-          executable, ['--gtest_filter=' + filter, '--gtest_output=xml'],
-          exec_options, (error, stdout, stderr) => {
+          executable, execArguments, exec_options,
+          (error: any, stdout: any, stderr: any) => {
             if (error) {
               report_failure(reject, error);
             } else {
-              const test_details =
-                  path.resolve(this.getCwd(config), 'test_detail.xml');
-              if (!fs.existsSync(test_details)) {
-                reject('Test run did not generate any output.');
-              } else {
-                let parser = new xml2js.Parser();
-                fs.readFile(test_details, 'utf8', (err, data) => {
-
-                  if (err) {
-                    report_failure(reject, err);
-                  } else {
-                    parser.parseString(data, (err: any, result: any) => {
-
-                      if (err) {
-                        report_failure(reject, err);
-                      } else {
-                        for (var suite of result.testsuites.testsuite) {
-                          const suite_id = suite.$.name;
-
-                          this.testStatesEmitter.fire(<TestSuiteEvent>{
-                            type: 'suite',
-                            suite: suite_id,
-                            state: 'running'
-                          });
-
-                          for (var test of suite.testcase) {
-                            let messages = [];
-                            const test_id =
-                                test.$.classname + '.' + test.$.name;
-
-                            this.testStatesEmitter.fire(<TestEvent>{
-                              type: 'test',
-                              test: test_id,
-                              state: 'running'
-                            });
-
-                            if ('failure' in test) {
-                              for (var failure of test.failure) {
-                                messages.push(failure._);
-                              }
-                            }
-
-                            let passed = messages.length == 0;
-                            this.testStatesEmitter.fire(<TestEvent>{
-                              type: 'test',
-                              test: test_id,
-                              state: passed ? 'passed' : 'failed',
-                              message: passed ? null : messages.join('\n')
-                            });
-                          }
-
-                          this.testStatesEmitter.fire(<TestSuiteEvent>{
-                            type: 'suite',
-                            suite: suite_id,
-                            state: 'completed'
-                          });
-                        }
-
-                        this.testStatesEmitter.fire(<TestSuiteEvent>{
-                          type: 'suite',
-                          suite: 'AllTests',
-                          state: 'completed'
-                        });
-
-                        this.runningTestProcess = undefined;
-                        resolve();
-                      }
+              var allTestsSuite = this.makeSuite('AllTests', 'AllTests');
+              var current_suite = undefined;
+              var current_test = undefined;
+              let lines = stdout.split(/[\n\r]+/);
+              let messages = Array<String>();
+              for (var line of lines) {
+                let line_trimmed = line.trim();
+                if (line_trimmed.startsWith('describe')) {
+                  // Alten Test beenden?
+                  if (current_test) {
+                    let passed = messages.length == 0;
+                    this.testStatesEmitter.fire(<TestEvent>{
+                      type: 'test',
+                      test: current_test.id,
+                      state: passed ? 'passed' : 'failed',
+                      message: passed ? null : messages.join('\n')
                     });
                   }
+                  current_test = undefined;
+                  messages = [];
+                  if (current_suite) {
+                    this.testStatesEmitter.fire(<TestSuiteEvent>{
+                      type: 'suite',
+                      suite: current_suite.id,
+                      state: 'completed'
+                    });
+                  }
+                  var name = line_trimmed.slice('describe'.length).trim();
+                  current_suite = this.makeSuite(name, name);
+                  allTestsSuite.children.push(current_suite);
+                  this.testStatesEmitter.fire(<TestSuiteEvent>{
+                    type: 'suite',
+                    suite: current_suite.id,
+                    state: 'running'
+                  });
+                } else if (line_trimmed.startsWith('- it')) {
+                  // Alten Test beenden?
+                  if (current_test) {
+                    let passed = messages.length == 0;
+                    this.testStatesEmitter.fire(<TestEvent>{
+                      type: 'test',
+                      test: current_test.id,
+                      state: passed ? 'passed' : 'failed',
+                      message: passed ? null : messages.join('\n')
+                    });
+                  }
+                  messages = [];
+                  var testname_matches =
+                      line_trimmed.match(/(?<=- it).*(?= \.\.\.)/ig);
+                  if (testname_matches.length) {
+                    var test_name = testname_matches[0].trim();
+                    current_test = this.makeTest(
+                        current_suite.id + '.' + test_name, test_name);
+                    this.testStatesEmitter.fire(<TestEvent>{
+                      type: 'test',
+                      test: current_test.id,
+                      state: 'running'
+                    });
+
+                    var result_matches = line_trimmed.match(
+                        /(?<=\.\.\.)[ ]*(error|failure|ok|skipped)[ ]*$/i);
+                    if (result_matches) {
+                      let passed = line_trimmed.toLowerCase().contains('ok') ||
+                          line_trimmed.toLowerCase().contains('skipped');
+                      this.testStatesEmitter.fire(<TestEvent>{
+                        type: 'test',
+                        test: current_test.id,
+                        state: passed ? 'passed' : 'failed',
+                        message: passed ? null : messages.join('\n')
+                      });
+                    }
+                  }
+                } else {
+                  messages.push(line);
+                }
+              }
+              // Alten Test beenden?
+              if (current_test) {
+                let passed = messages.length == 0;
+                this.testStatesEmitter.fire(<TestEvent>{
+                  type: 'test',
+                  test: current_test.id,
+                  state: passed ? 'passed' : 'failed',
+                  message: passed ? null : messages.join('\n')
                 });
               }
+
+              this.testStatesEmitter.fire(<TestSuiteEvent>{
+                type: 'suite',
+                suite: 'AllTests',
+                state: 'completed'
+              });
+
+              this.runningTestProcess = undefined;
+              resolve();
             }
           });
     });
@@ -232,14 +295,38 @@ export class BanditTestAdapter implements TestAdapter {
 
   private getCwd(config: vscode.WorkspaceConfiguration): string {
     const dirname = this.workspaceFolder.uri.fsPath;
-    const configCwd = config.get<string>('cwd');
-    return configCwd ? path.resolve(dirname, configCwd) : dirname;
+    const configCwd = resolveVariables(
+        config.get<string>('cwd', dirname), this._variableToValue);
+    if (path.isAbsolute(configCwd)) {
+      return configCwd;
+    } else {
+      return path.resolve(this.workspaceFolder.uri.fsPath, configCwd);
+    }
   }
 
-  private getExecutable(config: vscode.WorkspaceConfiguration): string|null {
-    const dirname = this.workspaceFolder.uri.fsPath;
-    const configExe = config.get<string>('executable');
-    return configExe ? path.resolve(dirname, configExe) : null;
+  private getExecutable(config: vscode.WorkspaceConfiguration): string {
+    const configExe = resolveVariables(
+        config.get<string>('executable'), this._variableToValue);
+    if (path.isAbsolute(configExe)) {
+      return configExe;
+    } else {
+      return path.resolve(this.workspaceFolder.uri.fsPath, configExe);
+    }
+  }
+
+  private getTestLibrary(config: vscode.WorkspaceConfiguration): string {
+    const configLib =
+        resolveVariables(config.get<string>('library'), this._variableToValue);
+    if (path.isAbsolute(configLib)) {
+      return configLib;
+    } else {
+      return path.resolve(this.workspaceFolder.uri.fsPath, configLib);
+    }
+  }
+
+  private getExecutableArguments(config: vscode.WorkspaceConfiguration):
+      Array<string> {
+    return config.get<string[]>('arguments');
   }
 
   private setTestStatesRecursive(
