@@ -1,24 +1,40 @@
-import {ChildProcess, execFile, ExecFileOptionsWithBufferEncoding} from 'child_process';
+import {SpawnOptions} from 'child_process';
 import * as fs from 'fs'
 import * as path from 'path';
 import * as vscode from 'vscode';
-import {TestAdapter, TestEvent, TestInfo, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
-import * as xml2js from 'xml2js'
+import {TestAdapter, TestEvent, TestInfo, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
+import {Log} from 'vscode-test-adapter-util';
+
 import {resolveVariables} from './helper';
+import {Spawner, SpawnReturns} from './spawner'
+
 
 export class BanditTestAdapter implements TestAdapter {
+  private disposables: {dispose(): void}[] = [];
+
+  // Emitters
+  private readonly testsEmitter =
+      new vscode.EventEmitter<TestLoadStartedEvent|TestLoadFinishedEvent>();
   private readonly testStatesEmitter =
-      new vscode.EventEmitter<TestSuiteEvent|TestEvent>();
+      new vscode.EventEmitter<TestRunStartedEvent|TestRunFinishedEvent|
+                              TestSuiteEvent|TestEvent>();
   private readonly reloadEmitter = new vscode.EventEmitter<void>();
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
+
   private readonly _variableToValue: [string, string][] = [
     ['${workspaceDirectory}', this.workspaceFolder.uri.fsPath],
     ['${workspaceFolder}', this.workspaceFolder.uri.fsPath]
   ];
 
-  private runningTestProcess: ChildProcess|undefined;
+  private testSuite: TestSuiteInfo|undefined;
+  private spawner = new Spawner();
 
-  get testStates(): vscode.Event<TestSuiteEvent|TestEvent> {
+  get tests(): vscode.Event<TestLoadStartedEvent|TestLoadFinishedEvent> {
+    return this.testsEmitter.event;
+  }
+
+  get testStates(): vscode.Event<TestRunStartedEvent|TestRunFinishedEvent|
+                                 TestSuiteEvent|TestEvent> {
     return this.testStatesEmitter.event;
   }
 
@@ -30,7 +46,11 @@ export class BanditTestAdapter implements TestAdapter {
     return this.autorunEmitter.event;
   }
 
-  constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {
+  constructor(
+      public readonly workspaceFolder: vscode.WorkspaceFolder,
+      private readonly log: Log) {
+    this.log.info('Initializing bandit adapter');
+
     const config = this.getConfiguration();
     const executable = this.getExecutable(config);
     if (executable) {
@@ -40,225 +60,262 @@ export class BanditTestAdapter implements TestAdapter {
         this.autorunEmitter.fire();
       });
     }
+
+    this.disposables.push(this.testsEmitter);
+    this.disposables.push(this.testStatesEmitter);
+    this.disposables.push(this.reloadEmitter);
+    this.disposables.push(this.autorunEmitter);
   }
 
-  async load(): Promise<TestSuiteInfo|undefined> {
+  async load(): Promise<void> {
+    this.log.info('Loading bandit tests');
+
+    this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
+
     const config = this.getConfiguration();
 
-    return await new Promise<TestSuiteInfo|undefined>((resolve, reject) => {
+    const executable = this.getExecutable(config);
+    if (!executable) {
+      return;
+    }
+    const library = this.getTestLibrary(config);
+    if (!library) {
+      return;
+    }
+    const executableArguments = this.getExecutableArguments(config);
 
-      const executable = this.getExecutable(config);
-      if (!executable) {
-        resolve();
-        return;
-      }
-      const library = this.getTestLibrary(config);
-      if (!library) {
-        resolve();
-        return;
-      }
-      const executableArguments = this.getExecutableArguments(config);
-
-      // Aufruf zusammenbauen
-      var execArguments = new Array();
-      execArguments.push(['--dry-run', '--reporter=spec']);
-      execArguments.push(['-testlib', library]);
-      if (executableArguments.length > 0) {
-        execArguments.push(executableArguments);
-      }
-
-      execFile(
-          executable, execArguments, (error: any, stdout: any, stderr: any) => {
-            if (error) {
-              reject(error);
-            } else {
-              var allTestsSuite = this.makeSuite('AllTests', 'AllTests');
-              var current_suite = allTestsSuite;
-              let lines = stdout.split(/[\n\r]+/);
-              for (var line of lines) {
-                line = line.trim();
-                if (line.startsWith('describe')) {
-                  var name = line.slice('describe'.length).trim();
-                  current_suite = this.makeSuite(name, name);
-                  allTestsSuite.children.push(current_suite);
-                } else {
-                  var matches = line.match(/(?<=- it ).*(?= \.\.\.)/ig);
-                  if (matches.length) {
-                    var test_name = matches[0].trim();
-                    var test_info = this.makeTest(
-                        current_suite.id + '.' + test_name, test_name);
-                    current_suite.children.push(test_info);
-                  }
-                }
-              }
-              resolve(allTestsSuite);
-            }
-          });
-    });
-  }
-
-  async run(info: TestSuiteInfo|TestInfo): Promise<void> {
-    const config = this.getConfiguration();
-
-    this.testStatesEmitter.fire(
-        <TestSuiteEvent>{type: 'suite', suite: 'AllTests', state: 'running'});
-
-    let report_failure = (reject: (reason?: any) => void, error: any) => {
-      this.testStatesEmitter.fire(<TestSuiteEvent>{
-        type: 'suite',
-        suite: 'AllTests',
-        state: 'completed'
-      });
-
-      this.setTestStatesRecursive(info, 'failed', error);
-
-      this.runningTestProcess = undefined;
-      reject(error);
+    // Aufruf zusammenbauen
+    var execArguments = new Array();
+    execArguments.push('--dry-run');
+    execArguments.push('--reporter=spec');
+    execArguments.push('-testlib')
+    execArguments.push(library);
+    for (var arg of executableArguments) {
+      execArguments.push(arg);
+    }
+    let exec_options: SpawnOptions = {
+      cwd: this.getCwd(config),
+      env: this.getEnv(config),
+      shell: true,
+      windowsVerbatimArguments: true
     };
-
-    await new Promise<void>((resolve, reject) => {
-      let exec_options: ExecFileOptionsWithBufferEncoding = {
-        cwd: this.getCwd(config),
-        env: this.getEnv(config),
-        encoding: 'buffer'
-      };
-
-      const executable = this.getExecutable(config);
-      if (!executable) {
-        resolve();
-        return;
-      }
-      const library = this.getTestLibrary(config);
-      if (!library) {
-        resolve();
-        return;
-      }
-      const executableArguments = this.getExecutableArguments(config);
-
-      // Aufruf zusammenbauen
-      var execArguments = new Array();
-      execArguments.push(['--reporter=spec']);
-      if (info.name) {
-        execArguments.push(['--only', info.name]);
-      }
-      execArguments.push(['-testlib', library]);
-      if (executableArguments.length > 0) {
-        execArguments.push(executableArguments);
-      }
-
-      this.runningTestProcess = execFile(
-          executable, execArguments, exec_options,
-          (error: any, stdout: any, stderr: any) => {
-            if (error) {
-              report_failure(reject, error);
-            } else {
-              var allTestsSuite = this.makeSuite('AllTests', 'AllTests');
-              var current_suite = undefined;
-              var current_test = undefined;
-              let lines = stdout.split(/[\n\r]+/);
-              let messages = Array<String>();
-              for (var line of lines) {
-                let line_trimmed = line.trim();
-                if (line_trimmed.startsWith('describe')) {
-                  // Alten Test beenden?
-                  if (current_test) {
-                    let passed = messages.length == 0;
-                    this.testStatesEmitter.fire(<TestEvent>{
-                      type: 'test',
-                      test: current_test.id,
-                      state: passed ? 'passed' : 'failed',
-                      message: passed ? null : messages.join('\n')
-                    });
-                  }
-                  current_test = undefined;
-                  messages = [];
-                  if (current_suite) {
-                    this.testStatesEmitter.fire(<TestSuiteEvent>{
-                      type: 'suite',
-                      suite: current_suite.id,
-                      state: 'completed'
-                    });
-                  }
-                  var name = line_trimmed.slice('describe'.length).trim();
-                  current_suite = this.makeSuite(name, name);
-                  allTestsSuite.children.push(current_suite);
-                  this.testStatesEmitter.fire(<TestSuiteEvent>{
-                    type: 'suite',
-                    suite: current_suite.id,
-                    state: 'running'
-                  });
-                } else if (line_trimmed.startsWith('- it')) {
-                  // Alten Test beenden?
-                  if (current_test) {
-                    let passed = messages.length == 0;
-                    this.testStatesEmitter.fire(<TestEvent>{
-                      type: 'test',
-                      test: current_test.id,
-                      state: passed ? 'passed' : 'failed',
-                      message: passed ? null : messages.join('\n')
-                    });
-                  }
-                  messages = [];
-                  var testname_matches =
-                      line_trimmed.match(/(?<=- it).*(?= \.\.\.)/ig);
-                  if (testname_matches.length) {
-                    var test_name = testname_matches[0].trim();
-                    current_test = this.makeTest(
-                        current_suite.id + '.' + test_name, test_name);
-                    this.testStatesEmitter.fire(<TestEvent>{
-                      type: 'test',
-                      test: current_test.id,
-                      state: 'running'
-                    });
-
-                    var result_matches = line_trimmed.match(
-                        /(?<=\.\.\.)[ ]*(error|failure|ok|skipped)[ ]*$/i);
-                    if (result_matches) {
-                      let passed = line_trimmed.toLowerCase().contains('ok') ||
-                          line_trimmed.toLowerCase().contains('skipped');
-                      this.testStatesEmitter.fire(<TestEvent>{
-                        type: 'test',
-                        test: current_test.id,
-                        state: passed ? 'passed' : 'failed',
-                        message: passed ? null : messages.join('\n')
-                      });
-                    }
-                  }
-                } else {
-                  messages.push(line);
+    return this.spawner
+        .spawnAsync('AllTests', executable, execArguments, exec_options)
+        .then((ret: SpawnReturns) => {
+          try {
+            var allTestsSuite = this.makeSuite('AllTests', 'AllTests');
+            var current_suite = allTestsSuite;
+            let lines = ret.stdout.split(/[\n]+/);
+            for (var line of lines) {
+              line = line.trim();
+              if (line.startsWith('describe')) {
+                var name = line.slice('describe'.length).trim();
+                current_suite = this.makeSuite(name, name);
+                allTestsSuite.children.push(current_suite);
+              } else {
+                var matches = line.match(/- it.*\.\.\./i);
+                if (matches) {
+                  var test_name =
+                      matches[0].replace(/- it(.*)\.\.\./i, '\$1').trim();
+                  var test_info = this.makeTest(
+                      current_suite.id + '.' + test_name, test_name);
+                  current_suite.children.push(test_info);
                 }
               }
-              // Alten Test beenden?
-              if (current_test) {
-                let passed = messages.length == 0;
-                this.testStatesEmitter.fire(<TestEvent>{
-                  type: 'test',
-                  test: current_test.id,
-                  state: passed ? 'passed' : 'failed',
-                  message: passed ? null : messages.join('\n')
-                });
-              }
-
-              this.testStatesEmitter.fire(<TestSuiteEvent>{
-                type: 'suite',
-                suite: 'AllTests',
-                state: 'completed'
-              });
-
-              this.runningTestProcess = undefined;
-              resolve();
             }
-          });
-    });
+            this.testSuite = allTestsSuite;
+            this.testsEmitter.fire(<TestLoadFinishedEvent>{
+              type: 'finished',
+              suite: this.testSuite
+            });
+          } catch (e) {
+            this.log.error(ret.error.message);
+            throw e;
+          }
+        });
   }
 
-  async debug(info: TestSuiteInfo|TestInfo): Promise<void> {
-    throw new Error('Method not implemented.');
+  async run(tests: string[]): Promise<void> {
+    this.log.info(`Running bandit tests ${JSON.stringify(tests)}`);
+    this.testStatesEmitter.fire(<TestRunStartedEvent>{type: 'started', tests});
+    if (this.testSuite) {
+      for (var suiteOrTestId of tests) {
+        var test = this.findNode(this.testSuite, suiteOrTestId);
+        if (test) {
+          await this.runNode(test);
+        }
+      }
+    }
+  }
+
+  async debug(tests: string[]): Promise<void> {
+    this.log.warn('debug() not implemented yet');
+    await this.run(tests);
   }
 
   cancel(): void {
-    if (this.runningTestProcess) {
-      this.runningTestProcess.kill();
+    this.spawner.killAll();
+  }
+
+  dispose(): void {
+    this.cancel();
+    for (const disposable of this.disposables) {
+      disposable.dispose();
+    }
+    this.disposables = [];
+  }
+
+  private findNode(
+      searchNode: TestSuiteInfo|TestInfo, id: string,
+      type?: 'suite'|'test'): TestSuiteInfo|TestInfo|undefined {
+    if (searchNode.id === id && (!type || type == searchNode.type)) {
+      return searchNode;
+    } else if (searchNode.type === 'suite') {
+      for (const child of searchNode.children) {
+        const found = this.findNode(child, id, type);
+        if (found) return found;
+      }
+    }
+    return undefined;
+  }
+
+
+  private async runNode(node: TestSuiteInfo|TestInfo): Promise<void> {
+    if (node.type === 'suite') {
+      this.testStatesEmitter.fire(
+          <TestSuiteEvent>{type: 'suite', suite: node.id, state: 'running'});
+      for (const child of node.children) {
+        await this.runNode(child);
+      }
+      this.testStatesEmitter.fire(
+          <TestSuiteEvent>{type: 'suite', suite: node.id, state: 'completed'});
+
+    } else {
+      await this.spawnTest(node);
+    }
+  }
+
+  private async spawnTest(test: TestInfo): Promise<void> {
+    var suite = this.testSuite;
+    if (!suite) {
+      return;
+    }
+    var test = this.findNode(suite, test.id) as TestInfo;
+    if (!test) {
+      return;
+    }
+
+    const config = this.getConfiguration();
+    let exec_options: SpawnOptions = {
+      cwd: this.getCwd(config),
+      env: this.getEnv(config),
+      shell: true,
+      windowsVerbatimArguments: true
+    };
+    const executable = this.getExecutable(config);
+    const library = this.getTestLibrary(config);
+    if (!library || !executable) {
+      return;
+    }
+    const executableArguments = this.getExecutableArguments(config);
+
+    // Aufruf zusammenbauen
+    var execArguments = new Array();
+    execArguments.push('--reporter=spec');
+    // execArguments.push('"--only=' + test.label + '"'); // Wegen umlauten
+    // funktioniert es noch nicht!
+    execArguments.push('-testlib')
+    execArguments.push(library);
+    for (var arg of executableArguments) {
+      execArguments.push(arg);
+    }
+    this.testStatesEmitter.fire(
+        <TestSuiteEvent>{type: 'suite', suite: suite.id, state: 'running'});
+    this.testStatesEmitter.fire(
+        <TestEvent>{type: 'test', test: test.id, state: 'running'});
+    return this.spawner
+        .spawnAsync(test.id, executable, execArguments, exec_options)
+        .then((ret: SpawnReturns) => {
+          if (this.testSuite) {
+            var current_suite: TestSuiteInfo|undefined = this.testSuite;
+            var current_test: TestInfo|undefined = undefined;
+            var status: string|undefined = undefined;
+            let lines = ret.stdout.split(/[\n\r]+/);
+            let messages = Array<String>();
+            for (var line of lines) {
+              let line_trimmed = line.trim();
+              status = this.parseResult(line_trimmed);
+              if (!status) {
+                status = messages.length > 0 ? 'failed' : 'skipped';
+              }
+              if (line_trimmed.startsWith('describe')) {
+                current_test = undefined;
+                messages = [];
+                let suite_id =
+                    line_trimmed.replace(/describe(.*)/i, '\$1').trim();
+                current_suite =
+                    this.findNode(this.testSuite, suite_id, 'suite') as
+                    TestSuiteInfo;
+              } else if (current_suite && line_trimmed.startsWith('- it ')) {
+                messages = [];
+                var test_name =
+                    line_trimmed.replace(/- it (.*)\.\.\..*/i, '\$1').trim();
+                let test_id = current_suite.id + '.' + test_name;
+                if (test.id == test_id) {
+                  current_test =
+                      this.findNode(current_suite, test_id, 'test') as TestInfo;
+                  if (current_test && status) {
+                    this.testStatesEmitter.fire(<TestEvent>{
+                      type: 'test',
+                      test: current_test.id,
+                      state: status,
+                      message: messages.join('\n')
+                    });
+                  }
+                }
+              } else if (current_test) {
+                messages.push(line);
+              }
+            }
+            // Alten Test beenden?
+            if (current_test && status) {
+              this.testStatesEmitter.fire(<TestEvent>{
+                type: 'test',
+                test: current_test.id,
+                state: status,
+                message: messages.join('\n')
+              });
+            }
+
+            this.testStatesEmitter.fire(
+                <TestRunFinishedEvent>{type: 'finished'});
+          }
+        });
+  }
+
+  private parseResult(line: string): string|undefined {
+    var matches =
+        line.match(/(.*)[ ]+\.\.\.[ ]+(error|failure|ok|skipped)[ ]*$/i);
+    if (matches && matches.length >= 2) {
+      var status = matches[2].toLowerCase();
+      if (status == 'ok') {
+        return 'passed';
+      } else if (status == 'skipped') {
+        return 'skipped';
+      } else if (status == 'error' || status == 'failure') {
+        return 'failed';
+      }
+    }
+    return undefined;
+  }
+
+  private updateTest(id: String): void {
+    var node = this.findNode(this.testSuite, id);
+    var suite = node as TestSuiteInfo;
+    if (suite) {
+      suite.
+    } else {
+      var test = node as TestInfo;
     }
   }
 
@@ -326,23 +383,20 @@ export class BanditTestAdapter implements TestAdapter {
 
   private getExecutableArguments(config: vscode.WorkspaceConfiguration):
       Array<string> {
-    return config.get<string[]>('arguments');
-  }
-
-  private setTestStatesRecursive(
-      info: TestSuiteInfo|TestInfo,
-      state: 'running'|'passed'|'failed'|'skipped',
-      message?: string|undefined) {
-    if (info.type == 'suite') {
-      info.children.forEach(
-          child => this.setTestStatesRecursive(child, state, message));
+    var args = config.get<string[]>('arguments');
+    if (args) {
+      var args_modified = new Array<string>();
+      for (let arg of args) {
+        if (arg.trim().length > 0) {
+          if (arg.trim().indexOf(' ') >= 0) {
+            arg = '"' + arg.trim() + '"';
+          }
+          args_modified.push(arg.trim());
+        }
+      }
+      return args_modified;
     } else {
-      this.testStatesEmitter.fire(<TestEvent>{
-        type: 'test',
-        test: info.id,
-        state: state,
-        message: message
-      });
+      return [];
     }
   }
 }

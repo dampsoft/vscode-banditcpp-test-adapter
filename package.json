@@ -43,9 +43,10 @@
     "xml2js": "^0.4.19"
   },
   "devDependencies": {
-    "@types/xml2js": "^0.4.2",
-    "@types/xml-parser": "^1.2.29",
     "@types/entities": "^1.1.0",
+    "@types/uuid": "^3.4.4",
+    "@types/xml-parser": "^1.2.29",
+    "@types/xml2js": "^0.4.2",
     "typescript": "^3.0.3",
     "vsce": "^1.47.0",
     "vscode": "^1.1.21"
@@ -57,7 +58,7 @@
     "hbenl.vscode-test-explorer"
   ],
   "activationEvents": [
-    "onView:test-explorer"
+    "*"
   ],
   "contributes": {
     "configuration": {

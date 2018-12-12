@@ -1,44 +1,33 @@
 import * as vscode from 'vscode';
-import {TestExplorerExtension, testExplorerExtensionId} from 'vscode-test-adapter-api';
+import {testExplorerExtensionId, TestHub} from 'vscode-test-adapter-api';
+import {Log, TestAdapterRegistrar} from 'vscode-test-adapter-util';
+
 import {BanditTestAdapter} from './adapter';
 
 export async function activate(context: vscode.ExtensionContext) {
+  const workspaceFolder = (vscode.workspace.workspaceFolders || [])[0];
+
+  // create a simple logger that can be configured with the configuration
+  // variables `exampleExplorer.logpanel` and `exampleExplorer.logfile`
+  const log =
+      new Log('banitTestExplorer', workspaceFolder, 'Bandit Test Explorer Log');
+  context.subscriptions.push(log);
+
+  // get the Test Explorer extension
   const testExplorerExtension =
-      vscode.extensions.getExtension<TestExplorerExtension>(
-          testExplorerExtensionId);
+      vscode.extensions.getExtension<TestHub>(testExplorerExtensionId);
+  if (log.enabled)
+    log.info(`Test Explorer ${testExplorerExtension ? '' : 'not '}found`);
 
   if (testExplorerExtension) {
     if (!testExplorerExtension.isActive) {
       await testExplorerExtension.activate();
     }
+    const testHub = testExplorerExtension.exports;
 
-    const registeredAdapters =
-        new Map<vscode.WorkspaceFolder, BanditTestAdapter>();
-
-    if (vscode.workspace.workspaceFolders) {
-      for (const workspaceFolder of vscode.workspace.workspaceFolders) {
-        const adapter = new BanditTestAdapter(workspaceFolder);
-        registeredAdapters.set(workspaceFolder, adapter);
-        testExplorerExtension.exports.registerAdapter(adapter);
-      }
-    }
-
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeWorkspaceFolders((event) => {
-
-          for (const workspaceFolder of event.removed) {
-            const adapter = registeredAdapters.get(workspaceFolder);
-            if (adapter) {
-              testExplorerExtension.exports.unregisterAdapter(adapter);
-              registeredAdapters.delete(workspaceFolder);
-            }
-          }
-
-          for (const workspaceFolder of event.added) {
-            const adapter = new BanditTestAdapter(workspaceFolder);
-            registeredAdapters.set(workspaceFolder, adapter);
-            testExplorerExtension.exports.registerAdapter(adapter);
-          }
-        }));
+    // this will register an ExampleTestAdapter for each WorkspaceFolder
+    context.subscriptions.push(new TestAdapterRegistrar(
+        testHub, workspaceFolder => new BanditTestAdapter(workspaceFolder, log),
+        log));
   }
 }
