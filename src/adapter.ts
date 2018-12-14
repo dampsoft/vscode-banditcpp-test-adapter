@@ -2,11 +2,12 @@ import {SpawnOptions} from 'child_process';
 import * as fs from 'fs'
 import * as path from 'path';
 import * as vscode from 'vscode';
-import {TestAdapter, TestEvent, TestInfo, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
+import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
 import {Log} from 'vscode-test-adapter-util';
 
 import {resolveVariables} from './helper';
 import {Spawner, SpawnReturns} from './spawner'
+import * as bsuite from './testSuite'
 
 
 export class BanditTestAdapter implements TestAdapter {
@@ -26,26 +27,49 @@ export class BanditTestAdapter implements TestAdapter {
     ['${workspaceFolder}', this.workspaceFolder.uri.fsPath]
   ];
 
-  private testSuite: TestSuiteInfo|undefined;
+  // Testsuite
+  private testSuite = new bsuite.BanditTestSuite(
+      this.testStatesEmitter, this.testsEmitter,
+      (id: string): Promise<string> => {
+        return new Promise<string>((resolve, reject) => {
+          const config = this.getConfiguration();
+          let exec_options: SpawnOptions = {
+            cwd: this.getCwd(config),
+            env: this.getEnv(config),
+            shell: true,
+            windowsVerbatimArguments: true
+          };
+          const executable = this.getExecutable(config);
+          const library = this.getTestLibrary(config);
+          if (!library || !executable) {
+            reject(new Error(
+                'Es wurde keine Bibliothek oder die Bandit-Test-Executable angegeben.'));
+          }
+          const executableArguments = this.getExecutableArguments(config);
+
+          // Aufruf zusammenbauen
+          var execArguments = new Array();
+          execArguments.push('--reporter=spec');
+          // Wegen Umlauten funktioniert das Filtern noch nicht!
+          // execArguments.push('"--only=' + test.label + '"');
+          execArguments.push('-testlib')
+          execArguments.push(library);
+          for (var arg of executableArguments) {
+            execArguments.push(arg);
+          }
+          return this.spawner
+              .spawnAsync(id, executable, execArguments, exec_options)
+              .then((ret: SpawnReturns) => {
+                if (ret.error) {
+                  this.log.error(ret.error.message);
+                }
+                resolve(ret.stdout);
+              });
+        });
+      });
   private spawner = new Spawner();
 
-  get tests(): vscode.Event<TestLoadStartedEvent|TestLoadFinishedEvent> {
-    return this.testsEmitter.event;
-  }
-
-  get testStates(): vscode.Event<TestRunStartedEvent|TestRunFinishedEvent|
-                                 TestSuiteEvent|TestEvent> {
-    return this.testStatesEmitter.event;
-  }
-
-  get reload(): vscode.Event<void> {
-    return this.reloadEmitter.event;
-  }
-
-  get autorun(): vscode.Event<void> {
-    return this.autorunEmitter.event;
-  }
-
+  // Konstruktor
   constructor(
       public readonly workspaceFolder: vscode.WorkspaceFolder,
       private readonly log: Log) {
@@ -67,22 +91,34 @@ export class BanditTestAdapter implements TestAdapter {
     this.disposables.push(this.autorunEmitter);
   }
 
+  // Schnittstellen
+  get tests(): vscode.Event<TestLoadStartedEvent|TestLoadFinishedEvent> {
+    return this.testsEmitter.event;
+  }
+  get testStates(): vscode.Event<TestRunStartedEvent|TestRunFinishedEvent|
+                                 TestSuiteEvent|TestEvent> {
+    return this.testStatesEmitter.event;
+  }
+  get reload(): vscode.Event<void> {
+    return this.reloadEmitter.event;
+  }
+  get autorun(): vscode.Event<void> {
+    return this.autorunEmitter.event;
+  }
+
   async load(): Promise<void> {
     this.log.info('Loading bandit tests');
 
     this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
 
+    // Config lesen
     const config = this.getConfiguration();
-
     const executable = this.getExecutable(config);
-    if (!executable) {
-      return;
-    }
     const library = this.getTestLibrary(config);
-    if (!library) {
+    const executableArguments = this.getExecutableArguments(config);
+    if (!executable || !library) {
       return;
     }
-    const executableArguments = this.getExecutableArguments(config);
 
     // Aufruf zusammenbauen
     var execArguments = new Array();
@@ -103,34 +139,9 @@ export class BanditTestAdapter implements TestAdapter {
         .spawnAsync('AllTests', executable, execArguments, exec_options)
         .then((ret: SpawnReturns) => {
           try {
-            var allTestsSuite = this.makeSuite('AllTests', 'AllTests');
-            var current_suite = allTestsSuite;
-            let lines = ret.stdout.split(/[\n]+/);
-            for (var line of lines) {
-              line = line.trim();
-              if (line.startsWith('describe')) {
-                var name = line.slice('describe'.length).trim();
-                current_suite = this.makeSuite(name, name);
-                allTestsSuite.children.push(current_suite);
-              } else {
-                var matches = line.match(/- it.*\.\.\./i);
-                if (matches) {
-                  var test_name =
-                      matches[0].replace(/- it(.*)\.\.\./i, '\$1').trim();
-                  var test_info = this.makeTest(
-                      current_suite.id + '.' + test_name, test_name);
-                  current_suite.children.push(test_info);
-                }
-              }
-            }
-            this.testSuite = allTestsSuite;
-            this.testsEmitter.fire(<TestLoadFinishedEvent>{
-              type: 'finished',
-              suite: this.testSuite
-            });
+            this.testSuite.initFromString(ret.stdout);
           } catch (e) {
             this.log.error(ret.error.message);
-            throw e;
           }
         });
   }
@@ -139,13 +150,13 @@ export class BanditTestAdapter implements TestAdapter {
     this.log.info(`Running bandit tests ${JSON.stringify(tests)}`);
     this.testStatesEmitter.fire(<TestRunStartedEvent>{type: 'started', tests});
     if (this.testSuite) {
-      for (var suiteOrTestId of tests) {
-        var test = this.findNode(this.testSuite, suiteOrTestId);
-        if (test) {
-          await this.runNode(test);
-        }
+      try {
+        this.testSuite.start(tests);
+      } catch (e) {
+        this.log.error(e.message);
       }
     }
+    this.testStatesEmitter.fire(<TestRunFinishedEvent>{type: 'finished'});
   }
 
   async debug(tests: string[]): Promise<void> {
@@ -154,6 +165,7 @@ export class BanditTestAdapter implements TestAdapter {
   }
 
   cancel(): void {
+    this.testSuite.cancel();
     this.spawner.killAll();
   }
 
@@ -165,171 +177,44 @@ export class BanditTestAdapter implements TestAdapter {
     this.disposables = [];
   }
 
-  private findNode(
-      searchNode: TestSuiteInfo|TestInfo, id: string,
-      type?: 'suite'|'test'): TestSuiteInfo|TestInfo|undefined {
-    if (searchNode.id === id && (!type || type == searchNode.type)) {
-      return searchNode;
-    } else if (searchNode.type === 'suite') {
-      for (const child of searchNode.children) {
-        const found = this.findNode(child, id, type);
-        if (found) return found;
-      }
-    }
-    return undefined;
-  }
+  // private async spawnTest(id: string): Promise<string|undefined> {
+  //   const config = this.getConfiguration();
+  //   let exec_options: SpawnOptions = {
+  //     cwd: this.getCwd(config),
+  //     env: this.getEnv(config),
+  //     shell: true,
+  //     windowsVerbatimArguments: true
+  //   };
+  //   const executable = this.getExecutable(config);
+  //   const library = this.getTestLibrary(config);
+  //   if (!library || !executable) {
+  //     return undefined;
+  //   }
+  //   const executableArguments = this.getExecutableArguments(config);
 
-
-  private async runNode(node: TestSuiteInfo|TestInfo): Promise<void> {
-    if (node.type === 'suite') {
-      this.testStatesEmitter.fire(
-          <TestSuiteEvent>{type: 'suite', suite: node.id, state: 'running'});
-      for (const child of node.children) {
-        await this.runNode(child);
-      }
-      this.testStatesEmitter.fire(
-          <TestSuiteEvent>{type: 'suite', suite: node.id, state: 'completed'});
-
-    } else {
-      await this.spawnTest(node);
-    }
-  }
-
-  private async spawnTest(test: TestInfo): Promise<void> {
-    var suite = this.testSuite;
-    if (!suite) {
-      return;
-    }
-    var test = this.findNode(suite, test.id) as TestInfo;
-    if (!test) {
-      return;
-    }
-
-    const config = this.getConfiguration();
-    let exec_options: SpawnOptions = {
-      cwd: this.getCwd(config),
-      env: this.getEnv(config),
-      shell: true,
-      windowsVerbatimArguments: true
-    };
-    const executable = this.getExecutable(config);
-    const library = this.getTestLibrary(config);
-    if (!library || !executable) {
-      return;
-    }
-    const executableArguments = this.getExecutableArguments(config);
-
-    // Aufruf zusammenbauen
-    var execArguments = new Array();
-    execArguments.push('--reporter=spec');
-    // execArguments.push('"--only=' + test.label + '"'); // Wegen umlauten
-    // funktioniert es noch nicht!
-    execArguments.push('-testlib')
-    execArguments.push(library);
-    for (var arg of executableArguments) {
-      execArguments.push(arg);
-    }
-    this.testStatesEmitter.fire(
-        <TestSuiteEvent>{type: 'suite', suite: suite.id, state: 'running'});
-    this.testStatesEmitter.fire(
-        <TestEvent>{type: 'test', test: test.id, state: 'running'});
-    return this.spawner
-        .spawnAsync(test.id, executable, execArguments, exec_options)
-        .then((ret: SpawnReturns) => {
-          if (this.testSuite) {
-            var current_suite: TestSuiteInfo|undefined = this.testSuite;
-            var current_test: TestInfo|undefined = undefined;
-            var status: string|undefined = undefined;
-            let lines = ret.stdout.split(/[\n\r]+/);
-            let messages = Array<String>();
-            for (var line of lines) {
-              let line_trimmed = line.trim();
-              status = this.parseResult(line_trimmed);
-              if (!status) {
-                status = messages.length > 0 ? 'failed' : 'skipped';
-              }
-              if (line_trimmed.startsWith('describe')) {
-                current_test = undefined;
-                messages = [];
-                let suite_id =
-                    line_trimmed.replace(/describe(.*)/i, '\$1').trim();
-                current_suite =
-                    this.findNode(this.testSuite, suite_id, 'suite') as
-                    TestSuiteInfo;
-              } else if (current_suite && line_trimmed.startsWith('- it ')) {
-                messages = [];
-                var test_name =
-                    line_trimmed.replace(/- it (.*)\.\.\..*/i, '\$1').trim();
-                let test_id = current_suite.id + '.' + test_name;
-                if (test.id == test_id) {
-                  current_test =
-                      this.findNode(current_suite, test_id, 'test') as TestInfo;
-                  if (current_test && status) {
-                    this.testStatesEmitter.fire(<TestEvent>{
-                      type: 'test',
-                      test: current_test.id,
-                      state: status,
-                      message: messages.join('\n')
-                    });
-                  }
-                }
-              } else if (current_test) {
-                messages.push(line);
-              }
-            }
-            // Alten Test beenden?
-            if (current_test && status) {
-              this.testStatesEmitter.fire(<TestEvent>{
-                type: 'test',
-                test: current_test.id,
-                state: status,
-                message: messages.join('\n')
-              });
-            }
-
-            this.testStatesEmitter.fire(
-                <TestRunFinishedEvent>{type: 'finished'});
-          }
-        });
-  }
-
-  private parseResult(line: string): string|undefined {
-    var matches =
-        line.match(/(.*)[ ]+\.\.\.[ ]+(error|failure|ok|skipped)[ ]*$/i);
-    if (matches && matches.length >= 2) {
-      var status = matches[2].toLowerCase();
-      if (status == 'ok') {
-        return 'passed';
-      } else if (status == 'skipped') {
-        return 'skipped';
-      } else if (status == 'error' || status == 'failure') {
-        return 'failed';
-      }
-    }
-    return undefined;
-  }
-
-  private updateTest(id: String): void {
-    var node = this.findNode(this.testSuite, id);
-    var suite = node as TestSuiteInfo;
-    if (suite) {
-      suite.
-    } else {
-      var test = node as TestInfo;
-    }
-  }
+  //   // Aufruf zusammenbauen
+  //   var execArguments = new Array();
+  //   execArguments.push('--reporter=spec');
+  //   // Wegen Umlauten funktioniert das Filtern noch nicht!
+  //   // execArguments.push('"--only=' + test.label + '"');
+  //   execArguments.push('-testlib')
+  //   execArguments.push(library);
+  //   for (var arg of executableArguments) {
+  //     execArguments.push(arg);
+  //   }
+  //   return this.spawner.spawnAsync(id, executable, execArguments,
+  //   exec_options)
+  //       .then((ret: SpawnReturns) => {
+  //         if (ret.error) {
+  //           this.log.error(ret.error.message);
+  //         }
+  //         return ret.stdout;
+  //       });
+  // }
 
   private getConfiguration(): vscode.WorkspaceConfiguration {
     return vscode.workspace.getConfiguration(
         'banditTestExplorer', this.workspaceFolder.uri);
-  }
-
-  private makeSuite(suite_id: string, suite_name: string): TestSuiteInfo {
-    return {type: 'suite', id: suite_id, label: suite_name, children: []};
-  }
-
-  private makeTest(test_id: string, test_name: string): TestInfo {
-    return {type: 'test', id: test_id, label: test_name};
   }
 
   private getEnv(config: vscode.WorkspaceConfiguration): NodeJS.ProcessEnv {

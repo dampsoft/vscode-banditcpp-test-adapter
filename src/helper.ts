@@ -18,3 +18,7 @@ export function resolveVariables(value: any, varValue: [string, any][]): any {
   }
   return value;
 }
+
+export function escapeRegExp(text : string) : string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+}
