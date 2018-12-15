@@ -49,9 +49,7 @@ abstract class TestNode {
   public abstract finish(status: BanditTestStatus, message?: string):
       Promise<Array<BanditTestNode>>;
   // Konstruktor
-  constructor(
-      public parent: BanditTestGroup|undefined,
-      public suite: TestSuite|undefined) {}
+  constructor(public parent: BanditTestGroup|undefined) {}
   public get parents(): Array<BanditTestGroup> {
     let parents = new Array<BanditTestGroup>();
     let p = this.parent;
@@ -74,12 +72,11 @@ export class BanditTestGroup extends TestNode {
 
   constructor(
       parent: BanditTestGroup|undefined,  //
-      suite: TestSuite|undefined,         //
       public label: string,               //
       public file?: string,               //
       public line?: number,               //
       public message?: string) {
-    super(parent, suite);
+    super(parent);
   }
 
   get status(): BanditTestStatus {
@@ -125,13 +122,13 @@ export class BanditTestGroup extends TestNode {
 
   public addTest(name: string, file?: string, line?: number, skipped?: boolean):
       BanditTest {
-    var test = new BanditTest(this, this.suite, name, file, line, skipped);
+    var test = new BanditTest(this, name, file, line, skipped);
     this.add(test);
     return test;
   }
 
   public addSuite(name: string, file?: string, line?: number): BanditTestGroup {
-    var suite = new BanditTestGroup(this, this.suite, name, file, line);
+    var suite = new BanditTestGroup(this, name, file, line);
     this.add(suite);
     return suite;
   }
@@ -225,13 +222,12 @@ export class BanditTest extends TestNode {
 
   constructor(
       parent: BanditTestGroup|undefined,  //
-      suite: TestSuite|undefined,         //
       public label: string,               //
       public file?: string,               //
       public line?: number,               //
       public skipped?: boolean,           //
       public message?: string) {
-    super(parent, suite);
+    super(parent);
   }
 
   public get status(): BanditTestStatus {
@@ -282,7 +278,7 @@ interface TestSuite {
  * Test-Suite-Klasse
  */
 export class BanditTestSuite implements TestSuite {
-  private testsuite = new BanditTestGroup(undefined, this, 'root', 'root');
+  private testsuite = new BanditTestGroup(undefined, 'root', 'root');
 
   constructor(
       private readonly testStatesEmitter:
@@ -297,7 +293,6 @@ export class BanditTestSuite implements TestSuite {
       this.createFromString(stdout)
           .then((suite) => {
             this.testsuite = suite;
-            this.testsuite.suite = this;
             let info = this.getGroupStatusInfo(this.testsuite);
             return info;
           })
@@ -310,7 +305,7 @@ export class BanditTestSuite implements TestSuite {
 
   private createFromString(stdout: string): Promise<BanditTestGroup> {
     return new Promise((resolve, reject) => {
-      let root = new BanditTestGroup(undefined, undefined, 'root', 'root');
+      let root = new BanditTestGroup(undefined, 'root', 'root');
       let messages = Array<String>();
       let isGroup = (line: string): boolean => {
         return line.trim().startsWith('describe');
