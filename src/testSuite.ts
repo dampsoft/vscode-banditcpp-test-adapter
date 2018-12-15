@@ -4,6 +4,7 @@ import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 import {TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
 
 import * as helper from './helper'
+import {SpawnReturns} from './spawner'
 
 export type BanditTestStatus = 'idle'|'running'|'ok'|'failed'|'skipped';
 export const BanditTestStatusIdle: BanditTestStatus = 'idle';
@@ -15,6 +16,18 @@ export const BanditTestStatusSkipped: BanditTestStatus = 'skipped';
 export type BanditTestType = 'test'|'suite';
 export const Test: BanditTestType = 'test';
 export const Suite: BanditTestType = 'suite';
+
+export type BanditTestNode = BanditTest|BanditTestGroup;
+
+
+/************************************************************************/
+/**
+ * Test-Spawner Interface
+ */
+export interface TestSpawner {
+  run(node: BanditTestGroup|BanditTest): Promise<SpawnReturns>;
+  dry(): Promise<SpawnReturns>;
+}
 
 /**
  * Basis Test-Knoten
@@ -31,20 +44,14 @@ abstract class TestNode {
     return this.label;
   }
   // API
-  public abstract start(): void;
-  public abstract stop(): void;
-  public abstract finish(status: BanditTestStatus, message?: string): void;
+  public abstract start(): Promise<Array<BanditTestNode>>;
+  public abstract stop(): Promise<Array<BanditTestNode>>;
+  public abstract finish(status: BanditTestStatus, message?: string):
+      Promise<Array<BanditTestNode>>;
   // Konstruktor
   constructor(
       public parent: BanditTestGroup|undefined,
       public suite: TestSuite|undefined) {}
-  protected notify(node: TestNode = this) {
-    if (this.suite) {
-      this.suite.notifyTestRunStatus(node);
-    } else if (this.parent) {
-      this.parent.notify(node);
-    }
-  }
   public get parents(): Array<BanditTestGroup> {
     let parents = new Array<BanditTestGroup>();
     let p = this.parent;
@@ -56,11 +63,13 @@ abstract class TestNode {
   }
 }
 
+
+/************************************************************************/
 /**
  * Testsuite-Klasse
  */
 export class BanditTestGroup extends TestNode {
-  public children = new Array<BanditTestGroup|BanditTestInfo>();
+  public children = new Array<BanditTestNode>();
   public readonly type = Suite;
 
   constructor(
@@ -94,8 +103,8 @@ export class BanditTestGroup extends TestNode {
     return aggr_status;
   }
 
-  public get tests(): Array<BanditTestInfo> {
-    let test_children = new Array<BanditTestInfo>();
+  public get tests(): Array<BanditTest> {
+    let test_children = new Array<BanditTest>();
     for (let child of this.children) {
       let test = asTest(child);
       let group = asTestGroup(child);
@@ -108,16 +117,15 @@ export class BanditTestGroup extends TestNode {
     return test_children;
   }
 
-  public add(node: BanditTestInfo|BanditTestGroup): BanditTestInfo
-      |BanditTestGroup {
+  public add(node: BanditTestNode): BanditTest|BanditTestGroup {
     this.children.push(node);
     node.parent = this;
     return node;
   }
 
   public addTest(name: string, file?: string, line?: number, skipped?: boolean):
-      BanditTestInfo {
-    var test = new BanditTestInfo(this, this.suite, name, file, line, skipped);
+      BanditTest {
+    var test = new BanditTest(this, this.suite, name, file, line, skipped);
     this.add(test);
     return test;
   }
@@ -128,8 +136,8 @@ export class BanditTestGroup extends TestNode {
     return suite;
   }
 
-  public findAll(id: string|RegExp): Array<BanditTestInfo|BanditTestGroup> {
-    var matches = new Array<BanditTestInfo|BanditTestGroup>();
+  public findAll(id: string|RegExp): Array<BanditTestNode> {
+    var matches = new Array<BanditTestNode>();
     for (var child of this.children) {
       if (child.id.match(id)) {
         matches.push(child);
@@ -143,14 +151,13 @@ export class BanditTestGroup extends TestNode {
     return matches;
   }
 
-  public find(id: string|RegExp): BanditTestInfo|BanditTestGroup|undefined {
+  public find(id: string|RegExp): BanditTestNode|undefined {
     var matches = this.findAll(id);
     return matches ? matches[0] : undefined;
   }
 
-  public findAllByLabel(label: string|RegExp):
-      Array<BanditTestInfo|BanditTestGroup>|undefined {
-    var matches = new Array<BanditTestInfo|BanditTestGroup>();
+  public findAllByLabel(label: string|RegExp): Array<BanditTestNode> {
+    var matches = new Array<BanditTestNode>();
     for (var child of this.children) {
       if (child.label.match(label)) {
         matches.push(child);
@@ -159,58 +166,60 @@ export class BanditTestGroup extends TestNode {
     return matches;
   }
 
-  public findByLabel(label: string|RegExp): BanditTestInfo|BanditTestGroup
-      |undefined {
+  public findByLabel(label: string|RegExp): BanditTestNode|undefined {
     var matches = this.findAllByLabel(label);
     return matches ? matches[0] : undefined;
   }
 
-  public start() {
-    for (var node of this.children) {
-      let test = asTest(node);
-      if (test) {
-        test.start();
-      } else {
-        let group = asTestGroup(node);
-        if (group) {
-          group.start();
+  public start(): Promise<BanditTestNode[]> {
+    return new Promise<BanditTestNode[]>((resolve) => {
+      new Promise<BanditTestNode[][]>(() => {
+        let promises = new Array<Promise<BanditTestNode[]>>();
+        for (var node of this.children) {
+          promises.push(node.start());
         }
-      }
-    }
-    this.notify();
+        return Promise.all(promises);
+      }).then((nodes: BanditTestNode[][]) => {
+        resolve(helper.flatten<BanditTestNode>(nodes));
+      });
+    });
   }
 
-  public stop(): Array<BanditTestInfo> {
-    var tests = new Array<BanditTestInfo>();
-    for (var node of this.children) {
-      let test = asTest(node);
-      if (test) {
-        if (test.stop()) {
-          tests.push(test);
+  public stop(): Promise<Array<BanditTestNode>> {
+    return new Promise<BanditTestNode[]>((resolve) => {
+      new Promise<BanditTestNode[][]>(() => {
+        let promises = new Array<Promise<BanditTestNode[]>>();
+        for (var node of this.children) {
+          promises.push(node.stop());
         }
-      } else {
-        let group = asTestGroup(node);
-        if (group) {
-          tests = tests.concat(group.stop());
-        }
-      }
-    }
-    return tests;
+        return Promise.all(promises);
+      }).then((nodes: BanditTestNode[][]) => {
+        resolve(helper.flatten<BanditTestNode>(nodes));
+      });
+    });
   }
 
-  public finish(status: BanditTestStatus, message?: string) {
-    for (let child of this.children) {
-      child.finish(status);
-    }
-    this.message = message;
-    this.notify();
+  public finish(status: BanditTestStatus, message?: string):
+      Promise<Array<BanditTestNode>> {
+    return new Promise((resolve) => {
+      this.message = message;
+      let promises = new Array<Promise<BanditTestNode[]>>();
+      for (var node of this.children) {
+        promises.push(node.finish(status));
+      }
+      Promise.all(promises).then((nodes: BanditTestNode[][]) => {
+        resolve(helper.flatten<BanditTestNode>(nodes));
+      });
+    });
   }
 }
 
+
+/************************************************************************/
 /**
  * Test Klasse
  */
-export class BanditTestInfo extends TestNode {
+export class BanditTest extends TestNode {
   public readonly type = 'test';
   private test_status: BanditTestStatus = BanditTestStatusIdle;
 
@@ -229,27 +238,37 @@ export class BanditTestInfo extends TestNode {
     return this.test_status;
   }
 
-  public async start() {
-    var started = this.status !== BanditTestStatusRunning;
-    if (started) {
-      this.test_status = BanditTestStatusRunning;
-      this.notify();
-    }
-    return started;
+  public start(): Promise<BanditTestNode[]> {
+    return new Promise((resolve, reject) => {
+      let nodes = new Array<BanditTestNode>();
+      var started = this.status !== BanditTestStatusRunning;
+      if (started) {
+        this.test_status = BanditTestStatusRunning;
+        nodes.push(this);
+      }
+      resolve(nodes);
+    });
   }
 
-  public finish(status: BanditTestStatus, message?: string) {
-    this.test_status = status;
-    this.message = message;
-    this.notify();
+  public finish(status: BanditTestStatus, message?: string):
+      Promise<BanditTestNode[]> {
+    return new Promise((resolve) => {
+      this.test_status = status;
+      this.message = message;
+      resolve(new Array<BanditTestNode>(this));
+    });
   }
 
-  public stop(): boolean {
-    var stopped = this.status != BanditTestStatusIdle
-    if (stopped) {
-      this.test_status = BanditTestStatusSkipped;
-    }
-    return stopped;
+  public stop(): Promise<BanditTestNode[]> {
+    return new Promise(() => {
+      let nodes = new Array<BanditTestNode>();
+      var stopped = this.status != BanditTestStatusIdle
+      if (stopped) {
+        this.test_status = BanditTestStatusSkipped;
+        nodes.push(this);
+      }
+      return nodes;
+    });
   }
 }
 
@@ -257,6 +276,8 @@ interface TestSuite {
   notifyTestRunStatus(node: TestNode): void
 }
 
+
+/************************************************************************/
 /**
  * Test-Suite-Klasse
  */
@@ -269,166 +290,182 @@ export class BanditTestSuite implements TestSuite {
                               TestSuiteEvent|TestEvent>,
       private readonly testsEmitter:
           vscode.EventEmitter<TestLoadStartedEvent|TestLoadFinishedEvent>,
-      private spawner: (id: string) => Promise<string|undefined>) {}
+      private spawner: TestSpawner) {}
 
-  public initFromString(stdout: string) {
-    this.testsuite = this.createFromString(stdout);
-    this.testsuite.suite = this;
-    let info = this.getGroupStatusInfo(this.testsuite);
-    this.testsEmitter.fire(
-        <TestLoadFinishedEvent>{type: 'finished', suite: info});
+  public initFromString(stdout: string): Promise<void> {
+    return new Promise(() => {
+      this.createFromString(stdout)
+          .then((suite) => {
+            this.testsuite = suite;
+            this.testsuite.suite = this;
+            let info = this.getGroupStatusInfo(this.testsuite);
+            return info;
+          })
+          .then((info) => {
+            this.testsEmitter.fire(
+                <TestLoadFinishedEvent>{type: 'finished', suite: info});
+          });
+    });
   }
 
-  private createFromString(stdout: string): BanditTestGroup {
-    let root = new BanditTestGroup(undefined, undefined, 'root', 'root');
-    let messages = Array<String>();
-    let isGroup = (line: string): boolean => {
-      return line.trim().startsWith('describe');
-    };
-    let isTest = (line: string): boolean => {
-      return line.trim().startsWith('- it ')
-    };
-    let parseGroupLabel = (line: string): string => {
-      return line.trim().replace(/describe(.*)/i, '\$1').trim();
-    };
-    let parseTestLabel = (line: string): string => {
-      return line.trim().replace(/- it (.*)\.\.\..*/i, '\$1').trim();
-    };
-    let parseStatus = (line: string): BanditTestStatus|undefined => {
-      var matches =
-          line.match(/(.*)[ ]+\.\.\.[ ]+(error|failure|ok|skipped)[ ]*$/i);
-      if (matches && matches.length >= 2) {
-        var status = matches[2].toLowerCase();
-        if (status == 'ok') {
-          return BanditTestStatusPassed;
-        } else if (status == 'skipped') {
-          return BanditTestStatusSkipped;
-        } else if (status == 'error' || status == 'failure') {
-          return BanditTestStatusFailed;
+  private createFromString(stdout: string): Promise<BanditTestGroup> {
+    return new Promise((resolve, reject) => {
+      let root = new BanditTestGroup(undefined, undefined, 'root', 'root');
+      let messages = Array<String>();
+      let isGroup = (line: string): boolean => {
+        return line.trim().startsWith('describe');
+      };
+      let isTest = (line: string): boolean => {
+        return line.trim().startsWith('- it ')
+      };
+      let parseGroupLabel = (line: string): string => {
+        return line.trim().replace(/describe(.*)/i, '\$1').trim();
+      };
+      let parseTestLabel = (line: string): string => {
+        return line.trim().replace(/- it (.*)\.\.\..*/i, '\$1').trim();
+      };
+      let parseStatus = (line: string): BanditTestStatus|undefined => {
+        var matches = line.match(/(.*) \.\.\. (error|failure|ok|skipped)/i);
+        if (matches && matches.length >= 2) {
+          var status = matches[2].toLowerCase();
+          if (status == 'ok') {
+            return BanditTestStatusPassed;
+          } else if (status == 'skipped') {
+            return BanditTestStatusSkipped;
+          } else if (status == 'error' || status == 'failure') {
+            return BanditTestStatusFailed;
+          }
         }
-      }
-      return messages.length > 0 ? BanditTestStatusFailed :
-                                   BanditTestStatusIdle;
-    };
-    let clearMessages = () => {
-      messages = [];
-    };
-    let getMessage = (): string => {
-      return messages.join('\n');
-    };
-    let finishNode =
-        (node: BanditTestInfo|BanditTestGroup|undefined,
-         status: BanditTestStatus|undefined) => {
-          if (status && node) {
-            node.message = getMessage();
-            node.finish(status);
-          }
-        };
-    let current_suite = root;
-    let node: BanditTestInfo|BanditTestGroup|undefined;
-    let last_indentation = 0;
-    let status: BanditTestStatus|undefined;
-    let lines = stdout.split(/[\n]+/);
-    for (let line of lines) {
-      if (line.length) {
-        let indentation = line.search(/\S/);
-        if (isGroup(line) || isTest(line)) {
-          // Einrückung anpassen:
-          let indentation_diff = last_indentation - indentation;
-          while (indentation_diff > 0) {
-            if (current_suite.parent) {
-              current_suite = current_suite.parent;
-            } else {
-              // Error
-              // TODO
-            }
-            indentation_diff -= 1;
-          }
-          // Node hinzufügen:
-          if (isGroup(line)) {
-            if (node) {
+        return messages.length > 0 ? BanditTestStatusFailed :
+                                     BanditTestStatusIdle;
+      };
+      let clearMessages = () => {
+        messages = [];
+      };
+      let getMessage = (): string => {
+        return messages.join('\n');
+      };
+      let finishNode =
+          (node: BanditTestNode|undefined,
+           status: BanditTestStatus|undefined) => {
+            if (status && node) {
               node.message = getMessage();
+              node.finish(status);
             }
-            clearMessages();
-            node = current_suite =
-                current_suite.addSuite(parseGroupLabel(line));
-          } else if (isTest(line)) {
-            if (node) {
-              node.message = getMessage();
+          };
+      let current_suite = root;
+      let node: BanditTestNode|undefined;
+      let last_indentation = 0;
+      let status: BanditTestStatus|undefined;
+      let lines = stdout.split(/[\n]+/);
+      for (let line of lines) {
+        if (line.length) {
+          let indentation = line.search(/\S/);
+          if (isGroup(line) || isTest(line)) {
+            // Einrückung anpassen:
+            let indentation_diff = last_indentation - indentation;
+            while (indentation_diff > 0) {
+              if (current_suite.parent) {
+                current_suite = current_suite.parent;
+              } else {
+                reject(new Error(
+                    'Fehlender Parent bei node mit der id "' +
+                    current_suite.id + '"'));
+              }
+              indentation_diff -= 1;
             }
-            clearMessages();
-            node = current_suite.addTest(parseTestLabel(line));
-          }
-        } else {
-          messages.push(line);
-        }
-        // Ergebnis verarbeiten:
-        status = parseStatus(line);
-        finishNode(node, status);
-        last_indentation = indentation;
-      }
-    }
-    // Ggf. Ergebnis verarbeiten:
-    finishNode(node, status);
-    return root;
-  }
-
-  public updateFromString(node: TestNode, stdout: string) {
-    let result_suite = this.createFromString(stdout);
-    let result_node = result_suite.find(node.id);
-    if (result_node) {
-      node.finish(result_node.status, result_node.message);
-    }
-  }
-
-  public add(node: BanditTestInfo|BanditTestGroup): BanditTestInfo
-      |BanditTestGroup {
-    return this.testsuite.add(node);
-  }
-
-  public addTest(name: string, file?: string, line?: number, skipped?: boolean):
-      BanditTestInfo {
-    return this.testsuite.addTest(name, file, line, skipped);
-  }
-
-  public addSuite(name: string, file?: string, line?: number): BanditTestGroup {
-    return this.testsuite.addSuite(name, file, line);
-  }
-
-  public find(id: string|RegExp): BanditTestInfo|BanditTestGroup|undefined {
-    return this.testsuite.find(id);
-  }
-
-  public findAll(id: string|RegExp): Array<BanditTestInfo|BanditTestGroup> {
-    return this.testsuite.findAll(id);
-  }
-
-  get root(): BanditTestGroup {
-    return this.testsuite;
-  }
-
-  public async start(ids: string[]): Promise<void> {
-    let nodes = new Array<BanditTestGroup|BanditTestInfo>();
-    let unique_ids = new Set<string>(ids);
-    for (let id of unique_ids) {
-      let r = new RegExp(helper.escapeRegExp(id));  // ggf. ^id$
-      nodes = nodes.concat(this.findAll(r));
-    }
-    if (this.testsuite.status != BanditTestStatusRunning) {
-      this.notifyTestRunStart(nodes);
-    }
-    for (let node of nodes) {
-      node.start();
-      if (asTest(node)) {
-        await this.spawner(node.id).then((ret: string|undefined) => {
-          if (ret) {
-            this.updateFromString(node, ret);
+            // Node hinzufügen:
+            if (isGroup(line)) {
+              if (node) {
+                node.message = getMessage();
+              }
+              clearMessages();
+              node = current_suite =
+                  current_suite.addSuite(parseGroupLabel(line));
+            } else if (isTest(line)) {
+              if (node) {
+                node.message = getMessage();
+              }
+              clearMessages();
+              node = current_suite.addTest(parseTestLabel(line));
+            }
           } else {
-            node.finish(BanditTestStatusFailed);
+            messages.push(line);
           }
-        });
+          // Ergebnis verarbeiten:
+          status = parseStatus(line);
+          finishNode(node, status);
+          last_indentation = indentation;
+        }
       }
-    }
+      // Ggf. Ergebnis verarbeiten:
+      finishNode(node, status);
+      resolve(root);
+    });
+  }
+
+  public updateFromString(node: TestNode, stdout: string): Promise<void> {
+    return new Promise(() => {
+      this.createFromString(stdout).then((parsed_result) => {
+        let result_node = parsed_result.find(node.id);
+        if (result_node) {
+          node.finish(result_node.status, result_node.message)
+              .then((updated_nodes) => {
+                for (let node of updated_nodes) {
+                  this.notifyTestRunStatus(node);
+                }
+              });
+        }
+      });
+    });
+  }
+
+  public init(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.spawner.dry().then((ret: SpawnReturns) => {
+        if (ret.status < 0) {
+          reject(ret.error.message);
+        } else {
+          this.initFromString(ret.stdout);
+        }
+      });
+    });
+  }
+
+  public start(ids: string[]): Promise<void> {
+    return new Promise((resolve, reject) => {
+      new Promise<Promise<void>[]>(() => {
+        let nodes = new Array<BanditTestNode>();
+        let unique_ids = new Set<string>(ids);
+        for (let id of unique_ids) {
+          let r = new RegExp(helper.escapeRegExp(id));  // ggf. ^id$
+          nodes = nodes.concat(this.testsuite.findAll(r));
+        }
+        let promises = new Array<Promise<void>>();
+        this.notifyTestRunStart(nodes);
+        for (let node of nodes) {
+          promises.push(new Promise<void>((resolve, reject) => {
+            node.start().then(() => {
+              if (asTest(node)) {
+                this.spawner.run(node).then((ret: SpawnReturns) => {
+                  if (ret.status < 0) {
+                    node.finish(BanditTestStatusFailed);
+                    reject(ret.error.message);
+                  } else {
+                    this.updateFromString(node, ret.stdout).then(() => {
+                      resolve();
+                    });
+                  }
+                });
+              } else {
+                resolve();
+              }
+            });
+          }));
+        }
+        return Promise.all(promises);
+      });
+    });
   }
 
   public cancel() {
@@ -436,12 +473,11 @@ export class BanditTestSuite implements TestSuite {
   }
 
   public finish(
-      node: BanditTestInfo|BanditTestGroup, status: BanditTestStatus,
-      message?: string) {
+      node: BanditTestNode, status: BanditTestStatus, message?: string) {
     node.finish(status, message);
   }
 
-  public notifyTestRunStatus(node: BanditTestInfo|BanditTestGroup) {
+  public notifyTestRunStatus(node: BanditTestNode) {
     let e = this.getStatusEvent(node);
     if (e) {
       this.testStatesEmitter.fire(e);
@@ -451,7 +487,7 @@ export class BanditTestSuite implements TestSuite {
     }
   }
 
-  private notifyTestRunStart(nodes: Array<BanditTestInfo|BanditTestGroup>) {
+  private notifyTestRunStart(nodes: Array<BanditTestNode>) {
     let ids = new Array<string>();
     for (let node of nodes) {
       let group = asTestGroup(node);
@@ -467,12 +503,13 @@ export class BanditTestSuite implements TestSuite {
     this.testStatesEmitter.fire(
         <TestRunStartedEvent>{type: 'started', tests: ids});
   }
+
   private notifyTestRunFinished() {
     this.testStatesEmitter.fire(<TestRunFinishedEvent>{type: 'finished'});
   }
 
-  private getStatusInfo(node: BanditTestInfo|BanditTestGroup): TestInfo
-      |TestSuiteInfo|undefined {
+  private getStatusInfo(node: BanditTestNode): TestInfo|TestSuiteInfo
+      |undefined {
     let test = asTest(node);
     let group = asTestGroup(node);
     if (test) {
@@ -483,7 +520,7 @@ export class BanditTestSuite implements TestSuite {
     return undefined;
   }
 
-  private getTestStatusInfo(test: BanditTestInfo): TestInfo {
+  private getTestStatusInfo(test: BanditTest): TestInfo {
     return {
       type: 'test',
       id: test.id,
@@ -512,8 +549,8 @@ export class BanditTestSuite implements TestSuite {
     } as TestSuiteInfo;
   }
 
-  private getStatusEvent(node: BanditTestInfo|BanditTestGroup): TestEvent
-      |TestSuiteEvent|undefined {
+  private getStatusEvent(node: BanditTestNode): TestEvent|TestSuiteEvent
+      |undefined {
     let test = asTest(node);
     let group = asTestGroup(node);
     if (test) {
@@ -524,7 +561,7 @@ export class BanditTestSuite implements TestSuite {
     return undefined;
   }
 
-  private getTestStatusEvent(test: BanditTestInfo): TestEvent {
+  private getTestStatusEvent(test: BanditTest): TestEvent {
     let status;
     if (test.status == BanditTestStatusRunning) {
       status = 'running';
@@ -559,8 +596,8 @@ export class BanditTestSuite implements TestSuite {
   }
 }
 
-export function asTest(node: any): BanditTestInfo|undefined {
-  return node instanceof BanditTestInfo ? node as BanditTestInfo : undefined;
+export function asTest(node: any): BanditTest|undefined {
+  return node instanceof BanditTest ? node as BanditTest : undefined;
 }
 
 export function asTestGroup(node: any): BanditTestGroup|undefined {

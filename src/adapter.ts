@@ -1,14 +1,80 @@
-import {SpawnOptions} from 'child_process';
 import * as fs from 'fs'
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
 import {Log} from 'vscode-test-adapter-util';
+import {BanditSpawner, BanditSpawnerConfiguration} from './bandit'
+import {VariableResolver} from './helper';
+import {BanditTestSuite} from './testSuite'
 
-import {resolveVariables} from './helper';
-import {Spawner, SpawnReturns} from './spawner'
-import * as bsuite from './testSuite'
 
+class BanditConfiguration implements BanditSpawnerConfiguration {
+  private resolver = new VariableResolver(this.workspaceFolder);
+  // Konstruktor
+  constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {}
+
+  private get config(): vscode.WorkspaceConfiguration {
+    return vscode.workspace.getConfiguration(
+        'banditTestExplorer', this.workspaceFolder.uri);
+  }
+
+  public get cmd(): string {
+    const configExe =
+        this.resolver.resolve(this.config.get<string>('executable'));
+    if (path.isAbsolute(configExe)) {
+      return configExe;
+    } else {
+      return path.resolve(this.workspaceFolder.uri.fsPath, configExe);
+    }
+  }
+
+  public get cwd(): string {
+    const dirname = this.workspaceFolder.uri.fsPath;
+    const configCwd =
+        this.resolver.resolve(this.config.get<string>('cwd', dirname));
+    if (path.isAbsolute(configCwd)) {
+      return configCwd;
+    } else {
+      return path.resolve(this.workspaceFolder.uri.fsPath, configCwd);
+    }
+  }
+
+  public get env(): NodeJS.ProcessEnv {
+    const processEnv = process.env;
+    const configEnv: {[prop: string]: any} = this.config.get('env') || {};
+
+    const resultEnv = {...processEnv};
+
+    for (const prop in configEnv) {
+      const val = configEnv[prop];
+      if ((val === undefined) || (val === null)) {
+        delete resultEnv.prop;
+      } else {
+        resultEnv[prop] = String(val);
+      }
+    }
+
+    return resultEnv;
+  }
+
+  public get args(): string[] {
+    var args = this.config.get<string[]>('arguments');
+    if (args) {
+      var args_modified = new Array<string>();
+      for (let arg of args) {
+        if (arg.trim().length > 0) {
+          if (arg.trim().indexOf(' ') >= 0) {
+            arg = '"' + arg.trim() + '"';
+          }
+          args_modified.push(arg.trim());
+        }
+      }
+      return args_modified;
+    } else {
+      return [];
+    }
+  }
+}
 
 export class BanditTestAdapter implements TestAdapter {
   private disposables: {dispose(): void}[] = [];
@@ -22,52 +88,11 @@ export class BanditTestAdapter implements TestAdapter {
   private readonly reloadEmitter = new vscode.EventEmitter<void>();
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
 
-  private readonly _variableToValue: [string, string][] = [
-    ['${workspaceDirectory}', this.workspaceFolder.uri.fsPath],
-    ['${workspaceFolder}', this.workspaceFolder.uri.fsPath]
-  ];
-
+  private config = new BanditConfiguration(this.workspaceFolder);
+  private spawner = new BanditSpawner(this.config);
   // Testsuite
-  private testSuite = new bsuite.BanditTestSuite(
-      this.testStatesEmitter, this.testsEmitter,
-      (id: string): Promise<string> => {
-        return new Promise<string>((resolve, reject) => {
-          const config = this.getConfiguration();
-          let exec_options: SpawnOptions = {
-            cwd: this.getCwd(config),
-            env: this.getEnv(config),
-            shell: true,
-            windowsVerbatimArguments: true
-          };
-          const executable = this.getExecutable(config);
-          const library = this.getTestLibrary(config);
-          if (!library || !executable) {
-            reject(new Error(
-                'Es wurde keine Bibliothek oder die Bandit-Test-Executable angegeben.'));
-          }
-          const executableArguments = this.getExecutableArguments(config);
-
-          // Aufruf zusammenbauen
-          var execArguments = new Array();
-          execArguments.push('--reporter=spec');
-          // Wegen Umlauten funktioniert das Filtern noch nicht!
-          // execArguments.push('"--only=' + test.label + '"');
-          execArguments.push('-testlib')
-          execArguments.push(library);
-          for (var arg of executableArguments) {
-            execArguments.push(arg);
-          }
-          return this.spawner
-              .spawnAsync(id, executable, execArguments, exec_options)
-              .then((ret: SpawnReturns) => {
-                if (ret.error) {
-                  this.log.error(ret.error.message);
-                }
-                resolve(ret.stdout);
-              });
-        });
-      });
-  private spawner = new Spawner();
+  private testSuite = new BanditTestSuite(
+      this.testStatesEmitter, this.testsEmitter, this.spawner);
 
   // Konstruktor
   constructor(
@@ -75,8 +100,7 @@ export class BanditTestAdapter implements TestAdapter {
       private readonly log: Log) {
     this.log.info('Initializing bandit adapter');
 
-    const config = this.getConfiguration();
-    const executable = this.getExecutable(config);
+    const executable = this.config.cmd;
     if (executable) {
       fs.watchFile(executable, (curr: any, prev: any) => {
         console.log(`the current mtime is: ${curr.mtime}`);
@@ -110,40 +134,11 @@ export class BanditTestAdapter implements TestAdapter {
     this.log.info('Loading bandit tests');
 
     this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
-
-    // Config lesen
-    const config = this.getConfiguration();
-    const executable = this.getExecutable(config);
-    const library = this.getTestLibrary(config);
-    const executableArguments = this.getExecutableArguments(config);
-    if (!executable || !library) {
-      return;
+    if (this.testSuite) {
+      this.testSuite.init().catch((e) => {
+        this.log.error(e.message);
+      });
     }
-
-    // Aufruf zusammenbauen
-    var execArguments = new Array();
-    execArguments.push('--dry-run');
-    execArguments.push('--reporter=spec');
-    execArguments.push('-testlib')
-    execArguments.push(library);
-    for (var arg of executableArguments) {
-      execArguments.push(arg);
-    }
-    let exec_options: SpawnOptions = {
-      cwd: this.getCwd(config),
-      env: this.getEnv(config),
-      shell: true,
-      windowsVerbatimArguments: true
-    };
-    return this.spawner
-        .spawnAsync('AllTests', executable, execArguments, exec_options)
-        .then((ret: SpawnReturns) => {
-          try {
-            this.testSuite.initFromString(ret.stdout);
-          } catch (e) {
-            this.log.error(ret.error.message);
-          }
-        });
   }
 
   async run(tests: string[]): Promise<void> {
@@ -151,7 +146,7 @@ export class BanditTestAdapter implements TestAdapter {
     this.testStatesEmitter.fire(<TestRunStartedEvent>{type: 'started', tests});
     if (this.testSuite) {
       try {
-        this.testSuite.start(tests);
+        await this.testSuite.start(tests);
       } catch (e) {
         this.log.error(e.message);
       }
@@ -166,7 +161,7 @@ export class BanditTestAdapter implements TestAdapter {
 
   cancel(): void {
     this.testSuite.cancel();
-    this.spawner.killAll();
+    // this.spawner.killAll();
   }
 
   dispose(): void {
@@ -175,113 +170,5 @@ export class BanditTestAdapter implements TestAdapter {
       disposable.dispose();
     }
     this.disposables = [];
-  }
-
-  // private async spawnTest(id: string): Promise<string|undefined> {
-  //   const config = this.getConfiguration();
-  //   let exec_options: SpawnOptions = {
-  //     cwd: this.getCwd(config),
-  //     env: this.getEnv(config),
-  //     shell: true,
-  //     windowsVerbatimArguments: true
-  //   };
-  //   const executable = this.getExecutable(config);
-  //   const library = this.getTestLibrary(config);
-  //   if (!library || !executable) {
-  //     return undefined;
-  //   }
-  //   const executableArguments = this.getExecutableArguments(config);
-
-  //   // Aufruf zusammenbauen
-  //   var execArguments = new Array();
-  //   execArguments.push('--reporter=spec');
-  //   // Wegen Umlauten funktioniert das Filtern noch nicht!
-  //   // execArguments.push('"--only=' + test.label + '"');
-  //   execArguments.push('-testlib')
-  //   execArguments.push(library);
-  //   for (var arg of executableArguments) {
-  //     execArguments.push(arg);
-  //   }
-  //   return this.spawner.spawnAsync(id, executable, execArguments,
-  //   exec_options)
-  //       .then((ret: SpawnReturns) => {
-  //         if (ret.error) {
-  //           this.log.error(ret.error.message);
-  //         }
-  //         return ret.stdout;
-  //       });
-  // }
-
-  private getConfiguration(): vscode.WorkspaceConfiguration {
-    return vscode.workspace.getConfiguration(
-        'banditTestExplorer', this.workspaceFolder.uri);
-  }
-
-  private getEnv(config: vscode.WorkspaceConfiguration): NodeJS.ProcessEnv {
-    const processEnv = process.env;
-    const configEnv: {[prop: string]: any} = config.get('env') || {};
-
-    const resultEnv = {...processEnv};
-
-    for (const prop in configEnv) {
-      const val = configEnv[prop];
-      if ((val === undefined) || (val === null)) {
-        delete resultEnv.prop;
-      } else {
-        resultEnv[prop] = String(val);
-      }
-    }
-
-    return resultEnv;
-  }
-
-  private getCwd(config: vscode.WorkspaceConfiguration): string {
-    const dirname = this.workspaceFolder.uri.fsPath;
-    const configCwd = resolveVariables(
-        config.get<string>('cwd', dirname), this._variableToValue);
-    if (path.isAbsolute(configCwd)) {
-      return configCwd;
-    } else {
-      return path.resolve(this.workspaceFolder.uri.fsPath, configCwd);
-    }
-  }
-
-  private getExecutable(config: vscode.WorkspaceConfiguration): string {
-    const configExe = resolveVariables(
-        config.get<string>('executable'), this._variableToValue);
-    if (path.isAbsolute(configExe)) {
-      return configExe;
-    } else {
-      return path.resolve(this.workspaceFolder.uri.fsPath, configExe);
-    }
-  }
-
-  private getTestLibrary(config: vscode.WorkspaceConfiguration): string {
-    const configLib =
-        resolveVariables(config.get<string>('library'), this._variableToValue);
-    if (path.isAbsolute(configLib)) {
-      return configLib;
-    } else {
-      return path.resolve(this.workspaceFolder.uri.fsPath, configLib);
-    }
-  }
-
-  private getExecutableArguments(config: vscode.WorkspaceConfiguration):
-      Array<string> {
-    var args = config.get<string[]>('arguments');
-    if (args) {
-      var args_modified = new Array<string>();
-      for (let arg of args) {
-        if (arg.trim().length > 0) {
-          if (arg.trim().indexOf(' ') >= 0) {
-            arg = '"' + arg.trim() + '"';
-          }
-          args_modified.push(arg.trim());
-        }
-      }
-      return args_modified;
-    } else {
-      return [];
-    }
   }
 }
