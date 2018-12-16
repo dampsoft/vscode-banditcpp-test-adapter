@@ -1,13 +1,13 @@
 import {SpawnOptions} from 'child_process';
 
 import {SpawnArguments, Spawner, SpawnReturns} from './spawner'
-import {BanditTestNode} from './testSuite'
+import {BanditTestNode, TestSpawner} from './testSuite'
 
 export interface BanditSpawnerConfiguration {
   cmd: string, cwd: string, env: NodeJS.ProcessEnv, args: string[]
 }
 
-export class BanditSpawner {
+export class BanditSpawner implements TestSpawner {
   constructor(private readonly config: BanditSpawnerConfiguration) {}
   private spawner = new Spawner();
 
@@ -40,7 +40,16 @@ export class BanditSpawner {
     var execArguments = new Array();
     execArguments.push('--reporter=spec');
     // Wegen Umlauten funktioniert das Filtern noch nicht!
-    // execArguments.push('"--only=' + node.label + '"');
+    let label_matches = node.label.match(/[^äöü]+/ig);
+    if (label_matches) {
+      var label_filter = label_matches.reduce(function(a, b) {
+        return a.length > b.length ? a : b;
+      });
+      if (label_filter.length > 0) {
+        execArguments.push('"--only=' + label_filter + '"');
+      }
+    }
+    //
     for (var arg of this.config.args) {
       execArguments.push(arg);
     }

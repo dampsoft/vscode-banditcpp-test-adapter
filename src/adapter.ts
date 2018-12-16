@@ -22,8 +22,7 @@ export class BanditTestAdapter implements TestAdapter {
   private config = new BanditConfiguration(this.workspaceFolder);
   private spawner = new BanditSpawner(this.config);
   // Testsuite
-  private testSuite = new BanditTestSuite(
-      this.testStatesEmitter, this.testsEmitter, this.spawner);
+  private testSuite = new BanditTestSuite(this.testStatesEmitter, this.spawner);
 
   // Konstruktor
   constructor(
@@ -66,10 +65,16 @@ export class BanditTestAdapter implements TestAdapter {
 
     this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
     if (this.testSuite) {
-      this.testSuite.init().catch((e) => {
+      try {
+        await this.testSuite.init();
+      } catch (e) {
         this.log.error(e.message);
-      });
+      }
     }
+    this.testsEmitter.fire(<TestLoadFinishedEvent>{
+      type: 'finished',
+      suite: this.testSuite.getTestInfo()
+    });
   }
 
   async run(tests: string[]): Promise<void> {
