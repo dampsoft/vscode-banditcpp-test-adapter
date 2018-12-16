@@ -170,7 +170,7 @@ export class BanditTestGroup extends TestNode {
   }
 
   public start(): BanditTestNode[] {
-    let nodes = new Array<BanditTestNode>(this);
+    let nodes = new Array<BanditTestNode>();
     for (var node of this.children) {
       nodes = nodes.concat(node.start());
     }
@@ -178,7 +178,7 @@ export class BanditTestGroup extends TestNode {
   }
 
   public stop(): BanditTestNode[] {
-    let nodes = new Array<BanditTestNode>(this);
+    let nodes = new Array<BanditTestNode>();
     for (var node of this.children) {
       nodes = nodes.concat(node.stop());
     }
@@ -186,7 +186,7 @@ export class BanditTestGroup extends TestNode {
   }
 
   public finish(status: BanditTestStatus, message?: string): BanditTestNode[] {
-    let nodes = new Array<BanditTestNode>(this);
+    let nodes = new Array<BanditTestNode>();
     for (var node of this.children) {
       nodes = nodes.concat(node.finish(status));
     }
@@ -305,19 +305,13 @@ export class BanditTestSuite {
       let unique_ids = new Set<string>(ids);
       for (let id of unique_ids) {
         let r = new RegExp(helper.escapeRegExp(id));  // ggf. ^id$
-        let found = this.testsuite.findAll(r);
-        for (let node of found) {
-          nodes.push(node);
-          let group = asTestGroup(node);
-          if (group) {
-            nodes = nodes.concat(group.tests);
-          }
-        }
+        nodes = nodes.concat(this.testsuite.findAll(r));
       }
       let started_nodes = new Array<BanditTestNode>();
       for (var node of nodes) {
         started_nodes = started_nodes.concat(node.start());
       }
+      started_nodes = helper.removeDuplicates(started_nodes, 'id');
       this.notifyTestRunStart(nodes);
       let promises = new Array<Promise<void>>();
       for (let node of started_nodes) {
@@ -369,14 +363,16 @@ export class BanditTestSuite {
       return line.trim().replace(/- it (.*)\.\.\..*/i, '\$1').trim();
     };
     let parseStatus = (line: string): BanditTestStatus|undefined => {
-      var matches = line.match(/(.*) \.\.\. (error|failure|ok|skipped)/i);
+      var matches =
+          line.match(/(.*) \.\.\. (error|failure|failed|ok|skipped)/i);
       if (matches && matches.length >= 2) {
         var status = matches[2].toLowerCase();
         if (status == 'ok') {
           return BanditTestStatusPassed;
         } else if (status == 'skipped') {
           return BanditTestStatusSkipped;
-        } else if (status == 'error' || status == 'failure') {
+        } else if (
+            status == 'error' || status == 'failure' || status == 'failed') {
           return BanditTestStatusFailed;
         }
       }

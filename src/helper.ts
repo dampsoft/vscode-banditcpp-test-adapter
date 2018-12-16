@@ -44,3 +44,9 @@ export class VariableResolver {
 export function flatten<T>(array: Array<Array<T>>): Array<T> {
   return new Array<T>().concat(...array);
 }
+
+export function removeDuplicates(values: any[], prop: string) {
+  return values.filter((obj, pos, arr) => {
+    return arr.map(mapObj => mapObj[prop]).indexOf(obj[prop]) === pos;
+  });
+}
