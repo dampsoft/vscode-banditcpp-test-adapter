@@ -296,19 +296,23 @@ export class BanditTestSuite {
 
   public init(): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.spawner.dry().then((ret: SpawnReturns) => {
-        if (ret.status < 0) {
-          reject(ret.error.message);
-        } else {
-          this.testsuite = this.createFromString(ret.stdout);
-          resolve();
-        }
-      });
+      this.spawner.dry()
+          .then((ret: SpawnReturns) => {
+            if (ret.status < 0) {
+              reject(ret.error.message);
+            } else {
+              this.testsuite = this.createFromString(ret.stdout);
+              resolve();
+            }
+          })
+          .catch((e) => {
+            reject(e);
+          });
     });
   }
 
   public start(ids: string[]): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       let nodes = new Array<BanditTestNode>();
       let unique_ids = new Set<string>(ids);
       for (let id of unique_ids) {
@@ -320,16 +324,20 @@ export class BanditTestSuite {
         started_nodes = started_nodes.concat(node.start());
       }
       started_nodes = helper.removeDuplicates(started_nodes, 'id');
-      this.notifyTestRunStart(nodes);
+      this.notifyStart(nodes);
       let promises = new Array<Promise<void>>();
       for (let node of started_nodes) {
         if (asTest(node)) {
           promises.push(this.createTestRunSpawn(node));
         }
       }
-      Promise.all(promises).then(() => {
-        resolve();
-      });
+      Promise.all(promises)
+          .then(() => {
+            resolve();
+          })
+          .catch((e) => {
+            reject(e);
+          });
     });
   }
 
@@ -354,7 +362,7 @@ export class BanditTestSuite {
   public cancel() {
     this.testsuite.stop();
     this.spawner.stop();
-    this.notifyTestRunFinished();
+    this.notifyFinished();
   }
 
   public getTestInfo(): TestSuiteInfo|TestInfo {
@@ -372,7 +380,7 @@ export class BanditTestSuite {
     };
     let getFailureBlock = (text: string): string|undefined => {
       const start = '\nThere were failures!';
-      const end = '\nTest run';
+      const end = '\nTest run complete.';
       let blockStartIdx = text.indexOf(start);
       if (blockStartIdx >= 0) {
         blockStartIdx += start.length;
@@ -381,10 +389,6 @@ export class BanditTestSuite {
           return text.substring(blockStartIdx, blockEndIdx);
         }
       }
-      // let block = text.match(/(?<=There were failures!)(.*\n)*(?=Test
-      // run)/i); if (block) {
-      //   return block[0];
-      // }
       return undefined;
     };
     let parseGroupLabel = (line: string): string => {
@@ -438,7 +442,7 @@ export class BanditTestSuite {
       if (line.length) {
         let indentation = line.search(/\S/);
         if (isGroup(line) || isTest(line)) {
-          // Einrückung anpassen:
+          // Einrückung berücksichtigen:
           let indentation_diff = last_indentation - indentation;
           while (indentation_diff > 0) {
             if (current_suite.parent) {
@@ -475,7 +479,7 @@ export class BanditTestSuite {
         node = undefined;
       }
     }
-    // Get error messages:
+    // Nachfolgende Fehlermeldungen verarbeiten:
     let block = getFailureBlock(stdout);
     if (block) {
       let nodes = helper.removeDuplicates(error_nodes, 'id');
@@ -498,49 +502,43 @@ export class BanditTestSuite {
     let parsed_result = this.createFromString(stdout);
     let result_node = parsed_result.find(node.id);
     if (result_node) {
-      let updated_nodes = node.finish(result_node.status, result_node.message);
-      for (let node of updated_nodes) {
-        this.notifyTestRunStatus(node);
-      }
+      node.finish(result_node.status, result_node.message)
+          .map(this.notifyStatus, this);
     }
   }
 
   private finish(
       node: BanditTestNode, status: BanditTestStatus, message?: string) {
-    let updated_nodes = node.finish(status, message)
-    for (let node of updated_nodes) {
-      this.notifyTestRunStatus(node);
-    }
+    node.finish(status, message).map(this.notifyStatus, this);
   }
 
-  private notifyTestRunStatus(node: BanditTestNode) {
+  private notifyStatus(node: BanditTestNode) {
     let e = this.getStatusEvent(node);
     if (e) {
       this.testStatesEmitter.fire(e);
       if (this.testsuite.status != BanditTestStatusRunning) {
-        this.notifyTestRunFinished();
+        this.notifyFinished();
       }
     }
   }
 
-  private notifyTestRunStart(nodes: Array<BanditTestNode>) {
+  private notifyStart(nodes: Array<BanditTestNode>) {
     let ids = new Array<string>();
     for (let node of nodes) {
+      ids.push(node.id);
       let group = asTestGroup(node);
       if (group) {
         let tests = group.tests;
         for (let test of tests) {
           ids.push(test.id);
         }
-      } else {
-        ids.push(node.id);
       }
     }
     this.testStatesEmitter.fire(
         <TestRunStartedEvent>{type: 'started', tests: ids});
   }
 
-  private notifyTestRunFinished() {
+  private notifyFinished() {
     this.testStatesEmitter.fire(<TestRunFinishedEvent>{type: 'finished'});
   }
 

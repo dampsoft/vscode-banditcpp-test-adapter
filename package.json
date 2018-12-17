@@ -70,11 +70,6 @@
           "type": "string",
           "scope": "resource"
         },
-        "banditTestExplorer.library": {
-          "description": "The glob describing the location of your test library (relative to the workspace folder)",
-          "type": "string",
-          "scope": "resource"
-        },
         "banditTestExplorer.arguments": {
           "description": "Additional arguments for the library call",
           "type": "array",

@@ -1,5 +1,5 @@
 
-import {ChildProcess, spawn, SpawnOptions, SpawnSyncReturns} from 'child_process';
+import {spawn, SpawnSyncOptionsWithStringEncoding, SpawnSyncReturns} from 'child_process';
 
 export type SpawnReturns = SpawnSyncReturns<string>;
 
@@ -7,20 +7,54 @@ export type SpawnArguments = {
   id: string,
   cmd: string,
   args?: string[],
-  options?: SpawnOptions
+  options?: SpawnSyncOptionsWithStringEncoding
 };
 
+interface SpawnToken {
+  cancel(): void;
+}
+
 export class Spawner {
-  private spawnedProcesses = new Map<string, ChildProcess>();
+  constructor(
+      private readonly max_processes: number = 3,
+      private readonly max_timeout?: number|undefined) {}
 
-  constructor() {}
+  private spawnedProcesses = new Map<string, SpawnToken>();
+  private kill_pending: boolean = false;
 
-  spawnAsync(args: SpawnArguments): Promise<SpawnReturns> {
+  public async spawn(args: SpawnArguments): Promise<SpawnReturns> {
+    this.kill_pending = false;
+    return await this.spawnPending(args, 0);
+  }
+
+  private async spawnPending(args: SpawnArguments, timeouts: number):
+      Promise<SpawnReturns> {
+    if (this.max_timeout && timeouts > this.max_timeout) {
+      throw new Error('Timeout beim Aufruf vob spawn().');
+    } else if (this.count >= this.max_processes) {
+      return new Promise<void>((resolve, reject) => {
+               if (this.kill_pending) {
+                 reject(new Error('Der Prozess wurde unterbrochen.'));
+               } else {
+                 setTimeout(resolve, 64);
+               }
+             })
+          .then(() => {
+            return this.spawnPending(args, ++timeouts);
+          });
+    } else if (this.kill_pending) {
+      throw new Error('Der Prozess wurde unterbrochen.');
+    } else {
+      return this.spawnInner(args);
+    }
+  }
+
+  private spawnInner(args: SpawnArguments): Promise<SpawnReturns> {
+    if (this.exists(args.id)) {
+      throw new Error(
+          'Ein Prozess mit id "' + args.id + '" exisitiert bereits.');
+    }
     return new Promise<SpawnReturns>((resolve, reject) => {
-      if (this.exists(args.id)) {
-        reject(new Error(
-            'Ein Prozess mit id "' + args.id + '" exisitiert bereits.'));
-      }
       const ret: SpawnReturns = {
         pid: 0,
         output: ['', ''],
@@ -38,16 +72,25 @@ export class Spawner {
       });
       command.on('error', (err: Error) => {
         ret.error = err;
-        this.kill(args.id);
         reject(ret);
+        this.kill(args.id);
       });
       command.on('close', (code) => {
         ret.status = code;
         ret.error = new Error('code: ' + String(code));
-        this.kill(args.id);
         resolve(ret);
+        this.kill(args.id);
       });
-      this.spawnedProcesses.set(args.id, command);
+      let token = <SpawnToken>{
+        cancel: () => {
+          try {
+            command.kill();
+          } catch (e) {
+          }
+          reject(new Error('Der Prozess wurde beendet.'));
+        }
+      };
+      this.spawnedProcesses.set(args.id, token);
     });
   }
 
@@ -62,14 +105,15 @@ export class Spawner {
   kill(id: string): void {
     var process = this.spawnedProcesses.get(id);
     if (process) {
-      process.kill();
+      process.cancel();
     }
     this.spawnedProcesses.delete(id);
   }
 
   killAll(): void {
+    this.kill_pending = true;
     var processes = this.spawnedProcesses;
-    processes.forEach((value: ChildProcess, key: string) => {
+    processes.forEach((value: SpawnToken, key: string) => {
       this.kill(key);
     });
   }

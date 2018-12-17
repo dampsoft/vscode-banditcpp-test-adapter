@@ -4,7 +4,7 @@ import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, Tes
 import {Log} from 'vscode-test-adapter-util';
 import {BanditSpawner} from './bandit'
 import {BanditConfiguration} from './configuration'
-import {BanditTestSuite} from './testSuite'
+import {BanditTestSuite} from './testsuite'
 
 
 export class BanditTestAdapter implements TestAdapter {
@@ -19,9 +19,9 @@ export class BanditTestAdapter implements TestAdapter {
   private readonly reloadEmitter = new vscode.EventEmitter<void>();
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
 
+  // Members
   private config = new BanditConfiguration(this.workspaceFolder);
   private spawner = new BanditSpawner(this.config);
-  // Testsuite
   private testSuite = new BanditTestSuite(this.testStatesEmitter, this.spawner);
 
   // Konstruktor
@@ -91,7 +91,7 @@ export class BanditTestAdapter implements TestAdapter {
   }
 
   async debug(tests: string[]): Promise<void> {
-    this.log.warn('debug() not implemented yet');
+    this.log.warn('debugging not implemented yet');
     await this.run(tests);
   }
 
