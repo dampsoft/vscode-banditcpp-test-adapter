@@ -1,7 +1,8 @@
 import {SpawnSyncOptionsWithStringEncoding} from 'child_process';
 
 import {SpawnArguments, Spawner, SpawnReturns} from './spawner'
-import {BanditTestNode, TestSpawner} from './testsuite'
+import {BanditTestNode} from './test'
+import {TestSpawner} from './testsuite'
 
 
 export interface BanditSpawnerConfiguration {

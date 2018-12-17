@@ -1,15 +1,84 @@
-describe ein User Repository
-        - it sollte ein User anlegen k├Ânnen ... OK
-        - it sollte einen Status einem User zuweisen k├Ânnen ... OK
-        - it sollte einem User mehrere Stats zuweisen k├Ânnen ... OK
-        - it sollte ein TestUser l├Âschen k├Ânnen ... OK
-describe ein ViewHistory Repository
-        - it sollte ein ViewHistory anlegen, finden und l├Âschen k├Ânnen ... OK
-        - it mittels getPrevious die zuletzt aufgerufene View liefern ... OK
-        - it mittels getPrevious die zuletzt aufgerufene View liefern (unter ber├╝cksichtigung der viewHistoryId) ... OK
-        - it mittels getPrevious die zuletzt aufgerufene View liefern (unter ber├╝cksichtigung der viewHistoryId) mit abweichendem ControlParam ... OK
-        - it mittels getPrevious die zuletzt aufgerufene View liefern (ShowcaseBeispiel) ... OK
-describe Apache FOP
-        - it soll aus einer FO-Datei eine PDF-Datei erzeugen k├Ânnen ... SKIPPED
-        - it sollte aus einer XML- und einer XSLT-Datei eine PDF-Datei erzeugen k├Ânnen ... SKIPPED
-        - it soll aus einer FO-Datei eine PDF/A-Datei erzeugen k├Ânnen ... SKIPPED
+Start: 16.12.2018 16:41:05.331683
+[2018-12-16 16:41:05.332335] [0x00004058] [info]    Bibliothek C:/ds4/ds4/git/buildx64/bin/Debug/ds4-kzbv.dll wird geladen
+[2018-12-16 16:41:05.356306] [0x00004058] [info]    Bibliothek C:/ds4/ds4/git/buildx64/bin/Debug/ds4-kzbv.dll wurde geladen
+BinPath: C:\ds4\ds4\git\buildx64\bin\Debug
+describe Die KBR-Klasse
+        - it sollte unvollst├ñndige Geburtsdaten korrekt formatieren ... OK
+        - it sollte einen fehlerhaften Fall pr├╝fen k├Ânnen ... OK
+        - it sollte ein Ok-Fall pr├╝fen k├Ânnen ... OK
+        - it sollte zukuenftige Abrechnungen pruefen koennen ... OK
+describe Die Klasse Kch
+        - it sollte unvollst├ñndige Geburtsdaten korrekt formatieren ... OK
+        - it sollte einen fehlerhaften Fall pr├╝fen k├Ânnen ... OK
+        - it sollte ein Ok-Fall pr├╝fen k├Ânnen ... OK
+        - it sollte zukuenftige Abrechnungen pruefen koennen ... OK
+describe Die PAR-Klasse
+        - it sollte einen Fehler auf Fallebene erkennen ... OK
+        - it sollte ein Ok-Fall pr├╝fen k├Ânnen ... OK
+        - it sollte zukuenftige Abrechnungen pruefen koennen ... OK
+describe Die ZE-Pruefmodulanbindung
+        - it sollte einen Pr├╝flauf der aktuellen ZE-Monatsabrechnung durchf├╝hren k├Ânnen ... OK
+        - it sollte zukuenftige Abrechnungen pruefen koennen ... OK
+        - it sollte einen fehlerhaften Fall pr├╝fen k├Ânnen ... OK
+describe Die Sendemodul-Klasse
+        - it sollte Abrechnungsdaten im Klartext zur├╝ck geben k├Ânnen ... OK
+        - it sollte die tempor├ñre Klartext-Ansicht erzeugen k├Ânnen und die tmp_view.abr danach wieder l├Âschen ... OK
+        - it sollte Fehler vom Sendemodul als Exceptions werfen ... OK
+        - it sollte verschl├╝sselte Abrechnungsdateien erzeugen ... OK
+        - it sollte die ZE-Statistikdatei erzeugen k├Ânnen ... OK
+        - it sollte das Fallzahlprotokoll ausgeben k├Ânnen ... OK
+        - it sollte den Leistungsspiegel ausgeben k├Ânnen ... OK
+        - it sollte die Containerdatei zum Upload erzeugen k├Ânnen ... OK
+        - it sollte mehrere verschiedene Einreichungen einer Monatsabrechnung unterst├╝tzen ... OK
+        - it sollte zukuenftige Abrechnungen pruefen koennen ... OK
+describe Die KNR12-Klasse
+        - it sollte ein Knr12-Modul laden k├Ânnen ... OK
+        - it sollte die Kassennummer zu einem g├╝ltigen Datensatz liefern k├Ânnen ... OK
+        - it sollte einen Fehler bei einer falsch formatierten Kassennummer zur├╝ck geben ... OK
+describe ein KzbvModule Repository
+        - it sollte das neueste Pr├╝fmodul finden ... HINWEIS:  Relation ┬╗databasechangelog┬½ existiert bereits, wird ├╝bersprungen
+FAILED
+        - it sollte das richtige Pr├╝fmodule f├╝r den Abrechnungszeitraum finden auch wenn ein Modul mit G├╝ltigkeit in der Zukunft existiert ... HINWEIS:  Relation ┬╗databasechangelog┬½ existiert bereits, wird ├╝bersprungen
+FAILED
+        - it sollte die neuesten Sendemodule finden ... HINWEIS:  Relation ┬╗databasechangelog┬½ existiert bereits, wird ├╝bersprungen
+FAILED
+        - it sollte die richtigen Sendemodule f├╝r den Abrechnungszeitraum finden auch wenn Module mit G├╝ltigkeit in der Zukunft existieren ... HINWEIS:  Relation ┬╗databasechangelog┬½ existiert bereits, wird ├╝bersprungen
+FAILED
+describe KzbvModule
+        - it sollten gleich sein, wenn alle Felder ├╝bereinstimmen ... OK
+        - it sollten ungleich sein, wenn sich das Datum der letzen Aktualisierung unterscheidet ... OK
+        - it sollten kleiner sein, wenn das g├╝ltig-ab Datum des ersten vor dem g├╝ltig-ab Datum des zweiten liegt ... OK
+        - it sollten kleiner sein, wenn sie ab dem gleichen Datum g├╝ltig sind, aber das erste fr├╝her aktualisiert wurde ... OK
+        - it sollten kleiner sein, wenn sie ab dem gleichen Datum g├╝ltig sind, aber das erste kein Aktualisierungsdatum hat ... OK
+        - it sollten sortiert werden k├Ânnen ... OK
+
+There were failures!
+
+ein KzbvModule Repository sollte das neueste Pr├╝fmodul finden:
+exception: Fehler beim Anlegen der Datenbank. Meldungen:
+Cannot execute query. FEHLER:  Relation ┬╗initialization_changesets┬½ existiert bereits
+ in Id "init1" der Datei "C:\ds4\ds4\git\buildx64\bin\Debug\apps\core\db_defs\initialization.xml"
+
+
+ein KzbvModule Repository sollte das richtige Pr├╝fmodule f├╝r den Abrechnungszeitraum finden auch wenn ein Modul mit G├╝ltigkeit in der Zukunft existiert:
+exception: Fehler beim Anlegen der Datenbank. Meldungen:
+Cannot execute query. FEHLER:  Relation ┬╗initialization_changesets┬½ existiert bereits
+ in Id "init1" der Datei "C:\ds4\ds4\git\buildx64\bin\Debug\apps\core\db_defs\initialization.xml"
+
+
+ein KzbvModule Repository sollte die neuesten Sendemodule finden:
+exception: Fehler beim Anlegen der Datenbank. Meldungen:
+Cannot execute query. FEHLER:  Relation ┬╗initialization_changesets┬½ existiert bereits
+ in Id "init1" der Datei "C:\ds4\ds4\git\buildx64\bin\Debug\apps\core\db_defs\initialization.xml"
+
+
+ein KzbvModule Repository sollte die richtigen Sendemodule f├╝r den Abrechnungszeitraum finden auch wenn Module mit G├╝ltigkeit in der Zukunft existieren:
+exception: Fehler beim Anlegen der Datenbank. Meldungen:
+Cannot execute query. FEHLER:  Relation ┬╗initialization_changesets┬½ existiert bereits
+ in Id "init1" der Datei "C:\ds4\ds4\git\buildx64\bin\Debug\apps\core\db_defs\initialization.xml"
+
+
+Test run complete. 37 tests run. 33 succeeded. 4 failed.
+
+Ende: 16.12.2018 16:41:11.702582
+Dauer: 00:00:06.370899

@@ -2,7 +2,7 @@
   "name": "vscode-banditcpp-test-adapter",
   "displayName": "Bandit Test Explorer",
   "description": "Run your Bandit tests in the Sidebar of Visual Studio Code",
-  "icon": "img/icon.png",
+  "icon": "img/testexplorer-banditcpp.png",
   "author": "Matthias Füg <matthias.fueg@dampsoft.de>",
   "publisher": "mf",
   "version": "0.0.1",
@@ -66,7 +66,7 @@
       "title": "Bandit Test Explorer configuration",
       "properties": {
         "banditTestExplorer.executable": {
-          "description": "The glob describing the location of your test executable (relative to the workspace folder)",
+          "description": "The glob describing the location of your bandit test executable (relative to the workspace folder)",
           "type": "string",
           "scope": "resource"
         },
