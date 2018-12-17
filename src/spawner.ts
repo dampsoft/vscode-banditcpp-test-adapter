@@ -15,7 +15,7 @@ export class Spawner {
 
   constructor() {}
 
-  spawnAsync(args: SpawnArguments): Promise<SpawnReturns>{
+  spawnAsync(args: SpawnArguments): Promise<SpawnReturns> {
     return new Promise<SpawnReturns>((resolve, reject) => {
       if (this.exists(args.id)) {
         reject(new Error(
@@ -38,16 +38,21 @@ export class Spawner {
       });
       command.on('error', (err: Error) => {
         ret.error = err;
+        this.kill(args.id);
         reject(ret);
       });
       command.on('close', (code) => {
         ret.status = code;
         ret.error = new Error('code: ' + String(code));
-        resolve(ret);
         this.kill(args.id);
+        resolve(ret);
       });
       this.spawnedProcesses.set(args.id, command);
-    })
+    });
+  }
+
+  public get count(): number {
+    return this.spawnedProcesses.size;
   }
 
   exists(id: string): boolean {
@@ -58,8 +63,8 @@ export class Spawner {
     var process = this.spawnedProcesses.get(id);
     if (process) {
       process.kill();
-      this.spawnedProcesses.delete(id);
     }
+    this.spawnedProcesses.delete(id);
   }
 
   killAll(): void {

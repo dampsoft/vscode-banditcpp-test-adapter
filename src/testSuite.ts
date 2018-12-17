@@ -27,6 +27,7 @@ export type BanditTestNode = BanditTest|BanditTestGroup;
 export interface TestSpawner {
   run(node: BanditTestNode): Promise<SpawnReturns>;
   dry(): Promise<SpawnReturns>;
+  stop(): void;
 }
 
 /**
@@ -60,6 +61,13 @@ abstract class TestNode {
     return parents.reverse();
   }
   public abstract getTestInfo(): TestSuiteInfo|TestInfo;
+  public get displayTitle(): string {
+    if (this.parent) {
+      return this.parent.displayTitle + ' ' + this.label;
+    } else {
+      return this.label;
+    }
+  }
 }
 
 
@@ -316,21 +324,7 @@ export class BanditTestSuite {
       let promises = new Array<Promise<void>>();
       for (let node of started_nodes) {
         if (asTest(node)) {
-          promises.push(new Promise<void>((resolve, reject) => {
-            this.spawner.run(node)
-                .then((ret: SpawnReturns) => {
-                  if (ret.status < 0) {
-                    this.finish(node, BanditTestStatusFailed);
-                    reject(ret.error.message);
-                  } else {
-                    this.updateFromString(node, ret.stdout);
-                    resolve();
-                  }
-                })
-                .catch((e) => {
-                  reject(e);
-                });
-          }));
+          promises.push(this.createTestRunSpawn(node));
         }
       }
       Promise.all(promises).then(() => {
@@ -339,8 +333,28 @@ export class BanditTestSuite {
     });
   }
 
+  private createTestRunSpawn(node: BanditTestNode): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      this.spawner.run(node)
+          .then((ret: SpawnReturns) => {
+            if (ret.status < 0) {
+              this.finish(node, BanditTestStatusFailed);
+              reject(ret.error.message);
+            } else {
+              this.updateFromString(node, ret.stdout);
+              resolve();
+            }
+          })
+          .catch((e) => {
+            reject(e);
+          });
+    });
+  }
+
   public cancel() {
     this.testsuite.stop();
+    this.spawner.stop();
+    this.notifyTestRunFinished();
   }
 
   public getTestInfo(): TestSuiteInfo|TestInfo {
@@ -348,13 +362,30 @@ export class BanditTestSuite {
   }
 
   private createFromString(stdout: string): BanditTestGroup {
-    let root = new BanditTestGroup(undefined, 'root', 'root');
+    let root = new BanditTestGroup(undefined, '');
     let messages = Array<String>();
     let isGroup = (line: string): boolean => {
       return line.trim().startsWith('describe');
     };
     let isTest = (line: string): boolean => {
       return line.trim().startsWith('- it ')
+    };
+    let getFailureBlock = (text: string): string|undefined => {
+      const start = '\nThere were failures!';
+      const end = '\nTest run';
+      let blockStartIdx = text.indexOf(start);
+      if (blockStartIdx >= 0) {
+        blockStartIdx += start.length;
+        let blockEndIdx = text.indexOf(end, blockStartIdx);
+        if (blockEndIdx > blockStartIdx) {
+          return text.substring(blockStartIdx, blockEndIdx);
+        }
+      }
+      // let block = text.match(/(?<=There were failures!)(.*\n)*(?=Test
+      // run)/i); if (block) {
+      //   return block[0];
+      // }
+      return undefined;
     };
     let parseGroupLabel = (line: string): string => {
       return line.trim().replace(/describe(.*)/i, '\$1').trim();
@@ -385,18 +416,23 @@ export class BanditTestSuite {
     let getMessage = (): string => {
       return messages.join('\n');
     };
+    let error_nodes = new Array<BanditTestNode>();
     let finishNode =
         (node: BanditTestNode|undefined,
          status: BanditTestStatus|undefined) => {
           if (status && node) {
             node.message = getMessage();
-            node.finish(status);
+            let nodes = node.finish(status);
+            if (status == BanditTestStatusFailed) {
+              error_nodes = error_nodes.concat(nodes);
+            }
           }
         };
     let current_suite = root;
     let node: BanditTestNode|undefined;
     let last_indentation = 0;
     let status: BanditTestStatus|undefined;
+    stdout = stdout.replace('\r\n', '\n');
     let lines = stdout.split(/[\n]+/);
     for (let line of lines) {
       if (line.length) {
@@ -437,6 +473,22 @@ export class BanditTestSuite {
         finishNode(node, status);
         last_indentation = indentation;
         node = undefined;
+      }
+    }
+    // Get error messages:
+    let block = getFailureBlock(stdout);
+    if (block) {
+      let nodes = helper.removeDuplicates(error_nodes, 'id');
+      let blocks = block.trim().split(/[\n/]{3,}/);
+      for (let error of blocks) {
+        let lines = error.split(/[\n]+/);
+        if (lines.length > 1) {
+          for (let node of nodes) {
+            if (lines[0].startsWith(node.displayTitle.trim() + ':')) {
+              node.message = lines.slice(1, lines.length).join('\n');
+            }
+          }
+        }
       }
     }
     return root;

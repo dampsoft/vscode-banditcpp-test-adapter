@@ -62,7 +62,7 @@ export class BanditTestAdapter implements TestAdapter {
 
   async load(): Promise<void> {
     this.log.info('Loading bandit tests');
-
+    this.cancel();
     this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
     if (this.testSuite) {
       try {
@@ -97,7 +97,6 @@ export class BanditTestAdapter implements TestAdapter {
 
   cancel(): void {
     this.testSuite.cancel();
-    // this.spawner.killAll();
   }
 
   dispose(): void {
