@@ -8,16 +8,16 @@ export async function activate(context: vscode.ExtensionContext) {
   const workspaceFolder = (vscode.workspace.workspaceFolders || [])[0];
 
   // create a simple logger that can be configured with the configuration
-  // variables `exampleExplorer.logpanel` and `exampleExplorer.logfile`
+  // variables `banditTestExplorer.logpanel` and `banditTestExplorer.logfile`
   const log =
-      new Log('banitTestExplorer', workspaceFolder, 'Bandit Test Explorer Log');
+      new Log('banditTestExplorer', workspaceFolder, 'Bandit Test Explorer');
   context.subscriptions.push(log);
 
   // get the Test Explorer extension
   const testExplorerExtension =
       vscode.extensions.getExtension<TestHub>(testExplorerExtensionId);
   if (log.enabled)
-    log.info(`Test Explorer ${testExplorerExtension ? '' : 'not '}found`);
+    log.info(`Test Explorer ${testExplorerExtension ? '' : 'nicht '}gefunden`);
 
   if (testExplorerExtension) {
     if (!testExplorerExtension.isActive) {

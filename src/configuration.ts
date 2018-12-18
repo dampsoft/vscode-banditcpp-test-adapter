@@ -1,10 +1,10 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import {BanditSpawnerConfiguration} from './bandit'
+
 import {VariableResolver} from './helper';
 
-export class BanditConfiguration implements BanditSpawnerConfiguration {
+export class BanditConfiguration {
   private resolver = new VariableResolver(this.workspaceFolder);
   // Konstruktor
   constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {}
@@ -46,7 +46,7 @@ export class BanditConfiguration implements BanditSpawnerConfiguration {
       if ((val === undefined) || (val === null)) {
         delete resultEnv.prop;
       } else {
-        resultEnv[prop] = String(val);
+        resultEnv[prop] = this.resolver.resolve(String(val));
       }
     }
 
@@ -58,6 +58,7 @@ export class BanditConfiguration implements BanditSpawnerConfiguration {
     if (args) {
       var args_modified = new Array<string>();
       for (let arg of args) {
+        arg = this.resolver.resolve(arg);
         if (arg.trim().length > 0) {
           if (arg.trim().indexOf(' ') >= 0) {
             arg = '"' + arg.trim() + '"';
@@ -69,5 +70,9 @@ export class BanditConfiguration implements BanditSpawnerConfiguration {
     } else {
       return [];
     }
+  }
+
+  public get maxParallelProcess(): number {
+    return this.config.get<number>('maxParallelProcess', 10);
   }
 }

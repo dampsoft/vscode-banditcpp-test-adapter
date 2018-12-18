@@ -1,17 +1,16 @@
 import {SpawnSyncOptionsWithStringEncoding} from 'child_process';
+import {Log} from 'vscode-test-adapter-util';
 
+import {BanditConfiguration} from './configuration'
 import {SpawnArguments, Spawner, SpawnReturns} from './spawner'
 import {BanditTestNode} from './test'
 import {TestSpawner} from './testsuite'
 
 
-export interface BanditSpawnerConfiguration {
-  cmd: string, cwd: string, env: NodeJS.ProcessEnv, args: string[]
-}
 
 export class BanditSpawner implements TestSpawner {
-  constructor(private readonly config: BanditSpawnerConfiguration) {}
-  private spawner = new Spawner();
+  constructor(private readonly config: BanditConfiguration, private log: Log) {}
+  private spawner = new Spawner(this.config);
 
   private createSpawnOptions(): SpawnSyncOptionsWithStringEncoding {
     return <SpawnSyncOptionsWithStringEncoding>{
@@ -66,9 +65,17 @@ export class BanditSpawner implements TestSpawner {
       let spawn_args = this.createSpawnArgumentsTestRun(node);
       this.spawner.spawn(spawn_args)
           .then((ret: SpawnReturns) => {
-            resolve(ret);
+            if (ret.status < 0) {
+              this.log.error(
+                  'Fehlerhafter Return-Value beim run() Aufruf der Testexecutable');
+              reject(ret.error);
+            } else {
+              this.log.debug('Testexecutable erfolgreich aufgerufen');
+              resolve(ret);
+            }
           })
           .catch((e) => {
+            this.log.error('Fehler beim run() Aufruf der Testexecutable');
             reject(e);
           });
     });
@@ -79,15 +86,24 @@ export class BanditSpawner implements TestSpawner {
       let spawn_args = this.createSpawnArgumentsDryRun();
       this.spawner.spawn(spawn_args)
           .then((ret: SpawnReturns) => {
-            resolve(ret);
+            if (ret.status < 0) {
+              this.log.error(
+                  'Fehlerhafter Return-Value beim dry() Aufruf der Testexecutable');
+              reject(ret.error);
+            } else {
+              this.log.debug('Testexecutable erfolgreich aufgerufen');
+              resolve(ret);
+            }
           })
           .catch((e) => {
+            this.log.error('Fehler beim dry() Aufruf der Testexecutable');
             reject(e);
           });
     });
   }
 
   public stop() {
+    this.log.info('Beende alle laufenden Prozesse');
     this.spawner.killAll();
   }
 }

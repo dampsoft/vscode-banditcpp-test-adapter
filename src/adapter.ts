@@ -21,20 +21,21 @@ export class BanditTestAdapter implements TestAdapter {
 
   // Members
   private config = new BanditConfiguration(this.workspaceFolder);
-  private spawner = new BanditSpawner(this.config);
-  private testSuite = new BanditTestSuite(this.testStatesEmitter, this.spawner);
+  private spawner = new BanditSpawner(this.config, this.log);
+  private testSuite =
+      new BanditTestSuite(this.testStatesEmitter, this.spawner, this.log);
 
   // Konstruktor
   constructor(
       public readonly workspaceFolder: vscode.WorkspaceFolder,
       private readonly log: Log) {
-    this.log.info('Initializing bandit adapter');
+    this.log.info('Initialisiere den Bandit Test-Adapter');
 
     const executable = this.config.cmd;
     if (executable) {
       fs.watchFile(executable, (curr: any, prev: any) => {
-        console.log(`the current mtime is: ${curr.mtime}`);
-        console.log(`the previous mtime was: ${prev.mtime}`);
+        console.log(`Aktuelle mtime: ${curr.mtime}`);
+        console.log(`Vorherige mtime: ${prev.mtime}`);
         this.autorunEmitter.fire();
       });
     }
@@ -61,7 +62,7 @@ export class BanditTestAdapter implements TestAdapter {
   }
 
   async load(): Promise<void> {
-    this.log.info('Loading bandit tests');
+    this.log.info('Lade Bandit Tests');
     this.cancel();
     this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
     if (this.testSuite) {
@@ -78,7 +79,7 @@ export class BanditTestAdapter implements TestAdapter {
   }
 
   async run(tests: string[]): Promise<void> {
-    this.log.info(`Running bandit tests ${JSON.stringify(tests)}`);
+    this.log.info(`Starte Bandit Tests ${JSON.stringify(tests)}`);
     this.testStatesEmitter.fire(<TestRunStartedEvent>{type: 'started', tests});
     if (this.testSuite) {
       try {
@@ -91,7 +92,7 @@ export class BanditTestAdapter implements TestAdapter {
   }
 
   async debug(tests: string[]): Promise<void> {
-    this.log.warn('debugging not implemented yet');
+    this.log.warn('Das Debugging ist noch nicht implementiert!');
     await this.run(tests);
   }
 

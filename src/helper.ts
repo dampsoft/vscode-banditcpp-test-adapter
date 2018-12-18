@@ -41,6 +41,10 @@ export class VariableResolver {
   }
 }
 
+export function cleanPath(path: string): string {
+  return path.replace(/\\/g, '/');
+}
+
 export function flatten<T>(array: Array<Array<T>>): Array<T> {
   return new Array<T>().concat(...array);
 }

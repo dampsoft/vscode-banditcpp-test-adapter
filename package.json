@@ -88,6 +88,23 @@
         "banditTestExplorer.cwd": {
           "description": "The working directory where mocha is run (relative to the workspace folder)",
           "type": "string",
+          "scope": "resource",
+          "default": "${workspaceFolder}"
+        },
+        "banditTestExplorer.maxParallelProcess": {
+          "description": "The maximum amount of parallel processes startet during a test run",
+          "type": "integer",
+          "scope": "resource",
+          "default": 1
+        },
+        "banditTestExplorer.logpanel": {
+          "description": "Write diagnotic logs to an output panel",
+          "type": "boolean",
+          "scope": "resource"
+        },
+        "banditTestExplorer.logfile": {
+          "description": "Write diagnostic logs to the given file",
+          "type": "string",
           "scope": "resource"
         }
       }

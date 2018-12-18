@@ -1,5 +1,6 @@
 
 import {spawn, SpawnSyncOptionsWithStringEncoding, SpawnSyncReturns} from 'child_process';
+import {BanditConfiguration} from './configuration'
 
 export type SpawnReturns = SpawnSyncReturns<string>;
 
@@ -16,7 +17,7 @@ interface SpawnToken {
 
 export class Spawner {
   constructor(
-      private readonly max_processes: number = 3,
+      private readonly config: BanditConfiguration,
       private readonly max_timeout?: number|undefined) {}
 
   private spawnedProcesses = new Map<string, SpawnToken>();
@@ -31,7 +32,7 @@ export class Spawner {
       Promise<SpawnReturns> {
     if (this.max_timeout && timeouts > this.max_timeout) {
       throw new Error('Timeout beim Aufruf vob spawn().');
-    } else if (this.count >= this.max_processes) {
+    } else if (this.count >= this.config.maxParallelProcess) {
       return new Promise<void>((resolve, reject) => {
                if (this.kill_pending) {
                  reject(new Error('Der Prozess wurde unterbrochen.'));

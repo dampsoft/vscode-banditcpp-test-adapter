@@ -2,6 +2,7 @@
 import * as vscode from 'vscode';
 import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 import {TestEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
+import {Log} from 'vscode-test-adapter-util';
 
 import * as helper from './helper'
 import {SpawnReturns} from './spawner'
@@ -31,26 +32,27 @@ export class BanditTestSuite {
       private readonly testStatesEmitter:
           vscode.EventEmitter<TestRunStartedEvent|TestRunFinishedEvent|
                               TestSuiteEvent|TestEvent>,
-      private spawner: TestSpawner) {}
+      private spawner: TestSpawner, private log: Log) {}
 
   public init(): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.log.debug('Starte das Laden der Tests');
       this.spawner.dry()
           .then((ret: SpawnReturns) => {
-            if (ret.status < 0) {
-              reject(ret.error.message);
-            } else {
-              this.testsuite = this.createFromString(ret.stdout);
-              resolve();
-            }
+            this.log.debug('Erzeuge die Test-Suite');
+            this.testsuite = this.createFromString(ret.stdout);
+            this.log.debug('Laden der Tests erfolgreich beendet');
+            resolve();
           })
           .catch((e) => {
+            this.log.error('Fehler beim Laden der Tests');
             reject(e);
           });
     });
   }
 
   public start(ids: string[]): Promise<void> {
+    this.log.debug('Starte einen neuen Testlauf');
     return new Promise((resolve, reject) => {
       let nodes = new Array<BanditTestNode>();
       let unique_ids = new Set<string>(ids);
@@ -63,6 +65,7 @@ export class BanditTestSuite {
         started_nodes = started_nodes.concat(node.start());
       }
       started_nodes = helper.removeDuplicates(started_nodes, 'id');
+      this.log.debug(nodes.length.toString() + ' Tests werden gestartet');
       this.notifyStart(nodes);
       let promises = new Array<Promise<void>>();
       for (let node of started_nodes) {
@@ -72,6 +75,7 @@ export class BanditTestSuite {
       }
       Promise.all(promises)
           .then(() => {
+            this.log.debug('Testlauf erfolgreich beendet');
             resolve();
           })
           .catch((e) => {
@@ -84,21 +88,19 @@ export class BanditTestSuite {
     return new Promise<void>((resolve, reject) => {
       this.spawner.run(node)
           .then((ret: SpawnReturns) => {
-            if (ret.status < 0) {
-              this.finish(node, teststatus.Failed);
-              reject(ret.error.message);
-            } else {
-              this.updateFromString(node, ret.stdout);
-              resolve();
-            }
+            this.updateFromString(node, ret.stdout);
+            resolve();
           })
           .catch((e) => {
+            this.finish(node, teststatus.Failed);
+            this.log.error('Fehler beim Ausführen des Tests "' + node.id + '"');
             reject(e);
           });
     });
   }
 
   public cancel() {
+    this.log.info('Breche alle laufenden Tests ab');
     this.testsuite.stop();
     this.spawner.stop();
     this.notifyFinished();
@@ -164,6 +166,8 @@ export class BanditTestSuite {
          status: teststatus.TestStatus|undefined) => {
           if (status && node) {
             node.message = getMessage();
+            this.log.debug(
+                'Status "' + status + '" für Test "' + node.id + '" erkannt');
             let nodes = node.finish(status);
             if (status == teststatus.Failed) {
               error_nodes = error_nodes.concat(nodes);
@@ -186,9 +190,10 @@ export class BanditTestSuite {
             if (current_suite.parent) {
               current_suite = current_suite.parent;
             } else {
-              throw new Error(
-                  'Fehlender Parent bei node mit der id "' + current_suite.id +
-                  '"');
+              let msg = 'Fehlender Parent bei node mit der id "' +
+                  current_suite.id + '"';
+              this.log.error(msg);
+              throw new Error(msg);
             }
             indentation_diff -= 1;
           }
@@ -200,12 +205,14 @@ export class BanditTestSuite {
             clearMessages();
             node = current_suite =
                 current_suite.addSuite(parseGroupLabel(line));
+            this.log.debug('Neue Gruppe erkannt: "' + node.id + '"');
           } else if (isTest(line)) {
             if (node) {
               node.message = getMessage();
             }
             clearMessages();
             node = current_suite.addTest(parseTestLabel(line));
+            this.log.debug('Neuen Test erkannt: "' + node.id + '"');
           }
         } else {
           messages.push(line);
@@ -227,7 +234,11 @@ export class BanditTestSuite {
         if (lines.length > 1) {
           for (let node of nodes) {
             if (lines[0].startsWith(node.displayTitle.trim() + ':')) {
-              node.message = lines.slice(1, lines.length).join('\n');
+              node.message =
+                  lines.slice(1, lines.length).join('\n').replace(/\n$/, '');
+              this.log.debug(
+                  'Fehlermeldung für Test "' + node.id + '" erkannt:\n' +
+                  node.message);
             }
           }
         }
@@ -240,8 +251,15 @@ export class BanditTestSuite {
     let parsed_result = this.createFromString(stdout);
     let result_node = parsed_result.find(node.id);
     if (result_node) {
+      this.log.debug(
+          'Status "' + result_node.status + '" für Test "' + node.id +
+          '" erkannt');
       node.finish(result_node.status, result_node.message)
           .map(this.notifyStatus, this);
+    } else {
+      this.log.warn(
+          'In der Testausgabe konnte der Test "' + node.id +
+          '" nicht gefunden werden');
     }
   }
 
