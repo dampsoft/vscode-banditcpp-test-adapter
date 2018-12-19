@@ -178,7 +178,7 @@ export class BanditTestSuite {
     let node: BanditTestNode|undefined;
     let last_indentation = 0;
     let status: teststatus.TestStatus|undefined;
-    stdout = stdout.replace('\r\n', '\n');
+    stdout = stdout.replace(/\r\n/g, '\n');
     let lines = stdout.split(/[\n]+/);
     for (let line of lines) {
       if (line.length) {
@@ -203,16 +203,38 @@ export class BanditTestSuite {
               node.message = getMessage();
             }
             clearMessages();
-            node = current_suite =
-                current_suite.addSuite(parseGroupLabel(line));
-            this.log.debug('Neue Gruppe erkannt: "' + node.id + '"');
+            let newLabel = parseGroupLabel(line);
+            // Node already exists?
+            let existingGroup =
+                asTestGroup(current_suite.findByLabel(newLabel));
+            if (!existingGroup) {
+              node = current_suite = current_suite.addSuite(newLabel);
+              this.log.debug('Neue Gruppe erkannt: "' + node.id + '"');
+            } else {
+              this.log.error(
+                  'Eine Gruppe mit dem Label "' + newLabel +
+                  '" exisitiert bereits in der Gruppe "' + current_suite.id +
+                  '"');
+              node = current_suite = existingGroup;
+            }
           } else if (isTest(line)) {
             if (node) {
               node.message = getMessage();
             }
             clearMessages();
-            node = current_suite.addTest(parseTestLabel(line));
-            this.log.debug('Neuen Test erkannt: "' + node.id + '"');
+            let newLabel = parseTestLabel(line);
+            // Node already exists?
+            let existingTest = asTest(current_suite.findByLabel(newLabel));
+            if (!existingTest) {
+              node = current_suite.addTest(newLabel);
+              this.log.debug('Neuen Test erkannt: "' + node.id + '"');
+            } else {
+              this.log.error(
+                  'Ein Test mit dem Label "' + newLabel +
+                  '" exisitiert bereits in der Gruppe "' + current_suite.id +
+                  '"');
+              node = existingTest;
+            }
           }
         } else {
           messages.push(line);
@@ -228,7 +250,7 @@ export class BanditTestSuite {
     let block = getFailureBlock(stdout);
     if (block) {
       let nodes = helper.removeDuplicates(error_nodes, 'id');
-      let blocks = block.trim().split(/[\n/]{3,}/);
+      let blocks = block.trim().split(/\n{3,}/g);
       for (let error of blocks) {
         let lines = error.split(/[\n]+/);
         if (lines.length > 1) {
