@@ -18,7 +18,8 @@ export class BanditSpawner implements TestSpawner {
       env: this.config.env,
       shell: true,
       windowsVerbatimArguments: true,
-      encoding: 'utf8'
+      encoding: 'utf8',
+      windowsHide: true
     };
   }
 

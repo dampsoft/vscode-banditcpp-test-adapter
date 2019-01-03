@@ -1,14 +1,19 @@
-import * as fs from 'fs'
 import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
 import {Log} from 'vscode-test-adapter-util';
+
 import {BanditSpawner} from './bandit'
 import {BanditConfiguration} from './configuration'
 import {BanditTestSuite} from './testsuite'
+import * as watcher from './watch'
 
+
+type Disposable = {
+  dispose(): void
+};
 
 export class BanditTestAdapter implements TestAdapter {
-  private disposables: {dispose(): void}[] = [];
+  private disposables: Disposable[] = [];
 
   // Emitters
   private readonly testsEmitter =
@@ -30,20 +35,11 @@ export class BanditTestAdapter implements TestAdapter {
       public readonly workspaceFolder: vscode.WorkspaceFolder,
       private readonly log: Log) {
     this.log.info('Initialisiere den Bandit Test-Adapter');
-
-    const executable = this.config.cmd;
-    if (executable) {
-      fs.watchFile(executable, (curr: any, prev: any) => {
-        console.log(`Aktuelle mtime: ${curr.mtime}`);
-        console.log(`Vorherige mtime: ${prev.mtime}`);
-        this.autorunEmitter.fire();
-      });
-    }
-
     this.disposables.push(this.testsEmitter);
     this.disposables.push(this.testStatesEmitter);
     this.disposables.push(this.reloadEmitter);
     this.disposables.push(this.autorunEmitter);
+    this.disposables.push(this.createWatcher());
   }
 
   // Schnittstellen
@@ -61,7 +57,7 @@ export class BanditTestAdapter implements TestAdapter {
     return this.autorunEmitter.event;
   }
 
-  async load(): Promise<void> {
+  public async load(): Promise<void> {
     this.log.info('Lade Bandit Tests');
     this.cancel();
     this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
@@ -78,7 +74,7 @@ export class BanditTestAdapter implements TestAdapter {
     });
   }
 
-  async run(tests: string[]): Promise<void> {
+  public async run(tests: string[]): Promise<void> {
     this.log.info(`Starte Bandit Tests ${JSON.stringify(tests)}`);
     this.testStatesEmitter.fire(<TestRunStartedEvent>{type: 'started', tests});
     if (this.testSuite) {
@@ -91,20 +87,37 @@ export class BanditTestAdapter implements TestAdapter {
     this.testStatesEmitter.fire(<TestRunFinishedEvent>{type: 'finished'});
   }
 
-  async debug(tests: string[]): Promise<void> {
+  public async debug(tests: string[]): Promise<void> {
     this.log.warn('Das Debugging ist noch nicht implementiert!');
     await this.run(tests);
   }
 
-  cancel(): void {
+  public cancel(): void {
     this.testSuite.cancel();
   }
 
-  dispose(): void {
+  public dispose(): void {
     this.cancel();
     for (const disposable of this.disposables) {
       disposable.dispose();
     }
     this.disposables = [];
+  }
+
+  private createWatcher() {
+    return watcher.createWatcher(
+        this.config.cmd,
+        () => {
+          this.log.info('Beobachte Änderung an der Testumgebung...');
+        },
+        (path) => {
+          this.log.info(
+              'Änderung an der Testumgebung erkannt. Führe Autorun aus.');
+          this.autorunEmitter.fire();
+        },
+        (error) => {
+          this.log.error(
+              'Beim Beobachten der Testumgebung ist ein Fehler aufgetreten.');
+        });
   }
 }

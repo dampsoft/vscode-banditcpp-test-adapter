@@ -40,13 +40,15 @@
     "tslib": "^1.9.3",
     "vscode-test-adapter-api": "^1.0.1",
     "vscode-test-adapter-util": "^0.5.0",
-    "xml2js": "^0.4.19"
+    "xml2js": "^0.4.19",
+    "chokidar": "^2.0.4"
   },
   "devDependencies": {
     "@types/entities": "^1.1.0",
     "@types/uuid": "^3.4.4",
     "@types/xml-parser": "^1.2.29",
     "@types/xml2js": "^0.4.2",
+    "chokidar": "^2.0.4",
     "typescript": "^3.0.3",
     "vsce": "^1.47.0",
     "vscode": "^1.1.21"
@@ -66,12 +68,12 @@
       "title": "Bandit Test Explorer configuration",
       "properties": {
         "banditTestExplorer.executable": {
-          "description": "The glob describing the location of your bandit test executable (relative to the workspace folder)",
+          "description": "The location of your bandit test executable (absolute or relative to the workspace folder)",
           "type": "string",
           "scope": "resource"
         },
         "banditTestExplorer.arguments": {
-          "description": "Additional arguments for the library call",
+          "description": "Additional arguments for the executable call",
           "type": "array",
           "scope": "resource",
           "default": []
@@ -86,7 +88,7 @@
           "scope": "resource"
         },
         "banditTestExplorer.cwd": {
-          "description": "The working directory where mocha is run (relative to the workspace folder)",
+          "description": "The working directory where bandit is executed (absolute or relative to the workspace folder)",
           "type": "string",
           "scope": "resource",
           "default": "${workspaceFolder}"
