@@ -1,0 +1,37 @@
+{
+   "testsuites": [{
+         "name": "util",
+         "cmd": "${workspaceFolder}/buildx64/bin/Debug/ds4b-tests-util.exe",
+         "options": [
+            "-backend", "postgresql",
+            "-connection", "host=localhost dbname=test user=postgres password=test"
+         ]
+      },
+      {
+         "name": "ds4-kzbv",
+         "cmd": "${workspaceFolder}/buildx64/bin/Debug/ds4b-test-runner.exe",
+         "options": [
+            "-testlib", "${workspaceFolder}/buildx64/bin/Debug/ds4-kzbv.dll",
+            "-backend", "postgresql",
+            "-connection", "host=localhost dbname=test user=postgres password=test"
+         ],
+         "autorunWatches": [
+            "${workspaceFolder}/buildx64/bin/Debug/ds4-kzbv.dll"
+         ]
+      },
+      {
+         "name": "ds4",
+         "cmd": "${workspaceFolder}/buildx64/bin/Debug/ds4b-tests-app-ds4.exe",
+         "options": [
+            "-backend", "postgresql",
+            "-connection", "host=localhost dbname=test user=postgres password=test"
+         ],
+         "autorunWatches": [
+            "${workspaceFolder}/buildx64/bin/Debug/apps/app-ds4/app-ds4.dll"
+         ],
+         "env": {
+            "Path": "${workspaceFolder}/buildx64/bin/Debug/apps/app-ds4/"
+         }
+      }
+   ]
+}

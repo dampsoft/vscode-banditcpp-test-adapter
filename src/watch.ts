@@ -10,19 +10,19 @@ export type ChangeHandler = (path: string) => void;
 export type ErrorHandler = (error: Error|string) => void;
 
 export class DisposableWatcher {
-  constructor(private readonly watcher: any) {}
-  public dispose(): void {
-    this.watcher.close();
-  }
-}
+  private readonly watch: any;
 
-export function createWatcher(
-    file: string, onReady: ReadyHandler, onChange: ChangeHandler,
-    onError: ErrorHandler): DisposableWatcher {
-  let watcher =
-      chokidar.watch(file, {ignored: /(^|[\/\\])\../, persistent: true});
-  watcher.on('change', onChange);
-  watcher.on('error', onError);
-  watcher.on('ready', onReady);
-  return new DisposableWatcher(watcher);
+  constructor(
+      files: string[], onReady: ReadyHandler, onChange: ChangeHandler,
+      onError: ErrorHandler) {
+    this.watch =
+        chokidar.watch(files, {ignored: /(^|[\/\\])\../, persistent: true});
+    this.watch.on('change', onChange);
+    this.watch.on('error', onError);
+    this.watch.on('ready', onReady);
+  }
+
+  public dispose(): void {
+    this.watch.close();
+  }
 }

@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
-import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
+import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 import {Log} from 'vscode-test-adapter-util';
 
 import {BanditSpawner} from './bandit'
-import {BanditConfiguration} from './configuration'
+import * as config from './configuration'
 import {BanditTestSuite} from './testsuite'
 import * as watcher from './watch'
 
@@ -14,6 +14,7 @@ type Disposable = {
 
 export class BanditTestAdapter implements TestAdapter {
   private disposables: Disposable[] = [];
+  private watches: Disposable[] = [];
 
   // Emitters
   private readonly testsEmitter =
@@ -25,10 +26,9 @@ export class BanditTestAdapter implements TestAdapter {
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
 
   // Members
-  private config = new BanditConfiguration(this.workspaceFolder);
-  private spawner = new BanditSpawner(this.config, this.log);
-  private testSuite =
-      new BanditTestSuite(this.testStatesEmitter, this.spawner, this.log);
+  private config: config.BanditConfiguration =
+      new config.Configuration(this.workspaceFolder);
+  private testSuites: BanditTestSuite[] = [];
 
   // Konstruktor
   constructor(
@@ -39,7 +39,7 @@ export class BanditTestAdapter implements TestAdapter {
     this.disposables.push(this.testStatesEmitter);
     this.disposables.push(this.reloadEmitter);
     this.disposables.push(this.autorunEmitter);
-    this.disposables.push(this.createWatcher());
+    this.createConfigWatch();
   }
 
   // Schnittstellen
@@ -59,30 +59,37 @@ export class BanditTestAdapter implements TestAdapter {
 
   public async load(): Promise<void> {
     this.log.info('Lade Bandit Tests');
-    this.cancel();
+    this.reset();
     this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
-    if (this.testSuite) {
-      try {
-        await this.testSuite.init();
-      } catch (e) {
-        this.log.error(e.message);
-      }
+    let promises = new Array<Promise<void>>();
+    for (let testSuite of this.testSuites) {
+      promises.push(testSuite.init());
     }
-    this.testsEmitter.fire(<TestLoadFinishedEvent>{
-      type: 'finished',
-      suite: this.testSuite.getTestInfo()
-    });
+    try {
+      await Promise.all(promises);
+    } catch (e) {
+      this.log.error(e.message);
+    }
+    let info: TestSuiteInfo =
+        {id: 'root', label: 'root', type: 'suite', children: []};
+    for (let testSuite of this.testSuites) {
+      info.children.push(testSuite.getTestInfo());
+    }
+    this.testsEmitter.fire(
+        <TestLoadFinishedEvent>{type: 'finished', suite: info});
   }
 
   public async run(tests: string[]): Promise<void> {
     this.log.info(`Starte Bandit Tests ${JSON.stringify(tests)}`);
     this.testStatesEmitter.fire(<TestRunStartedEvent>{type: 'started', tests});
-    if (this.testSuite) {
-      try {
-        await this.testSuite.start(tests);
-      } catch (e) {
-        this.log.error(e.message);
-      }
+    let promises = new Array<Promise<void>>();
+    for (let testSuite of this.testSuites) {
+      promises.push(testSuite.start(tests));
+    }
+    try {
+      await Promise.all(promises);
+    } catch (e) {
+      this.log.error(e.message);
     }
     this.testStatesEmitter.fire(<TestRunFinishedEvent>{type: 'finished'});
   }
@@ -92,32 +99,84 @@ export class BanditTestAdapter implements TestAdapter {
     await this.run(tests);
   }
 
-  public cancel(): void {
-    this.testSuite.cancel();
+  public cancel() {
+    for (let testsuite of this.testSuites) {
+      testsuite.cancel();
+    }
   }
 
-  public dispose(): void {
+  public dispose() {
     this.cancel();
-    for (const disposable of this.disposables) {
+    this.disp(this.disposables);
+    this.disposables = [];
+    this.disp(this.watches);
+    this.watches = [];
+  }
+
+  private disp(disposables: Disposable[]) {
+    for (const disposable of disposables) {
       disposable.dispose();
     }
-    this.disposables = [];
   }
 
-  private createWatcher() {
-    return watcher.createWatcher(
-        this.config.cmd,
-        () => {
-          this.log.info('Beobachte Änderung an der Testumgebung...');
-        },
-        (path) => {
-          this.log.info(
-              'Änderung an der Testumgebung erkannt. Führe Autorun aus.');
-          this.autorunEmitter.fire();
-        },
-        (error) => {
-          this.log.error(
-              'Beim Beobachten der Testumgebung ist ein Fehler aufgetreten.');
-        });
+  private reset() {
+    this.createAutorunWatches();
+    let tempConfig = new config.Configuration(this.workspaceFolder);
+    this.config = tempConfig;
+    this.cancel();
+    this.testSuites = [];
+    for (let tsconfig of this.config.testsuites) {
+      let testsuiteSpawner = new BanditSpawner(tsconfig, this.log);
+      let testSuite = new BanditTestSuite(
+          tsconfig.name, this.testStatesEmitter, testsuiteSpawner, this.log);
+      this.testSuites.push(testSuite);
+    }
+  }
+
+  private createConfigWatch() {
+    let watch = vscode.workspace.onDidChangeConfiguration(configChange => {
+      let affects = (property: config.Property): boolean => {
+        return configChange.affectsConfiguration(
+            this.config.fullname(property), this.workspaceFolder.uri);
+      };
+      if (this.config.properties.some(affects)) {
+        this.load();
+      }
+    });
+    this.disposables.push(watch);
+  }
+
+  private createAutorunWatches() {
+    this.disp(this.watches);
+    this.watches = [];
+    let suiteconfigs = this.config.testsuites;
+    let paths: string[];
+    for (let suiteconfig of suiteconfigs) {
+      paths = [];
+      paths.push(suiteconfig.cmd);
+      if (suiteconfig.autorunWatches) {
+        for (let w of suiteconfig.autorunWatches) {
+          paths.push(w);
+        }
+      }
+      let w = new watcher.DisposableWatcher(
+          paths,
+          () => {
+            this.log.info(`Beobachte Änderung an der Testumgebung ${
+                suiteconfig.name}...`);
+          },
+          () => {
+            this.log.info(`Änderung an der Testumgebung ${
+                suiteconfig.name} erkannt. Führe Autorun aus.`);
+            // Geänderte Testsuite für den folgenden Autorun markieren:
+            // TODO:
+            this.autorunEmitter.fire();
+          },
+          () => {
+            this.log.error(`Beim Beobachten der Testumgebung ${
+                suiteconfig.name} ist ein Fehler aufgetreten.`);
+          });
+      this.watches.push(w);
+    }
   }
 }

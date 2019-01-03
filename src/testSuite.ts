@@ -1,4 +1,3 @@
-// import {Log} from 'vscode-test-adapter-util';
 import * as vscode from 'vscode';
 import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 import {TestEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
@@ -26,9 +25,10 @@ export interface TestSpawner {
  * Test-Suite-Klasse
  */
 export class BanditTestSuite {
-  private testsuite = new BanditTestGroup(undefined, 'root', 'root');
+  private testsuite = new BanditTestGroup(undefined, this.name, this.name);
 
   constructor(
+      private readonly name: string,
       private readonly testStatesEmitter:
           vscode.EventEmitter<TestRunStartedEvent|TestRunFinishedEvent|
                               TestSuiteEvent|TestEvent>,

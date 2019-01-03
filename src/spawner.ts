@@ -1,6 +1,6 @@
 
 import {spawn, SpawnSyncOptionsWithStringEncoding, SpawnSyncReturns} from 'child_process';
-import {BanditConfiguration} from './configuration'
+import * as config from './configuration'
 
 export type SpawnReturns = SpawnSyncReturns<string>;
 
@@ -17,7 +17,7 @@ interface SpawnToken {
 
 export class Spawner {
   constructor(
-      private readonly config: BanditConfiguration,
+      private readonly config: config.BanditTestSuiteConfiguration,
       private readonly max_timeout?: number|undefined) {}
 
   private spawnedProcesses = new Map<string, SpawnToken>();
@@ -32,10 +32,11 @@ export class Spawner {
       Promise<SpawnReturns> {
     if (this.max_timeout && timeouts > this.max_timeout) {
       throw new Error('Timeout beim Aufruf vob spawn().');
-    } else if (this.count >= this.config.maxParallelProcess) {
+    } else if (this.count >= this.config.maxParallelProcesses) {
       return new Promise<void>((resolve, reject) => {
                if (this.kill_pending) {
-                 reject(new Error('Der Prozess wurde unterbrochen.'));
+                 reject(new Error(
+                     'Die verzögerte Prozessausführung wurde unterbrochen.'));
                } else {
                  setTimeout(resolve, 64);
                }
@@ -44,7 +45,7 @@ export class Spawner {
             return this.spawnPending(args, ++timeouts);
           });
     } else if (this.kill_pending) {
-      throw new Error('Der Prozess wurde unterbrochen.');
+      throw new Error('Die verzögerte Prozessausführung wurde unterbrochen.');
     } else {
       return this.spawnInner(args);
     }
@@ -104,6 +105,9 @@ export class Spawner {
   }
 
   kill(id: string): void {
+    if (!this.config.allowKillProcess) {
+      return;
+    }
     var process = this.spawnedProcesses.get(id);
     if (process) {
       process.cancel();
