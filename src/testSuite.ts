@@ -1,3 +1,4 @@
+import {performance} from 'perf_hooks';
 import * as vscode from 'vscode';
 import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 import {TestEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
@@ -9,13 +10,14 @@ import {asTest, asTestGroup, BanditTest, BanditTestGroup, BanditTestNode} from '
 import * as teststatus from './teststatus'
 
 
+
 /************************************************************************/
 /**
  * Test-Spawner Interface
  */
 export interface TestSpawner {
   run(node: BanditTestNode): Promise<SpawnReturns>;
-  dry(): Promise<SpawnReturns>;
+  dry(id: string): Promise<SpawnReturns>;
   stop(): void;
 }
 
@@ -34,14 +36,25 @@ export class BanditTestSuite {
                               TestSuiteEvent|TestEvent>,
       private spawner: TestSpawner, private log: Log) {}
 
-  public init(): Promise<void> {
+  public init(debug: boolean = false): Promise<void> {
     return new Promise((resolve, reject) => {
       this.log.debug('Starte das Laden der Tests');
-      this.spawner.dry()
+
+      let startTime = performance.now();
+      this.spawner.dry(this.name + '-dry-all')
           .then((ret: SpawnReturns) => {
-            this.log.debug('Erzeuge die Test-Suite');
+            if (debug) {
+              this.log.debug(`Erzeuge die Test-Suite aus:\n${ret.stdout}`);
+            } else {
+              this.log.debug('Erzeuge die Test-Suite');
+            }
             this.testsuite = this.createFromString(ret.stdout);
-            this.log.debug('Laden der Tests erfolgreich beendet');
+            let duration = performance.now() - startTime;
+            this.log.debug(
+                `Ladend der Tests erfolgreich beendet. Benötigte Zeit: ${
+                                                                         helper.formatTimeDuration(
+                                                                             duration)
+                                                                       }`);
             resolve();
           })
           .catch((e) => {
@@ -65,9 +78,10 @@ export class BanditTestSuite {
         started_nodes = started_nodes.concat(node.start());
       }
       started_nodes = helper.removeDuplicates(started_nodes, 'id');
-      this.log.debug(nodes.length.toString() + ' Tests werden gestartet');
+      this.log.debug(`${nodes.length} Tests werden gestartet`);
       this.notifyStart(nodes);
       let promises = new Array<Promise<void>>();
+      let startTime = performance.now();
       for (let node of started_nodes) {
         if (asTest(node)) {
           promises.push(this.createTestRunSpawn(node));
@@ -75,7 +89,13 @@ export class BanditTestSuite {
       }
       Promise.all(promises)
           .then(() => {
-            this.log.debug('Testlauf erfolgreich beendet');
+            let duration = performance.now() - startTime;
+            this.log.debug(
+                `Testlauf erfolgreich beendet. Benötigte Zeit: ${
+                                                                 helper
+                                                                     .formatTimeDuration(
+                                                                         duration)
+                                                               }`);
             resolve();
           })
           .catch((e) => {
@@ -111,7 +131,7 @@ export class BanditTestSuite {
   }
 
   private createFromString(stdout: string): BanditTestGroup {
-    let root = new BanditTestGroup(undefined, '');
+    let root = new BanditTestGroup(undefined, this.name);
     let messages = Array<String>();
     let isGroup = (line: string): boolean => {
       return line.trim().startsWith('describe');
@@ -190,8 +210,8 @@ export class BanditTestSuite {
             if (current_suite.parent) {
               current_suite = current_suite.parent;
             } else {
-              let msg = 'Fehlender Parent bei node mit der id "' +
-                  current_suite.id + '"';
+              let msg =
+                  `Fehlender Parent bei node mit der id "${current_suite.id}"`;
               this.log.error(msg);
               throw new Error(msg);
             }
@@ -212,9 +232,12 @@ export class BanditTestSuite {
               this.log.debug('Neue Gruppe erkannt: "' + node.id + '"');
             } else {
               this.log.error(
-                  'Eine Gruppe mit dem Label "' + newLabel +
-                  '" exisitiert bereits in der Gruppe "' + current_suite.id +
-                  '"');
+                  `Eine Gruppe mit dem Label "${
+                                                newLabel
+                                              }" exisitiert bereits in der Gruppe "${
+                                                                                     current_suite
+                                                                                         .id
+                                                                                   }"`);
               node = current_suite = existingGroup;
             }
           } else if (isTest(line)) {
@@ -282,6 +305,7 @@ export class BanditTestSuite {
       this.log.warn(
           'In der Testausgabe konnte der Test "' + node.id +
           '" nicht gefunden werden');
+      node.finish(teststatus.Skipped).map(this.notifyStatus, this);
     }
   }
 

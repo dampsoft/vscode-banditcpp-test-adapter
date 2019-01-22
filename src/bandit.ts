@@ -5,53 +5,57 @@ import * as config from './configuration'
 import {SpawnArguments, Spawner, SpawnReturns} from './spawner'
 import {BanditTestNode} from './test'
 import {TestSpawner} from './testsuite'
-
-
+import uuid = require('uuid');
 
 export class BanditSpawner implements TestSpawner {
   constructor(
       private readonly config: config.BanditTestSuiteConfiguration,
       private log: Log) {}
 
-  private spawner = new Spawner(this.config);
-
   public run(node: BanditTestNode): Promise<SpawnReturns> {
     return new Promise<SpawnReturns>((resolve, reject) => {
       let spawn_args = this.createSpawnArgumentsTestRun(node);
-      this.spawner.spawn(spawn_args)
+      Spawner.spawn(spawn_args, this.config)
           .then((ret: SpawnReturns) => {
             if (ret.status < 0) {
               this.log.error(
-                  'Fehlerhafter Return-Value beim run() Aufruf der Testexecutable');
+                  `Fehlerhafter Return-Value beim dry() Aufruf der Test-Executable ${
+                                                                                     node.id
+                                                                                   }`);
               reject(ret.error);
             } else {
-              this.log.debug('Testexecutable erfolgreich aufgerufen');
+              this.log.debug(
+                  `Test-Executable ${node.id} erfolgreich aufgerufen`);
               resolve(ret);
             }
           })
           .catch((e) => {
-            this.log.error('Fehler beim run() Aufruf der Testexecutable');
+            this.log.error(
+                `Fehler beim dry() Aufruf der Test-Executable ${node.id}`);
             reject(e);
           });
     });
   }
 
-  public async dry(): Promise<SpawnReturns> {
+  public async dry(id: string): Promise<SpawnReturns> {
     return new Promise<SpawnReturns>((resolve, reject) => {
-      let spawn_args = this.createSpawnArgumentsDryRun();
-      this.spawner.spawn(spawn_args)
+      let spawn_args = this.createSpawnArgumentsDryRun(id);
+      Spawner.spawn(spawn_args, this.config)
           .then((ret: SpawnReturns) => {
             if (ret.status < 0) {
               this.log.error(
-                  'Fehlerhafter Return-Value beim dry() Aufruf der Testexecutable');
+                  `Fehlerhafter Return-Value beim dry() Aufruf der Test-Executable ${
+                                                                                     id
+                                                                                   }`);
               reject(ret.error);
             } else {
-              this.log.debug('Testexecutable erfolgreich aufgerufen');
+              this.log.debug(`Test-Executable ${id} erfolgreich aufgerufen`);
               resolve(ret);
             }
           })
           .catch((e) => {
-            this.log.error('Fehler beim dry() Aufruf der Testexecutable');
+            this.log.error(
+                `Fehler beim dry() Aufruf der Test-Executable ${id}`);
             reject(e);
           });
     });
@@ -59,30 +63,31 @@ export class BanditSpawner implements TestSpawner {
 
   public stop() {
     this.log.info('Beende alle laufenden Prozesse');
-    this.spawner.killAll();
+    Spawner.killAll();
   }
 
   private createSpawnOptions(): SpawnSyncOptionsWithStringEncoding {
-    return <SpawnSyncOptionsWithStringEncoding>{
+    return {
       cwd: this.config.cwd,
       env: this.config.env,
       shell: true,
       windowsVerbatimArguments: true,
-      encoding: 'utf8',
-      windowsHide: true
+      encoding: 'utf8'
     };
   }
 
-  private createSpawnArgumentsDryRun(): SpawnArguments {
+  private createSpawnArgumentsDryRun(id: string): SpawnArguments {
     var execArguments = new Array();
     execArguments.push('--dry-run');
     execArguments.push('--reporter=spec');
+    execArguments.push(
+        `"--only=${uuid()}${uuid()}${uuid()}"`);  // Ein extrem seltener String
     if (this.config.options) {
       execArguments.push(...this.config.options);
     }
     let exec_options = this.createSpawnOptions();
-    return <SpawnArguments>{
-      id: 'dry-all',
+    return {
+      id: id,
       cmd: this.config.cmd,
       args: execArguments,
       options: exec_options
@@ -100,14 +105,14 @@ export class BanditSpawner implements TestSpawner {
         return a.length > b.length ? a : b;
       });
       if (label_filter.length > 0) {
-        execArguments.push('"--only=' + label_filter + '"');
+        execArguments.push(`"--only=${label_filter}"`);
       }
     }
     if (this.config.options) {
       execArguments.push(...this.config.options);
     }
     let exec_options = this.createSpawnOptions();
-    return <SpawnArguments>{
+    return {
       id: node.id,
       cmd: this.config.cmd,
       args: execArguments,

@@ -3,10 +3,11 @@ import * as fs from 'fs-extra'
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import {VariableResolver} from './helper';
+import {cleanPath, VariableResolver} from './helper';
 
-export type Property = 'cwd'|'testsuites'|'maxParallelProcesses'|
+export type Property = 'debug'|'cwd'|'testsuites'|'maxParallelProcesses'|
     'watchTimeoutSec'|'allowKillProcess';
+export const debug: Property = 'debug';
 export const cwd: Property = 'cwd';
 export const testsuites: Property = 'testsuites';
 export const maxParallelProcesses: Property = 'maxParallelProcesses';
@@ -35,6 +36,7 @@ export interface BanditTestSuiteConfiguration {
   readonly maxParallelProcesses: number;
   readonly watchTimeoutSec: number;
   readonly allowKillProcess: boolean;
+  readonly maxTimeouts?: number;
 }
 
 export interface BanditConfiguration {
@@ -61,7 +63,7 @@ export class Configuration implements BanditConfiguration {
       let banditConfig: TestSuiteJsonConfiguration[] = [];
       if (typeof conf === 'string') {
         try {
-          banditConfig = fs.readJsonSync(conf);
+          banditConfig = fs.readJsonSync(this.resolvePath(conf));
         } catch (e) {
         }
       } else {
@@ -115,6 +117,10 @@ export class Configuration implements BanditConfiguration {
       return this.resolvePath(
           this.config.get<string>(cwd, this.workspaceFolder.uri.fsPath));
     });
+
+    this.propertyGetter.set(debug, () => {
+      return this.config.get<boolean>(debug, false);
+    });
   }
 
   public get(property: Property): any|undefined {
@@ -164,9 +170,9 @@ export class Configuration implements BanditConfiguration {
   private resolvePath(p: string|undefined): string {
     const resolved: string = p ? this.resolver.resolve(p) : '';
     if (path.isAbsolute(resolved)) {
-      return resolved;
+      return cleanPath(resolved);
     } else {
-      return path.resolve(this.workspaceFolder.uri.fsPath, resolved);
+      return cleanPath(path.resolve(this.workspaceFolder.uri.fsPath, resolved));
     }
   }
 
@@ -176,7 +182,7 @@ export class Configuration implements BanditConfiguration {
       for (let arg of options) {
         arg = this.resolver.resolve(arg);
         if (arg.trim().length > 0) {
-          if (arg.trim().indexOf(' ') >= 0) {
+          if (arg.trim().indexOf(' ') >= 0 && arg.trim().indexOf('"') < 0) {
             arg = '"' + arg.trim() + '"';
           }
           args_modified.push(arg.trim());

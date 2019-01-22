@@ -1,1 +1,0 @@
-/C:/ds4/ds4/git/buildx64/bin/Debug/ds4b-test-runner.exe --dry-run --reporter=spec -testlib C:/ds4/ds4/git/buildx64/bin/Debug/ds4-kzbv.dll -backend postgresql -connection "host=localhost dbname=test user=postgres password=test"

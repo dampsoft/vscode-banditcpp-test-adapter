@@ -62,8 +62,9 @@ export class BanditTestAdapter implements TestAdapter {
     this.reset();
     this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
     let promises = new Array<Promise<void>>();
+    let debug = this.config.get(config.debug);
     for (let testSuite of this.testSuites) {
-      promises.push(testSuite.init());
+      promises.push(testSuite.init(debug));
     }
     try {
       await Promise.all(promises);
@@ -100,9 +101,7 @@ export class BanditTestAdapter implements TestAdapter {
   }
 
   public cancel() {
-    for (let testsuite of this.testSuites) {
-      testsuite.cancel();
-    }
+    this.testSuites.forEach(s => s.cancel());
   }
 
   public dispose() {
@@ -114,9 +113,7 @@ export class BanditTestAdapter implements TestAdapter {
   }
 
   private disp(disposables: Disposable[]) {
-    for (const disposable of disposables) {
-      disposable.dispose();
-    }
+    disposables.forEach(d => d.dispose());
   }
 
   private reset() {
@@ -146,6 +143,7 @@ export class BanditTestAdapter implements TestAdapter {
     this.disposables.push(watch);
   }
 
+  private autorunTimeout: NodeJS.Timer|undefined;
   private createAutorunWatches() {
     this.disp(this.watches);
     this.watches = [];
@@ -155,26 +153,35 @@ export class BanditTestAdapter implements TestAdapter {
       paths = [];
       paths.push(suiteconfig.cmd);
       if (suiteconfig.autorunWatches) {
-        for (let w of suiteconfig.autorunWatches) {
-          paths.push(w);
-        }
+        paths.push(...suiteconfig.autorunWatches);
       }
       let w = new watcher.DisposableWatcher(
           paths,
           () => {
-            this.log.info(`Beobachte Änderung an der Testumgebung ${
-                suiteconfig.name}...`);
+            this.log.info(
+                `Beobachte Änderung an der Testumgebung ${
+                                                          suiteconfig.name
+                                                        }...`);
           },
           () => {
-            this.log.info(`Änderung an der Testumgebung ${
-                suiteconfig.name} erkannt. Führe Autorun aus.`);
+            this.log.info(
+                `Änderung an der Testumgebung ${
+                                                suiteconfig.name
+                                              } erkannt. Führe Autorun aus.`);
             // Geänderte Testsuite für den folgenden Autorun markieren:
-            // TODO:
-            this.autorunEmitter.fire();
+            if (this.autorunTimeout) {
+              clearTimeout(this.autorunTimeout);
+              this.autorunTimeout = undefined;
+            }
+            this.autorunTimeout = setTimeout(() => {
+              this.autorunEmitter.fire();
+            }, this.config.get(config.watchTimeoutSec) * 1000);
           },
           () => {
-            this.log.error(`Beim Beobachten der Testumgebung ${
-                suiteconfig.name} ist ein Fehler aufgetreten.`);
+            this.log.error(
+                `Beim Beobachten der Testumgebung ${
+                                                    suiteconfig.name
+                                                  } ist ein Fehler aufgetreten.`);
           });
       this.watches.push(w);
     }

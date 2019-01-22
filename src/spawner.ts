@@ -1,62 +1,99 @@
 
-import {spawn, SpawnSyncOptionsWithStringEncoding, SpawnSyncReturns} from 'child_process';
+import * as cp from 'child_process';
+import {Log} from 'vscode-test-adapter-util';
+
 import * as config from './configuration'
 
-export type SpawnReturns = SpawnSyncReturns<string>;
+export interface SpawnReturns extends cp.SpawnSyncReturns<string> {
+  cancelled?: boolean
+}
 
 export type SpawnArguments = {
   id: string,
-  cmd: string,
-  args?: string[],
-  options?: SpawnSyncOptionsWithStringEncoding
+  cmd: string, args?: string[], options?: cp.SpawnSyncOptionsWithStringEncoding
 };
 
 interface SpawnToken {
   cancel(): void;
 }
 
-export class Spawner {
-  constructor(
-      private readonly config: config.BanditTestSuiteConfiguration,
-      private readonly max_timeout?: number|undefined) {}
+export namespace Spawner {
+  let spawnedProcesses = new Map<string, SpawnToken>();
+  let kill_pending: boolean = false;
+  let log: Log|undefined;
 
-  private spawnedProcesses = new Map<string, SpawnToken>();
-  private kill_pending: boolean = false;
-
-  public async spawn(args: SpawnArguments): Promise<SpawnReturns> {
-    this.kill_pending = false;
-    return await this.spawnPending(args, 0);
+  export function setLog(logger: Log) {
+    log = logger;
+  }
+  export async function
+  spawn(args: SpawnArguments, config: config.BanditTestSuiteConfiguration):
+      Promise<SpawnReturns> {
+    if (log) {
+      log.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
+    }
+    kill_pending = false;
+    return await spawnPending(args, config, 0);
   }
 
-  private async spawnPending(args: SpawnArguments, timeouts: number):
-      Promise<SpawnReturns> {
-    if (this.max_timeout && timeouts > this.max_timeout) {
-      throw new Error('Timeout beim Aufruf vob spawn().');
-    } else if (this.count >= this.config.maxParallelProcesses) {
-      return new Promise<void>((resolve, reject) => {
-               if (this.kill_pending) {
-                 reject(new Error(
-                     'Die verzögerte Prozessausführung wurde unterbrochen.'));
+  async function spawnPending(
+      args: SpawnArguments, config: config.BanditTestSuiteConfiguration,
+      timeouts: number): Promise<SpawnReturns> {
+    if (kill_pending) {
+      let msg =
+          `Die verzögerte Prozessausführung ${args.id} wurde unterbrochen`;
+      if (log) {
+        log.warn(msg);
+      }
+      throw new Error(msg);
+    } else if (config.maxTimeouts && timeouts > config.maxTimeouts) {
+      let msg = `Timeout beim Aufruf von spawn() ${args.id}`;
+      if (log) {
+        log.warn(msg);
+      }
+      throw new Error(msg);
+    } else if (count() >= config.maxParallelProcesses) {
+      return new Promise((resolve, reject) => {
+               if (kill_pending) {
+                 let msg =
+                     `Die verzögerte Prozessausführung ${
+                                                         args.id
+                                                       } wurde unterbrochen`;
+                 if (log) {
+                   log.warn(msg);
+                 }
+                 reject(new Error(msg));
                } else {
+                 let msg =
+                     `Maximale Anzahl paralleler Prozesse erreicht. Verzögere ${
+                                                                                args.id
+                                                                              }.`;
+                 if (log) {
+                   log.debug(msg);
+                 }
                  setTimeout(resolve, 64);
                }
              })
           .then(() => {
-            return this.spawnPending(args, ++timeouts);
+            return spawnPending(args, config, ++timeouts);
           });
-    } else if (this.kill_pending) {
-      throw new Error('Die verzögerte Prozessausführung wurde unterbrochen.');
     } else {
-      return this.spawnInner(args);
+      return spawnInner(args);
     }
   }
 
-  private spawnInner(args: SpawnArguments): Promise<SpawnReturns> {
-    if (this.exists(args.id)) {
-      throw new Error(
-          'Ein Prozess mit id "' + args.id + '" exisitiert bereits.');
+  function spawnInner(args: SpawnArguments): Promise<SpawnReturns> {
+    if (exists(args.id)) {
+      let msg = `Ein Prozess mit id "${args.id}" exisitiert bereits.`;
+      if (log) {
+        log.warn(msg);
+      }
+      throw new Error(msg);
     }
-    return new Promise<SpawnReturns>((resolve, reject) => {
+    if (log) {
+      let msg = `Starte Prozessausführung "${args.id}".`;
+      log.info(msg);
+    }
+    return new Promise((resolve, reject) => {
       const ret: SpawnReturns = {
         pid: 0,
         output: ['', ''],
@@ -66,7 +103,7 @@ export class Spawner {
         signal: '',
         error: new Error()
       };
-      const command = spawn(args.cmd, args.args, args.options);
+      const command = cp.spawn(args.cmd, args.args, args.options);
       ret.pid = command.pid;
       command.stdout.on('data', (data) => {
         ret.stdout += data;
@@ -74,52 +111,62 @@ export class Spawner {
       });
       command.on('error', (err: Error) => {
         ret.error = err;
+        if (log) {
+          let msg =
+              `Fehler bei der Prozessausführung "${args.id}": ${err.message}`;
+          log.error(msg);
+        }
         reject(ret);
-        this.kill(args.id);
+        kill(args.id);
       });
       command.on('close', (code) => {
         ret.status = code;
         ret.error = new Error('code: ' + String(code));
+        if (log) {
+          let msg = `Prozessausführung "${args.id}" mit Code "${code}"beendet`;
+          log.info(msg);
+        }
         resolve(ret);
-        this.kill(args.id);
+        kill(args.id);
       });
       let token = <SpawnToken>{
         cancel: () => {
           try {
+            command.stdout.pause();
             command.kill();
           } catch (e) {
           }
           reject(new Error('Der Prozess wurde beendet.'));
         }
       };
-      this.spawnedProcesses.set(args.id, token);
+      spawnedProcesses.set(args.id, token);
     });
   }
 
-  public get count(): number {
-    return this.spawnedProcesses.size;
+  export function count(): number {
+    return spawnedProcesses.size;
   }
 
-  exists(id: string): boolean {
-    return this.spawnedProcesses.get(id) !== undefined;
+  export function exists(id: string): boolean {
+    return spawnedProcesses.get(id) !== undefined;
   }
 
-  kill(id: string): void {
-    if (!this.config.allowKillProcess) {
+  export function kill(id: string): void {
+    if (!config.allowKillProcess) {
       return;
     }
-    var process = this.spawnedProcesses.get(id);
+    var process = spawnedProcesses.get(id);
     if (process) {
       process.cancel();
     }
-    this.spawnedProcesses.delete(id);
+    spawnedProcesses.delete(id);
   }
 
-  killAll(): void {
-    this.kill_pending = true;
-    var processes = this.spawnedProcesses;
+  export function killAll(): void {
+    kill_pending = true;
+    var processes = spawnedProcesses;
     processes.forEach((value: SpawnToken, key: string) => {
-      this.kill(key);
+      kill(key);
     });
   }
 }

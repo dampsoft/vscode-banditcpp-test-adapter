@@ -105,6 +105,12 @@
           "description": "Write diagnostic logs to the given file",
           "type": "string",
           "scope": "resource"
+        },
+        "banditTestExplorer.debug": {
+          "description": "Set debug mode on",
+          "type": "boolean",
+          "scope": "resource",
+          "default": false
         }
       }
     }

@@ -1,5 +1,5 @@
+import * as p from 'path'
 import * as vscode from 'vscode';
-
 
 export function escapeRegExp(text: string): string {
   return text.replace(
@@ -42,7 +42,7 @@ export class VariableResolver {
 }
 
 export function cleanPath(path: string): string {
-  return path.replace(/\\/g, '/');
+  return p.normalize(path);
 }
 
 export function flatten<T>(array: Array<Array<T>>): Array<T> {
@@ -53,4 +53,13 @@ export function removeDuplicates(values: any[], prop: string) {
   return values.filter((obj, pos, arr) => {
     return arr.map(mapObj => mapObj[prop]).indexOf(obj[prop]) === pos;
   });
+}
+
+export function formatTimeDuration(millis: number): string {
+  let date = new Date(millis);
+  let h = date.getHours();
+  let m = date.getMinutes();
+  let s = date.getSeconds();
+  let ms = date.getMilliseconds();
+  return `${h}:${m}:${s},${ms}`;
 }

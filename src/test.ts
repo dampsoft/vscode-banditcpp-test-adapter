@@ -41,9 +41,9 @@ abstract class TestNode {
   public abstract getTestInfo(): TestSuiteInfo|TestInfo;
   public get displayTitle(): string {
     if (this.parent) {
-      return this.parent.displayTitle + ' ' + this.label;
+      return (this.parent.displayTitle + ' ' + this.label).trim();
     } else {
-      return this.label;
+      return '';
     }
   }
 }
@@ -123,7 +123,7 @@ export class BanditTestGroup extends TestNode {
   public findAll(id: string|RegExp): Array<BanditTestNode> {
     var matches = new Array<BanditTestNode>();
     for (var child of this.children) {
-      if (child.id.match(id)) {
+      if (typeof id === 'string' ? child.id === id : child.id.match(id)) {
         matches.push(child);
       } else {
         let group = asTestGroup(child);
