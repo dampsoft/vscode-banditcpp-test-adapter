@@ -2,7 +2,6 @@ import {performance} from 'perf_hooks';
 import * as vscode from 'vscode';
 import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 import {TestEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
-import {Log} from 'vscode-test-adapter-util';
 
 import * as helper from './helper'
 import {SpawnReturns} from './spawner'
@@ -21,11 +20,11 @@ export interface TestSpawner {
   stop(): void;
 }
 
-
 /************************************************************************/
 /**
  * Test-Suite-Klasse
  */
+
 export class BanditTestSuite {
   private testsuite = new BanditTestGroup(undefined, this.name, this.name);
 
@@ -34,22 +33,18 @@ export class BanditTestSuite {
       private readonly testStatesEmitter:
           vscode.EventEmitter<TestRunStartedEvent|TestRunFinishedEvent|
                               TestSuiteEvent|TestEvent>,
-      private spawner: TestSpawner, private log: Log) {}
+      private spawner: TestSpawner, private log: helper.Logger) {}
 
-  public init(debug: boolean = false): Promise<void> {
+  public init(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.log.debug('Starte das Laden der Tests');
 
       let startTime = performance.now();
       this.spawner.dry(this.name + '-dry-all')
           .then((ret: SpawnReturns) => {
-            if (debug) {
-              this.log.debug(`Erzeuge die Test-Suite aus:\n${ret.stdout}`);
-            } else {
-              this.log.debug('Erzeuge die Test-Suite');
-            }
+            this.log.debug('Erzeuge die Test-Suite');
             this.testsuite = this.createFromString(ret.stdout);
-            let duration = performance.now() - startTime;
+            const duration = performance.now() - startTime;
             this.log.debug(
                 `Ladend der Tests erfolgreich beendet. Benötigte Zeit: ${
                                                                          helper.formatTimeDuration(
@@ -64,13 +59,14 @@ export class BanditTestSuite {
     });
   }
 
-  public start(ids: string[]): Promise<void> {
+  public start(ids: (string|RegExp)[]): Promise<void> {
     this.log.debug('Starte einen neuen Testlauf');
     return new Promise((resolve, reject) => {
       let nodes = new Array<BanditTestNode>();
-      let unique_ids = new Set<string>(ids);
+      let unique_ids = new Set<(string | RegExp)>(ids);
       for (let id of unique_ids) {
-        let r = new RegExp(helper.escapeRegExp(id));  // ggf. ^id$
+        let r =
+            (typeof id === 'string') ? new RegExp(helper.escapeRegExp(id)) : id;
         nodes = nodes.concat(this.testsuite.findAll(r));
       }
       let started_nodes = new Array<BanditTestNode>();

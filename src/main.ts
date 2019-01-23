@@ -3,6 +3,7 @@ import {testExplorerExtensionId, TestHub} from 'vscode-test-adapter-api';
 import {Log, TestAdapterRegistrar} from 'vscode-test-adapter-util';
 
 import {BanditTestAdapter} from './adapter';
+import {Logger} from './helper';
 import {Spawner} from './spawner'
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -13,14 +14,13 @@ export async function activate(context: vscode.ExtensionContext) {
   const log =
       new Log('banditTestExplorer', workspaceFolder, 'Bandit Test Explorer');
   context.subscriptions.push(log);
+  const logger = new Logger(log);
 
   // get the Test Explorer extension
   const testExplorerExtension =
       vscode.extensions.getExtension<TestHub>(testExplorerExtensionId);
-  if (log.enabled) {
-    log.info(`Test Explorer ${testExplorerExtension ? '' : 'nicht '}gefunden`);
-    Spawner.setLog(log);
-  }
+  logger.info(`Test Explorer ${testExplorerExtension ? '' : 'nicht '}gefunden`);
+  Spawner.setLog(logger);
 
   if (testExplorerExtension) {
     if (!testExplorerExtension.isActive) {
@@ -30,7 +30,8 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // this will register an ExampleTestAdapter for each WorkspaceFolder
     context.subscriptions.push(new TestAdapterRegistrar(
-        testHub, workspaceFolder => new BanditTestAdapter(workspaceFolder, log),
+        testHub,
+        workspaceFolder => new BanditTestAdapter(workspaceFolder, logger),
         log));
   }
 }

@@ -69,7 +69,7 @@
       "title": "Bandit Test Explorer configuration",
       "properties": {
         "banditTestExplorer.testsuites": {
-          "description": "The configuration of your bandit tests. Either a configuration object or a path to the JSON configuration file. (relative to the workspace folder or absolute path)",
+          "description": "The configuration of your bandit tests. Either a configuration object or a path to the JSON configuration file. (relative to the workspace folder or absolute path).",
           "type": [
             "string",
             "array",
@@ -77,8 +77,8 @@
           ],
           "scope": "resource"
         },
-        "banditTestExplorer.maxParallelProcesses": {
-          "description": "The maximum amount of parallel processes startet during a test run",
+        "banditTestExplorer.parallelProcessLimit": {
+          "description": "The limit of parallel processes startet during a test run.",
           "type": "integer",
           "scope": "resource",
           "default": 1
@@ -92,27 +92,28 @@
           "scope": "resource"
         },
         "banditTestExplorer.allowKillProcess": {
-          "description": "Allows to kill running processes when a testrun is cancelled or aborted.",
+          "description": "Allows to hard kill running processes when a testrun is cancelled or aborted.",
           "type": "boolean",
           "scope": "resource"
         },
         "banditTestExplorer.logpanel": {
-          "description": "Write diagnotic logs to an output panel",
+          "description": "Enables the output of diagnostic logs to the integrated output panel.",
           "type": "boolean",
           "scope": "resource"
         },
         "banditTestExplorer.logfile": {
-          "description": "Write diagnostic logs to the given file",
+          "description": "Write diagnostic logs to the given file.",
           "type": "string",
           "scope": "resource"
-        },
-        "banditTestExplorer.debug": {
-          "description": "Set debug mode on",
-          "type": "boolean",
-          "scope": "resource",
-          "default": false
         }
       }
-    }
+    },
+    "commands": [
+      {
+        "title": "Starte Test",
+        "command": "test-explorer.run",
+        "category": "Bandit Test Explorer"
+      }
+    ]
   }
 }

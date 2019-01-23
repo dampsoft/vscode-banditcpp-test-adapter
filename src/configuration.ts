@@ -5,12 +5,11 @@ import * as vscode from 'vscode';
 
 import {cleanPath, VariableResolver} from './helper';
 
-export type Property = 'debug'|'cwd'|'testsuites'|'maxParallelProcesses'|
+export type Property = 'cwd'|'testsuites'|'parallelProcessLimit'|
     'watchTimeoutSec'|'allowKillProcess';
-export const debug: Property = 'debug';
 export const cwd: Property = 'cwd';
 export const testsuites: Property = 'testsuites';
-export const maxParallelProcesses: Property = 'maxParallelProcesses';
+export const parallelProcessLimit: Property = 'parallelProcessLimit';
 export const watchTimeoutSec: Property = 'watchTimeoutSec';
 export const allowKillProcess: Property = 'allowKillProcess';
 
@@ -22,7 +21,7 @@ interface TestSuiteJsonConfiguration {
   cmd: string;
   cwd?: string;
   options?: string[];
-  autorunWatches?: string[];
+  watches?: string[];
   env?: EnvProperty;
 }
 
@@ -31,9 +30,9 @@ export interface BanditTestSuiteConfiguration {
   cmd: string;
   cwd?: string;
   options?: string[];
-  autorunWatches?: string[];
+  watches?: string[];
   env?: EnvProperty;
-  readonly maxParallelProcesses: number;
+  readonly parallelProcessLimit: number;
   readonly watchTimeoutSec: number;
   readonly allowKillProcess: boolean;
   readonly maxTimeouts?: number;
@@ -41,7 +40,7 @@ export interface BanditTestSuiteConfiguration {
 
 export interface BanditConfiguration {
   readonly testsuites: BanditTestSuiteConfiguration[];
-  readonly maxParallelProcesses: number;
+  readonly parallelProcessLimit: number;
   readonly watchTimeoutSec: number;
   readonly allowKillProcess: boolean;
   readonly properties: Property[];
@@ -77,12 +76,12 @@ export class Configuration implements BanditConfiguration {
         testsuite.env = this.resolveEnv(testsuite.env);
         testsuite.options = this.resolveOptions(testsuite.options);
         let watches = new Array<string>();
-        if (testsuite.autorunWatches) {
-          for (let watch of testsuite.autorunWatches) {
+        if (testsuite.watches) {
+          for (let watch of testsuite.watches) {
             watches.push(this.resolvePath(watch));
           }
         }
-        testsuite.autorunWatches = watches;
+        testsuite.watches = watches;
       }
       let banditTestSuiteConfigs = new Array<BanditTestSuiteConfiguration>();
       for (let config of banditConfig) {
@@ -92,8 +91,8 @@ export class Configuration implements BanditConfiguration {
           cwd: config.cwd,
           env: config.env,
           options: config.options,
-          autorunWatches: config.autorunWatches,
-          maxParallelProcesses: this.maxParallelProcesses,
+          watches: config.watches,
+          parallelProcessLimit: this.parallelProcessLimit,
           allowKillProcess: this.allowKillProcess,
           watchTimeoutSec: this.watchTimeoutSec
         } as BanditTestSuiteConfiguration);
@@ -101,8 +100,8 @@ export class Configuration implements BanditConfiguration {
       return banditTestSuiteConfigs;
     });
 
-    this.propertyGetter.set(maxParallelProcesses, () => {
-      return this.config.get<number>(maxParallelProcesses, 1);
+    this.propertyGetter.set(parallelProcessLimit, () => {
+      return this.config.get<number>(parallelProcessLimit, 1);
     });
 
     this.propertyGetter.set(watchTimeoutSec, () => {
@@ -116,10 +115,6 @@ export class Configuration implements BanditConfiguration {
     this.propertyGetter.set(cwd, () => {
       return this.resolvePath(
           this.config.get<string>(cwd, this.workspaceFolder.uri.fsPath));
-    });
-
-    this.propertyGetter.set(debug, () => {
-      return this.config.get<boolean>(debug, false);
     });
   }
 
@@ -136,8 +131,8 @@ export class Configuration implements BanditConfiguration {
     return this.get(testsuites);
   }
 
-  public get maxParallelProcesses(): number {
-    return this.get(maxParallelProcesses);
+  public get parallelProcessLimit(): number {
+    return this.get(parallelProcessLimit);
   }
 
   public get watchTimeoutSec(): number {
@@ -150,7 +145,7 @@ export class Configuration implements BanditConfiguration {
 
   public get properties(): Property[] {
     return [
-      testsuites, watchTimeoutSec, maxParallelProcesses, allowKillProcess
+      testsuites, watchTimeoutSec, parallelProcessLimit, allowKillProcess
     ];
   }
 

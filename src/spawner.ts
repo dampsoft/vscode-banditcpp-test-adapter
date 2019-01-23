@@ -1,8 +1,8 @@
 
 import * as cp from 'child_process';
-import {Log} from 'vscode-test-adapter-util';
 
 import * as config from './configuration'
+import {Logger} from './helper';
 
 export interface SpawnReturns extends cp.SpawnSyncReturns<string> {
   cancelled?: boolean
@@ -20,9 +20,9 @@ interface SpawnToken {
 export namespace Spawner {
   let spawnedProcesses = new Map<string, SpawnToken>();
   let kill_pending: boolean = false;
-  let log: Log|undefined;
+  let log: Logger|undefined;
 
-  export function setLog(logger: Log) {
+  export function setLog(logger: Logger) {
     log = logger;
   }
   export async function
@@ -51,7 +51,7 @@ export namespace Spawner {
         log.warn(msg);
       }
       throw new Error(msg);
-    } else if (count() >= config.maxParallelProcesses) {
+    } else if (count() >= config.parallelProcessLimit) {
       return new Promise((resolve, reject) => {
                if (kill_pending) {
                  let msg =

@@ -1,16 +1,16 @@
 import {SpawnSyncOptionsWithStringEncoding} from 'child_process';
-import {Log} from 'vscode-test-adapter-util';
 
 import * as config from './configuration'
 import {SpawnArguments, Spawner, SpawnReturns} from './spawner'
 import {BanditTestNode} from './test'
 import {TestSpawner} from './testsuite'
 import uuid = require('uuid');
+import {Logger} from './helper';
 
 export class BanditSpawner implements TestSpawner {
   constructor(
       private readonly config: config.BanditTestSuiteConfiguration,
-      private log: Log) {}
+      private log: Logger) {}
 
   public run(node: BanditTestNode): Promise<SpawnReturns> {
     return new Promise<SpawnReturns>((resolve, reject) => {
