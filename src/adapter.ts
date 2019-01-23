@@ -199,7 +199,7 @@ export class BanditTestAdapter implements TestAdapter {
 
   private registerCommand() {
     this.disposables.push(
-        vscode.commands.registerCommand('test-explorer.run', () => {
+        vscode.commands.registerCommand('bandit-test-explorer.run', () => {
           vscode.window
               .showInputBox(
                   {placeHolder: 'Bezeichnung des Tests oder der Testgruppe'})

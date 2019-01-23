@@ -85,9 +85,7 @@
         },
         "banditTestExplorer.watchTimeoutSec": {
           "description": "Can help to prevent autorun when watched files are compiled frequently.",
-          "type": [
-            "number"
-          ],
+          "type": "number",
           "default": 10,
           "scope": "resource"
         },
@@ -111,7 +109,7 @@
     "commands": [
       {
         "title": "Starte Test",
-        "command": "test-explorer.run",
+        "command": "bandit-test-explorer.run",
         "category": "Bandit Test Explorer"
       }
     ]
