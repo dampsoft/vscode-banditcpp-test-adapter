@@ -1,11 +1,11 @@
 import {SpawnSyncOptionsWithStringEncoding} from 'child_process';
 
 import * as config from './configuration'
+// import uuid = require('uuid');
+import {Logger} from './helper';
 import {SpawnArguments, Spawner, SpawnReturns} from './spawner'
 import {BanditTestNode} from './test'
 import {TestSpawner} from './testsuite'
-import uuid = require('uuid');
-import {Logger} from './helper';
 
 export class BanditSpawner implements TestSpawner {
   constructor(
@@ -81,7 +81,8 @@ export class BanditSpawner implements TestSpawner {
     execArguments.push('--dry-run');
     execArguments.push('--reporter=spec');
     execArguments.push(
-        `"--only=${uuid()}${uuid()}${uuid()}"`);  // Ein extrem seltener String
+        `"--only=7a310047-cbb3-4ccb-92c0-ead7d4bb10c3d33b11a0-48fb-4755-9cc4-6fbd9518c344"`);  // Ein extrem seltener String
+    // `"--only=${uuid()}${uuid()}${uuid()}"`);  // Ein extrem seltener String
     if (this.config.options) {
       execArguments.push(...this.config.options);
     }
