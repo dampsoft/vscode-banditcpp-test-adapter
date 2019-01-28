@@ -20,7 +20,7 @@ export async function activate(context: vscode.ExtensionContext) {
   const testExplorerExtension =
       vscode.extensions.getExtension<TestHub>(testExplorerExtensionId);
   logger.info(`Test Explorer ${testExplorerExtension ? '' : 'nicht '}gefunden`);
-  Spawner.setLog(logger);
+  Spawner.instance.setLog(logger);
 
   if (testExplorerExtension) {
     if (!testExplorerExtension.isActive) {

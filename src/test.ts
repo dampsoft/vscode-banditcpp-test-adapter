@@ -1,4 +1,5 @@
 import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
+
 import * as teststatus from './teststatus'
 
 export type BanditTestNode = BanditTest|BanditTestGroup;
@@ -103,6 +104,8 @@ export class BanditTestGroup extends TestNode {
 
   public add(node: BanditTestNode): BanditTest|BanditTestGroup {
     this.children.push(node);
+    this.children.sort(
+        (a, b) => a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
     node.parent = this;
     return node;
   }
@@ -143,7 +146,8 @@ export class BanditTestGroup extends TestNode {
   public findAllByLabel(label: string|RegExp): Array<BanditTestNode> {
     var matches = new Array<BanditTestNode>();
     for (var child of this.children) {
-      if (child.label.match(label)) {
+      if ((typeof label === 'string') ? child.label === label :
+                                        child.label.match(label)) {
         matches.push(child);
       }
     }

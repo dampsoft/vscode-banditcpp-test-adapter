@@ -4,7 +4,7 @@ import * as cp from 'child_process';
 import * as config from './configuration'
 import {Logger} from './helper';
 
-export interface SpawnReturns extends cp.SpawnSyncReturns<string> {
+export interface SpawnReturnsI extends cp.SpawnSyncReturns<string> {
   cancelled?: boolean
 }
 
@@ -13,53 +13,56 @@ export type SpawnArguments = {
   cmd: string, args?: string[], options?: cp.SpawnSyncOptionsWithStringEncoding
 };
 
-interface SpawnToken {
+interface SpawnTokenI {
   cancel(): void;
 }
 
-export namespace Spawner {
-  let spawnedProcesses = new Map<string, SpawnToken>();
-  let kill_pending: boolean = false;
-  let log: Logger|undefined;
+export class Spawner {
+  public static readonly instance = new Spawner();
 
-  export function setLog(logger: Logger) {
-    log = logger;
+  private spawnedProcesses = new Map<string, SpawnTokenI>();
+  private kill_pending: boolean = false;
+  private log: Logger|undefined;
+
+  public setLog(logger: Logger) {
+    this.log = logger;
   }
-  export async function
-  spawn(args: SpawnArguments, config: config.BanditTestSuiteConfiguration):
-      Promise<SpawnReturns> {
-    if (log) {
-      log.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
+
+  public spawn(
+      args: SpawnArguments,
+      config: config.BanditTestSuiteConfigurationI): Promise<SpawnReturnsI> {
+    if (this.log) {
+      this.log.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
     }
-    kill_pending = false;
-    return await spawnPending(args, config, 0);
+    this.kill_pending = false;
+    return this.spawnPending(args, config, 0);
   }
 
-  async function spawnPending(
-      args: SpawnArguments, config: config.BanditTestSuiteConfiguration,
-      timeouts: number): Promise<SpawnReturns> {
-    if (kill_pending) {
+  public spawnPending(
+      args: SpawnArguments, config: config.BanditTestSuiteConfigurationI,
+      timeouts: number): Promise<SpawnReturnsI> {
+    if (this.kill_pending) {
       let msg =
           `Die verzögerte Prozessausführung ${args.id} wurde unterbrochen`;
-      if (log) {
-        log.warn(msg);
+      if (this.log) {
+        this.log.warn(msg);
       }
       throw new Error(msg);
     } else if (config.maxTimeouts && timeouts > config.maxTimeouts) {
       let msg = `Timeout beim Aufruf von spawn() ${args.id}`;
-      if (log) {
-        log.warn(msg);
+      if (this.log) {
+        this.log.warn(msg);
       }
       throw new Error(msg);
-    } else if (count() >= config.parallelProcessLimit) {
+    } else if (this.count() >= config.parallelProcessLimit) {
       return new Promise((resolve, reject) => {
-               if (kill_pending) {
+               if (this.kill_pending) {
                  let msg =
                      `Die verzögerte Prozessausführung ${
                                                          args.id
                                                        } wurde unterbrochen`;
-                 if (log) {
-                   log.warn(msg);
+                 if (this.log) {
+                   this.log.warn(msg);
                  }
                  reject(new Error(msg));
                } else {
@@ -67,34 +70,34 @@ export namespace Spawner {
                      `Maximale Anzahl paralleler Prozesse erreicht. Verzögere ${
                                                                                 args.id
                                                                               }.`;
-                 if (log) {
-                   log.debug(msg);
+                 if (this.log) {
+                   this.log.debug(msg);
                  }
                  setTimeout(resolve, 64);
                }
              })
           .then(() => {
-            return spawnPending(args, config, ++timeouts);
+            return this.spawnPending(args, config, ++timeouts);
           });
     } else {
-      return spawnInner(args);
+      return this.spawnInner(args);
     }
   }
 
-  function spawnInner(args: SpawnArguments): Promise<SpawnReturns> {
-    if (exists(args.id)) {
+  private spawnInner(args: SpawnArguments): Promise<SpawnReturnsI> {
+    if (this.exists(args.id)) {
       let msg = `Ein Prozess mit id "${args.id}" exisitiert bereits.`;
-      if (log) {
-        log.warn(msg);
+      if (this.log) {
+        this.log.warn(msg);
       }
       throw new Error(msg);
     }
-    if (log) {
+    if (this.log) {
       let msg = `Starte Prozessausführung "${args.id}".`;
-      log.info(msg);
+      this.log.info(msg);
     }
     return new Promise((resolve, reject) => {
-      const ret: SpawnReturns = {
+      const ret: SpawnReturnsI = {
         pid: 0,
         output: ['', ''],
         stdout: '',
@@ -111,25 +114,25 @@ export namespace Spawner {
       });
       command.on('error', (err: Error) => {
         ret.error = err;
-        if (log) {
+        if (this.log) {
           let msg =
               `Fehler bei der Prozessausführung "${args.id}": ${err.message}`;
-          log.error(msg);
+          this.log.error(msg);
         }
         reject(ret);
-        kill(args.id);
+        this.kill(args.id);
       });
       command.on('close', (code) => {
         ret.status = code;
         ret.error = new Error('code: ' + String(code));
-        if (log) {
+        if (this.log) {
           let msg = `Prozessausführung "${args.id}" mit Code "${code}"beendet`;
-          log.info(msg);
+          this.log.info(msg);
         }
         resolve(ret);
-        kill(args.id);
+        this.kill(args.id);
       });
-      let token = <SpawnToken>{
+      let token = <SpawnTokenI>{
         cancel: () => {
           try {
             command.stdout.pause();
@@ -139,34 +142,34 @@ export namespace Spawner {
           reject(new Error('Der Prozess wurde beendet.'));
         }
       };
-      spawnedProcesses.set(args.id, token);
+      this.spawnedProcesses.set(args.id, token);
     });
   }
 
-  export function count(): number {
-    return spawnedProcesses.size;
+  public count(): number {
+    return this.spawnedProcesses.size;
   }
 
-  export function exists(id: string): boolean {
-    return spawnedProcesses.get(id) !== undefined;
+  public exists(id: string): boolean {
+    return this.spawnedProcesses.get(id) !== undefined;
   }
 
-  export function kill(id: string): void {
+  public kill(id: string): void {
     if (!config.allowKillProcess) {
       return;
     }
-    var process = spawnedProcesses.get(id);
+    var process = this.spawnedProcesses.get(id);
     if (process) {
       process.cancel();
     }
-    spawnedProcesses.delete(id);
+    this.spawnedProcesses.delete(id);
   }
 
-  export function killAll(): void {
-    kill_pending = true;
-    var processes = spawnedProcesses;
-    processes.forEach((value: SpawnToken, key: string) => {
-      kill(key);
+  public killAll(): void {
+    this.kill_pending = true;
+    var processes = this.spawnedProcesses;
+    processes.forEach((value: SpawnTokenI, key: string) => {
+      this.kill(key);
     });
   }
 }

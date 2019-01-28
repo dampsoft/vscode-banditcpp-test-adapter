@@ -7,7 +7,6 @@ export function escapeRegExp(text: string): string {
       /[.*+?^${}()|[\]\\]/g, '\\$&');  // $& means the whole matched string
 }
 
-
 export class VariableResolver {
   private readonly variableToValue: [string, string][] = [
     ['${workspaceDirectory}', this.workspaceFolder.uri.fsPath],

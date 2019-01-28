@@ -1,21 +1,16 @@
 import * as vscode from 'vscode';
-import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
+import {TestAdapter, TestEvent, TestInfo, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 
-import {BanditSpawner} from './bandit'
-import * as config from './configuration'
+import * as config from './configuration';
+import {DisposableI} from './disposable'
 import {escapeRegExp, Logger} from './helper';
-import {BanditTestSuite} from './testsuite'
-import * as watcher from './watch'
+import {BanditTestSuite, TestSuiteI} from './testsuite';
 
-type Disposable = {
-  dispose(): void
-};
-
+/**
+ * Test-Adapterklasse für Bandittests
+ */
 export class BanditTestAdapter implements TestAdapter {
-  private disposables: Disposable[] = [];
-  private watches: Disposable[] = [];
-
-  // Emitters
+  private disposables: DisposableI[] = [];
   private readonly testsEmitter =
       new vscode.EventEmitter<TestLoadStartedEvent|TestLoadFinishedEvent>();
   private readonly testStatesEmitter =
@@ -23,13 +18,15 @@ export class BanditTestAdapter implements TestAdapter {
                               TestSuiteEvent|TestEvent>();
   private readonly reloadEmitter = new vscode.EventEmitter<void>();
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
-
-  // Members
-  private config: config.BanditConfiguration =
+  private config: config.BanditConfigurationI =
       new config.Configuration(this.workspaceFolder);
-  private testSuites: BanditTestSuite[] = [];
+  private testSuites: TestSuiteI[] = [];
 
-  // Konstruktor
+  /**
+   * Erstellt den Testadapter
+   * @param workspaceFolder Arbeitsplatz-Ordner
+   * @param log Logger
+   */
   constructor(
       public readonly workspaceFolder: vscode.WorkspaceFolder,
       private readonly log: Logger) {
@@ -42,7 +39,7 @@ export class BanditTestAdapter implements TestAdapter {
     this.registerCommand();
   }
 
-  // Schnittstellen
+  // Schnittstellenimplementierungen
   get tests(): vscode.Event<TestLoadStartedEvent|TestLoadFinishedEvent> {
     return this.testsEmitter.event;
   }
@@ -57,22 +54,23 @@ export class BanditTestAdapter implements TestAdapter {
     return this.autorunEmitter.event;
   }
 
+  /**
+   * Startet den Ladevorgang der Testprojekte
+   * Laufende Tests werden abgebrochen
+   */
   public load(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.log.info('Lade Bandit Tests');
       this.reset();
       this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
-      let promises = new Array<Promise<void>>();
+      let promises = new Array<Promise<TestSuiteInfo|TestInfo>>();
       for (let testSuite of this.testSuites) {
-        promises.push(testSuite.init());
+        promises.push(testSuite.reload());
       }
       Promise.all(promises)
-          .then(() => {
+          .then((testinfo) => {
             let info: TestSuiteInfo =
-                {id: 'root', label: 'root', type: 'suite', children: []};
-            for (let testSuite of this.testSuites) {
-              info.children.push(testSuite.getTestInfo());
-            }
+                {id: 'root', label: 'root', type: 'suite', children: testinfo};
             this.testsEmitter.fire(
                 <TestLoadFinishedEvent>{type: 'finished', suite: info});
             resolve();
@@ -85,6 +83,10 @@ export class BanditTestAdapter implements TestAdapter {
     });
   }
 
+  /**
+   * Startet einen Testlauf für ausgewählte Tests
+   * @param tests Test-Ids oder reguläre Ausdrücke zum Ermitteln der Tests
+   */
   public run(tests: (string|RegExp)[]): Promise<void> {
     return new Promise((resolve, reject) => {
       this.log.info(`Starte Bandit Tests ${JSON.stringify(tests)}`);
@@ -109,41 +111,72 @@ export class BanditTestAdapter implements TestAdapter {
     })
   }
 
+  /**
+   * Startet das Debugging (aktuell noch nicht implementiert)
+   * @param tests Test-Ids oder reguläre Ausdrücke zum Ermitteln der Tests
+   */
   public debug(tests: (string|RegExp)[]): Promise<void> {
     this.log.warn('Das Debugging ist noch nicht implementiert!');
     return this.run(tests);
   }
 
+  /**
+   * Bricht alle laufenden Tests ab.
+   * Wenn in der Konfiguration die Eigenschaft 'allowKillProcess' gesetzt ist,
+   * werden die laufenden Prozesse hart beeendet.
+   */
   public cancel() {
     this.testSuites.forEach(s => s.cancel());
   }
 
+  /**
+   * Verwirft alle Memberobjekte
+   */
   public dispose() {
     this.cancel();
-    this.disp(this.disposables);
+    this.disposeArray(this.disposables);
     this.disposables = [];
-    this.disp(this.watches);
-    this.watches = [];
+    this.disposeArray(this.testSuites);
+    this.testSuites = [];
   }
 
-  private disp(disposables: Disposable[]) {
+  /**
+   * Verwirft ein Array vom Typ `DisposableI`
+   */
+  private disposeArray(disposables: DisposableI[]) {
     disposables.forEach(d => d.dispose());
   }
 
+  /**
+   * Setzt alle laufenden Vorgänge zurück, erzeugt die Testsuite neu und ruft
+   * intern `cancel()` auf.
+   */
   private reset() {
-    this.createAutorunWatches();
-    let tempConfig = new config.Configuration(this.workspaceFolder);
-    this.config = tempConfig;
     this.cancel();
+    this.config = new config.Configuration(this.workspaceFolder);
     this.testSuites = [];
+    const timeout = this.config.get(config.watchTimeoutSec) * 1000;
+    let onStatusChange = (e: TestSuiteEvent|TestEvent) => {
+      this.testStatesEmitter.fire(e);
+    };
+    let onStart = (e: TestRunStartedEvent) => {
+      this.testStatesEmitter.fire(e);
+    };
+    let onFinish = (e: TestRunFinishedEvent) => {
+      this.testStatesEmitter.fire(e);
+    };
     for (let tsconfig of this.config.testsuites) {
-      let testsuiteSpawner = new BanditSpawner(tsconfig, this.log);
-      let testSuite = new BanditTestSuite(
-          tsconfig.name, this.testStatesEmitter, testsuiteSpawner, this.log);
-      this.testSuites.push(testSuite);
+      let onSuiteChange = () => {};
+      let suite = new BanditTestSuite(
+          tsconfig, onSuiteChange, onStatusChange, onStart, onFinish, timeout,
+          this.log);
+      this.testSuites.push(suite);
     }
   }
 
+  /**
+   * Erzeugt einen Konfigurations-Watch
+   */
   private createConfigWatch() {
     let watch = vscode.workspace.onDidChangeConfiguration(configChange => {
       let affects = (property: config.Property): boolean => {
@@ -157,52 +190,12 @@ export class BanditTestAdapter implements TestAdapter {
     this.disposables.push(watch);
   }
 
-  private autorunTimeout: NodeJS.Timer|undefined;
-  private createAutorunWatches() {
-    this.disp(this.watches);
-    this.watches = [];
-    let suiteconfigs = this.config.testsuites;
-    let paths: string[];
-    for (let suiteconfig of suiteconfigs) {
-      paths = [];
-      paths.push(suiteconfig.cmd);
-      if (suiteconfig.watches) {
-        paths.push(...suiteconfig.watches);
-      }
-      const onReady = () => {
-        this.log.info(
-            `Beobachte Änderung an der Testumgebung ${suiteconfig.name}...`);
-      };
-      const onChange = () => {
-        this.log.info(
-            `Änderung an der Testumgebung ${
-                                            suiteconfig.name
-                                          } erkannt. Führe Autorun aus.`);
-        if (this.autorunTimeout) {
-          clearTimeout(this.autorunTimeout);
-          this.autorunTimeout = undefined;
-        }
-        this.autorunTimeout = setTimeout(() => {
-          this.autorunEmitter.fire();
-        }, this.config.get(config.watchTimeoutSec) * 1000);
-      };
-      const onError = () => {
-        this.log.error(
-            `Beim Beobachten der Testumgebung ${
-                                                suiteconfig.name
-                                              } ist ein Fehler aufgetreten.`);
-      };
-      let w = new watcher.DisposableWatcher(paths, onReady, onChange, onError);
-      this.watches.push(w);
-    }
-  }
-
   private registerCommand() {
     this.disposables.push(
         vscode.commands.registerCommand('bandit-test-explorer.run', () => {
           vscode.window
               .showInputBox(
-                  {placeHolder: 'Bezeichnung des Tests oder der Testgruppe'})
+                  {placeHolder: 'Geben Sie hier einen Filter zum Ausführen von Tests oder der Testgruppen ein.'})
               .then((t) => {
                 if (t) {
                   this.run([new RegExp(`.*${escapeRegExp(t)}.*`, 'i')]);
