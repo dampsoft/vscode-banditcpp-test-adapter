@@ -41,13 +41,25 @@ export class Spawner {
   public spawnPending(
       args: SpawnArguments, config: config.BanditTestSuiteConfigurationI,
       timeouts: number): Promise<SpawnReturnsI> {
+    const cancelResult: SpawnReturnsI = {
+      pid: 0,
+      output: ['', ''],
+      stdout: '',
+      stderr: '',
+      status: 0,
+      signal: '',
+      error: new Error(),
+      cancelled: true
+    };
     if (this.kill_pending) {
       let msg =
           `Die verzögerte Prozessausführung ${args.id} wurde unterbrochen`;
       if (this.log) {
         this.log.warn(msg);
       }
-      throw new Error(msg);
+      return new Promise<SpawnReturnsI>((resolve) => {
+        resolve(cancelResult);
+      });
     } else if (config.maxTimeouts && timeouts > config.maxTimeouts) {
       let msg = `Timeout beim Aufruf von spawn() ${args.id}`;
       if (this.log) {
@@ -55,7 +67,7 @@ export class Spawner {
       }
       throw new Error(msg);
     } else if (this.count() >= config.parallelProcessLimit) {
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
                if (this.kill_pending) {
                  let msg =
                      `Die verzögerte Prozessausführung ${
@@ -64,7 +76,7 @@ export class Spawner {
                  if (this.log) {
                    this.log.warn(msg);
                  }
-                 reject(new Error(msg));
+                 resolve(cancelResult);
                } else {
                  let msg =
                      `Maximale Anzahl paralleler Prozesse erreicht. Verzögere ${
@@ -120,7 +132,7 @@ export class Spawner {
           this.log.error(msg);
         }
         reject(ret);
-        this.kill(args.id);
+        this.remove(args.id);
       });
       command.on('close', (code) => {
         ret.status = code;
@@ -130,7 +142,7 @@ export class Spawner {
           this.log.info(msg);
         }
         resolve(ret);
-        this.kill(args.id);
+        this.remove(args.id);
       });
       let token = <SpawnTokenI>{
         cancel: () => {
@@ -139,30 +151,35 @@ export class Spawner {
             command.kill();
           } catch (e) {
           }
-          reject(new Error('Der Prozess wurde beendet.'));
+          ret.cancelled = true;
+          resolve(ret);
+          // reject(new Error('Der Prozess wurde beendet.'));
         }
       };
       this.spawnedProcesses.set(args.id, token);
     });
   }
 
-  public count(): number {
+  private count(): number {
     return this.spawnedProcesses.size;
   }
 
-  public exists(id: string): boolean {
+  private exists(id: string): boolean {
     return this.spawnedProcesses.get(id) !== undefined;
   }
 
-  public kill(id: string): void {
-    if (!config.allowKillProcess) {
-      return;
-    }
-    var process = this.spawnedProcesses.get(id);
-    if (process) {
-      process.cancel();
-    }
+  public remove(id: string): void {
     this.spawnedProcesses.delete(id);
+  }
+
+  public kill(id: string): void {
+    if (config.allowKillProcess) {
+      var process = this.spawnedProcesses.get(id);
+      if (process) {
+        process.cancel();
+      }
+    }
+    this.remove(id);
   }
 
   public killAll(): void {

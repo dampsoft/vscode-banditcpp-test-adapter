@@ -61,7 +61,7 @@ export class BanditSpawner {
       this.createSpawnArgumentsTestRun(node).then((spawn_args) => {
         Spawner.instance.spawn(spawn_args, this.config)
             .then((ret: SpawnReturnsI) => {
-              if (ret.status < 0) {
+              if (!ret.cancelled && ret.status < 0) {
                 this.log.error(
                     `Fehlerhafter Return-Value beim dry() Aufruf der Test-Executable ${
                                                                                        node.id

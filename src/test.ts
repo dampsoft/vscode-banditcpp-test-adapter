@@ -52,7 +52,7 @@ abstract class TestNode {
 
 /************************************************************************/
 /**
- * Testsuite-Klasse
+ * Testgroup-Klasse
  */
 export class BanditTestGroup extends TestNode {
   public children = new Array<BanditTestNode>();
@@ -246,7 +246,7 @@ export class BanditTest extends TestNode {
   public stop(): BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
     if (this.status != teststatus.Idle) {
-      this.test_status = teststatus.Skipped;
+      this.test_status = teststatus.Idle;  // Reset the node state
       nodes.push(this);
     }
     return nodes;

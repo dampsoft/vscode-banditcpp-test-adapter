@@ -69,6 +69,7 @@ export class BanditTestSuite implements TestSuiteI {
           })
           .catch((e) => {
             this.log.error('Fehler beim Laden der Tests');
+            this.notifyFinished();
             reject(e);
           });
     });
@@ -109,6 +110,7 @@ export class BanditTestSuite implements TestSuiteI {
           })
           .catch((e) => {
             reject(e);
+            this.notifyFinished();
           });
     });
   }
@@ -116,9 +118,8 @@ export class BanditTestSuite implements TestSuiteI {
   public cancel(): Promise<void> {
     return new Promise(() => {
       this.log.info('Breche alle laufenden Tests ab');
-      this.testsuite.stop();
+      this.testsuite.stop().map(this.notifyStatus, this);
       this.spawner.stop();
-      this.notifyFinished();
     });
   }
 
@@ -130,7 +131,11 @@ export class BanditTestSuite implements TestSuiteI {
     return new Promise<void>((resolve, reject) => {
       this.spawner.run(node)
           .then((ret: SpawnReturnsI) => {
-            this.updateFromString(node, ret.stdout);
+            if (ret.cancelled) {
+              node.stop().map(this.notifyStatus, this);
+            } else {
+              this.updateFromString(node, ret.stdout);
+            }
             resolve();
           })
           .catch((e) => {
