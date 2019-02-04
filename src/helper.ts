@@ -1,3 +1,4 @@
+import {homedir} from 'os';
 import * as p from 'path'
 import * as vscode from 'vscode';
 import {Log} from 'vscode-test-adapter-util';
@@ -8,32 +9,36 @@ export function escapeRegExp(text: string): string {
 }
 
 export class VariableResolver {
-  private readonly variableToValue: [string, string][] = [
+  private readonly varValue: [string|RegExp, string][] = [
     ['${workspaceDirectory}', this.workspaceFolder.uri.fsPath],
-    ['${workspaceFolder}', this.workspaceFolder.uri.fsPath]
+    ['${workspaceFolder}', this.workspaceFolder.uri.fsPath],  //
+    ['${Home}', homedir()],                                   //
+    [/^~($|\/|\\)/, `${homedir()}$1`]
   ];
 
   constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {}
 
   public resolve(value: any): any {
-    return this.resolveVariables(value, this.variableToValue);
+    return this.resolveVariables(value);
   }
 
-  private resolveVariables(value: any, varValue: [string, any][]): any {
-    if (typeof value == 'string') {
-      for (let i = 0; i < varValue.length; ++i) {
-        if (value === varValue[i][0] && typeof varValue[i][1] != 'string') {
-          return varValue[i][1];
+  private resolveVariables(value: any): any {
+    if (typeof value === 'string') {
+      for (let i = 0; i < this.varValue.length; ++i) {
+        if (typeof this.varValue[i][0] === 'string' &&
+            typeof this.varValue[i][1] != 'string' &&
+            value === this.varValue[i][0]) {
+          return this.varValue[i][1];
         }
-        value = value.replace(varValue[i][0], varValue[i][1]);
+        value = value.replace(this.varValue[i][0], this.varValue[i][1]);
       }
       return value;
     } else if (Array.isArray(value)) {
-      return (<any[]>value).map((v: any) => this.resolveVariables(v, varValue));
+      return (<any[]>value).map((v: any) => this.resolveVariables(v));
     } else if (typeof value == 'object') {
       const newValue: any = {};
       for (const prop in value) {
-        newValue[prop] = this.resolveVariables(value[prop], varValue);
+        newValue[prop] = this.resolveVariables(value[prop]);
       }
       return newValue;
     }
