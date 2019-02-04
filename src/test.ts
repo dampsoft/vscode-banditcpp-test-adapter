@@ -19,7 +19,7 @@ abstract class TestNode {
   public abstract get status(): teststatus.TestStatus;
   public get id(): string {
     if (this.parent) {
-      return this.parent.id + '.' + this.label;
+      return `${this.parent.id}.${this.label}`;
     }
     return this.label;
   }
@@ -42,7 +42,7 @@ abstract class TestNode {
   public abstract getTestInfo(): TestSuiteInfo|TestInfo;
   public get displayTitle(): string {
     if (this.parent) {
-      return (this.parent.displayTitle + ' ' + this.label).trim();
+      return (`${this.parent.displayTitle} ${this.label}`).trim();
     } else {
       return '';
     }

@@ -24,6 +24,8 @@ export class Spawner {
   private kill_pending: boolean = false;
   private log: Logger|undefined;
 
+  private active_tokens: number[] = [];
+
   public setLog(logger: Logger) {
     this.log = logger;
   }
@@ -35,11 +37,13 @@ export class Spawner {
       this.log.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
     }
     this.kill_pending = false;
-    return this.spawnPending(args, config, 0);
+    let token = this.pullToken();
+    return this.spawnPending(token, args, config, 0);
   }
 
   public spawnPending(
-      args: SpawnArguments, config: config.BanditTestSuiteConfigurationI,
+      token: number, args: SpawnArguments,
+      config: config.BanditTestSuiteConfigurationI,
       timeouts: number): Promise<SpawnReturnsI> {
     const cancelResult: SpawnReturnsI = {
       pid: 0,
@@ -66,33 +70,35 @@ export class Spawner {
         this.log.warn(msg);
       }
       throw new Error(msg);
-    } else if (this.count() >= config.parallelProcessLimit) {
-      return new Promise((resolve) => {
-               if (this.kill_pending) {
-                 let msg =
-                     `Die verzögerte Prozessausführung ${
-                                                         args.id
-                                                       } wurde unterbrochen`;
-                 if (this.log) {
-                   this.log.warn(msg);
-                 }
-                 resolve(cancelResult);
-               } else {
-                 let msg =
-                     `Maximale Anzahl paralleler Prozesse erreicht. Verzögere ${
-                                                                                args.id
-                                                                              }.`;
-                 if (this.log) {
-                   this.log.debug(msg);
-                 }
-                 setTimeout(resolve, 64);
-               }
-             })
-          .then(() => {
-            return this.spawnPending(args, config, ++timeouts);
-          });
     } else {
-      return this.spawnInner(args);
+      if (this.activateToken(token, config.parallelProcessLimit)) {
+        return this.spawnInner(args);
+      } else {
+        return new Promise((resolve) => {
+                 if (this.kill_pending) {
+                   let msg =
+                       `Die verzögerte Prozessausführung ${
+                                                           args.id
+                                                         } wurde unterbrochen`;
+                   if (this.log) {
+                     this.log.warn(msg);
+                   }
+                   resolve(cancelResult);
+                 } else {
+                   let msg =
+                       `Maximale Anzahl paralleler Prozesse erreicht. Verzögere ${
+                                                                                  args.id
+                                                                                }.`;
+                   if (this.log) {
+                     this.log.debug(msg);
+                   }
+                   setTimeout(resolve, 64);
+                 }
+               })
+            .then(() => {
+              return this.spawnPending(token, args, config, ++timeouts);
+            });
+      }
     }
   }
 
@@ -136,9 +142,9 @@ export class Spawner {
       });
       command.on('close', (code) => {
         ret.status = code;
-        ret.error = new Error('code: ' + String(code));
+        let msg = `Prozessausführung "${args.id}" mit Code "${code}" beendet`;
+        ret.error = new Error(msg);
         if (this.log) {
-          let msg = `Prozessausführung "${args.id}" mit Code "${code}"beendet`;
           this.log.info(msg);
         }
         resolve(ret);
@@ -158,6 +164,29 @@ export class Spawner {
       };
       this.spawnedProcesses.set(args.id, token);
     });
+  }
+
+  private get current_token(): number {
+    return Math.max(0, ...this.active_tokens);
+  }
+
+  private pullToken(): number {
+    if (this.count() == 0) {
+      this.active_tokens = [];
+    }
+    let pulled_token = this.current_token + 1;
+    this.active_tokens.push(pulled_token);
+    return pulled_token;
+  }
+
+  private activateToken(token: number, token_limit: number): boolean {
+    let token_buffer = token_limit - this.count();
+    let activated =
+        token_buffer > 0 && token <= this.current_token + token_buffer;
+    if (activated) {
+      this.active_tokens.push(token);
+    }
+    return activated;
   }
 
   private count(): number {

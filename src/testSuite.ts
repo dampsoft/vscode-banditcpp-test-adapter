@@ -93,6 +93,7 @@ export class BanditTestSuite implements TestSuiteI {
       this.notifyStart(nodes);
       let promises = new Array<Promise<void>>();
       let startTime = performance.now();
+      started_nodes.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
       for (let node of started_nodes) {
         if (asTest(node)) {
           promises.push(this.createTestRunSpawn(node));
@@ -131,11 +132,7 @@ export class BanditTestSuite implements TestSuiteI {
     return new Promise<void>((resolve, reject) => {
       this.spawner.run(node)
           .then((ret: SpawnReturnsI) => {
-            if (ret.cancelled) {
-              node.stop().map(this.notifyStatus, this);
-            } else {
-              this.updateFromString(node, ret.stdout);
-            }
+            this.updateFromString(node, ret);
             resolve();
           })
           .catch((e) => {
@@ -244,7 +241,7 @@ export class BanditTestSuite implements TestSuiteI {
                 asTestGroup(current_suite.findByLabel(newLabel));
             if (!existingGroup) {
               node = current_suite = current_suite.addSuite(newLabel);
-              this.log.debug('Neue Gruppe erkannt: "' + node.id + '"');
+              this.log.debug(`Neue Gruppe erkannt: "${node.id}"`);
             } else {
               this.log.error(
                   `Eine Gruppe mit dem Label "${
@@ -265,12 +262,15 @@ export class BanditTestSuite implements TestSuiteI {
             let existingTest = asTest(current_suite.findByLabel(newLabel));
             if (!existingTest) {
               node = current_suite.addTest(newLabel);
-              this.log.debug('Neuen Test erkannt: "' + node.id + '"');
+              this.log.debug(`Neuen Test erkannt: "${node.id}"`);
             } else {
               this.log.error(
-                  'Ein Test mit dem Label "' + newLabel +
-                  '" exisitiert bereits in der Gruppe "' + current_suite.id +
-                  '"');
+                  `Ein Test mit dem Label "${
+                                             newLabel
+                                           }" exisitiert bereits in der Gruppe "${
+                                                                                  current_suite
+                                                                                      .id
+                                                                                }"`);
               node = existingTest;
             }
           }
@@ -293,12 +293,14 @@ export class BanditTestSuite implements TestSuiteI {
         let lines = error.split(/[\n]+/);
         if (lines.length > 1) {
           for (let node of nodes) {
-            if (lines[0].startsWith(node.displayTitle.trim() + ':')) {
+            let requiredLineStart = `${node.displayTitle.trim()}:`;
+            if (lines[0].startsWith(requiredLineStart)) {
               node.message =
                   lines.slice(1, lines.length).join('\n').replace(/\n$/, '');
               this.log.debug(
-                  'Fehlermeldung für Test "' + node.id + '" erkannt:\n' +
-                  node.message);
+                  `Fehlermeldung für Test "${node.id}" erkannt:\n${
+                                                                   node.message
+                                                                 }\n`);
             }
           }
         }
@@ -307,20 +309,24 @@ export class BanditTestSuite implements TestSuiteI {
     return root;
   }
 
-  private updateFromString(node: BanditTestNode, stdout: string) {
-    let parsed_result = this.createFromString(stdout);
-    let result_node = parsed_result.find(node.id);
-    if (result_node) {
-      this.log.debug(
-          'Status "' + result_node.status + '" für Test "' + node.id +
-          '" erkannt');
-      node.finish(result_node.status, result_node.message)
-          .map(this.notifyStatus, this);
+  private updateFromString(node: BanditTestNode, ret: SpawnReturnsI) {
+    if (ret.cancelled) {
+      node.stop().map(this.notifyStatus, this);
     } else {
-      this.log.warn(
-          'In der Testausgabe konnte der Test "' + node.id +
-          '" nicht gefunden werden');
-      node.finish(teststatus.Skipped).map(this.notifyStatus, this);
+      let parsed_result = this.createFromString(ret.stdout);
+      let result_node = parsed_result.find(node.id);
+      if (result_node) {
+        this.log.debug(
+            `Status "${result_node.status}" für Test "${node.id}" erkannt`);
+        node.finish(result_node.status, result_node.message)
+            .map(this.notifyStatus, this);
+      } else {
+        this.log.warn(
+            `In der Testausgabe konnte der Test "${
+                                                   node.id
+                                                 }" nicht gefunden werden`);
+        node.finish(teststatus.Skipped).map(this.notifyStatus, this);
+      }
     }
   }
 

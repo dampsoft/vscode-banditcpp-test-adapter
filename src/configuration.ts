@@ -154,7 +154,7 @@ export class Configuration implements BanditConfigurationI {
   }
 
   public fullname(property: Property): string {
-    return this.baseConfigurationName + '.' + this.name(property);
+    return `${this.baseConfigurationName}.${this.name(property)}`;
   }
 
   private get config(): vscode.WorkspaceConfiguration {
@@ -178,7 +178,7 @@ export class Configuration implements BanditConfigurationI {
         arg = this.resolver.resolve(arg);
         if (arg.trim().length > 0) {
           if (arg.trim().indexOf(' ') >= 0 && arg.trim().indexOf('"') < 0) {
-            arg = '"' + arg.trim() + '"';
+            arg = `"${arg.trim()}"`;
           }
           args_modified.push(arg.trim());
         }
