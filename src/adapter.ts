@@ -4,6 +4,7 @@ import {TestAdapter, TestEvent, TestInfo, TestLoadFinishedEvent, TestLoadStarted
 import * as config from './configuration';
 import {DisposableI} from './disposable'
 import {escapeRegExp, Logger} from './helper';
+import {Message} from './message';
 import {BanditTestSuite, TestSuiteI} from './testsuite';
 
 /**
@@ -155,7 +156,6 @@ export class BanditTestAdapter implements TestAdapter {
     this.cancel();
     this.config = new config.Configuration(this.workspaceFolder);
     this.testSuites = [];
-    const timeout = this.config.get(config.watchTimeoutSec) * 1000;
     let onStatusChange = (e: TestSuiteEvent|TestEvent) => {
       this.testStatesEmitter.fire(e);
     };
@@ -165,10 +165,17 @@ export class BanditTestAdapter implements TestAdapter {
     let onFinish = (e: TestRunFinishedEvent) => {
       this.testStatesEmitter.fire(e);
     };
+    let onMessage = (message: Message) => {
+      if (message.isError()) {
+        vscode.window.showErrorMessage(message.text);
+      } else {
+        vscode.window.showInformationMessage(message.text);
+      }
+    };
+    let onSuiteChange = () => {};
     for (let tsconfig of this.config.testsuites) {
-      let onSuiteChange = () => {};
       let suite = new BanditTestSuite(
-          tsconfig, onSuiteChange, onStatusChange, onStart, onFinish, timeout,
+          tsconfig, onSuiteChange, onStatusChange, onStart, onFinish, onMessage,
           this.log);
       this.testSuites.push(suite);
     }
@@ -194,8 +201,10 @@ export class BanditTestAdapter implements TestAdapter {
     this.disposables.push(
         vscode.commands.registerCommand('bandit-test-explorer.run', () => {
           vscode.window
-              .showInputBox(
-                  {placeHolder: 'Geben Sie hier einen Filter zum Ausführen von Tests oder der Testgruppen ein.'})
+              .showInputBox({
+                placeHolder:
+                    'Geben Sie hier einen Filter zum Ausführen von Tests oder der Testgruppen ein.'
+              })
               .then((t) => {
                 if (t) {
                   this.run([new RegExp(`.*${escapeRegExp(t)}.*`, 'i')]);
