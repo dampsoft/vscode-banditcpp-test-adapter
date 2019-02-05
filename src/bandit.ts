@@ -213,7 +213,7 @@ export class BanditSpawner {
   }
 
   private parseString(stdout: string): ParseResultI {
-    let root = new BanditTestGroup(undefined, 'unnamed');
+    let root = new BanditTestGroup(undefined, this.config.name);
     let result: ParseResultI = {testsuite: root, messages: []};
     let messages = Array<String>();
     let isGroup = (line: string): boolean => {
