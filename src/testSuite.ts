@@ -1,5 +1,5 @@
-import {performance} from 'perf_hooks';
-import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
+var now = require('performance-now')
+import{TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 import {TestEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
 
 import {BanditSpawner} from './bandit';
@@ -54,10 +54,10 @@ export class BanditTestSuite implements TestSuiteI {
   public reload(): Promise<TestSuiteInfo|TestInfo> {
     return new Promise((resolve, reject) => {
       this.log.debug('Starte das Laden der Tests');
-      let startTime = performance.now();
+      let startTime = now();
       this.spawner.dry()
           .then((result) => {
-            const duration = performance.now() - startTime;
+            const duration = now() - startTime;
             result.testsuite.label = this.name;
             this.testsuite = result.testsuite;
             this.log.debug(
@@ -97,7 +97,7 @@ export class BanditTestSuite implements TestSuiteI {
       this.log.debug(`${nodes.length} Tests werden gestartet`);
       this.notifyStart(nodes);
       let promises = new Array<Promise<BanditTestNode[]>>();
-      let startTime = performance.now();
+      let startTime = now();
       startedNodes.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
       for (let node of startedNodes) {
         if (asTest(node)) {
@@ -106,7 +106,7 @@ export class BanditTestSuite implements TestSuiteI {
       }
       Promise.all(promises)
           .then((nodes) => {
-            let duration = performance.now() - startTime;
+            let duration = now() - startTime;
             for (let finished_nodes of nodes) {
               finished_nodes.map(this.notifyStatus, this);
             }
