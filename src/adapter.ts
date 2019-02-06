@@ -167,9 +167,9 @@ export class BanditTestAdapter implements TestAdapter {
     };
     let onMessage = (message: Message) => {
       if (message.isError()) {
-        vscode.window.showErrorMessage(message.text);
+        vscode.window.showErrorMessage(message.format());
       } else {
-        vscode.window.showInformationMessage(message.text);
+        vscode.window.showInformationMessage(message.format());
       }
     };
     let onSuiteChange = () => {};

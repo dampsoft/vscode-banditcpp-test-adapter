@@ -321,7 +321,8 @@ export class BanditSpawner {
                                                                                          .id
                                                                                    }"`;
               this.log.error(msg);
-              result.messages.push(Message.error(msg));
+              result.messages.push(
+                  Message.error('Mehrdeutige Testgruppe', msg));
               node = current_suite = existingGroup;
             }
           } else if (isTest(line)) {
@@ -338,7 +339,7 @@ export class BanditSpawner {
                                                                              .id
                                                                        }" gefunden. Test wird ignoriert.`;
               this.log.error(msg);
-              result.messages.push(Message.error(msg));
+              result.messages.push(Message.error('Ungültiger Test', msg));
             } else {
               let existingTest = asTest(current_suite.findByLabel(newLabel));
               if (!existingTest) {
@@ -353,7 +354,7 @@ export class BanditSpawner {
                                                                                         .id
                                                                                   }"`;
                 this.log.error(msg);
-                result.messages.push(Message.error(msg));
+                result.messages.push(Message.error('Mehrdeutiger Test', msg));
                 node = existingTest;
               }
             }

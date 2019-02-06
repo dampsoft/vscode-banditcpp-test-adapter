@@ -126,10 +126,12 @@ export class Spawner {
       };
       const command = cp.spawn(args.cmd, args.args, args.options);
       ret.pid = command.pid;
-      command.stdout.on('data', (data) => {
-        ret.stdout += data;
-        ret.output[0] = ret.stdout;
-      });
+      if (command.stdout != null) {
+        command.stdout.on('data', (data) => {
+          ret.stdout += data;
+          ret.output[0] = ret.stdout;
+        });
+      }
       command.on('error', (err: Error) => {
         ret.error = err;
         if (this.log) {
@@ -140,9 +142,14 @@ export class Spawner {
         reject(ret);
         this.remove(args.id);
       });
-      command.on('close', (code) => {
+      command.on('close', (code, signal) => {
         ret.status = code;
-        let msg = `Prozessausführung "${args.id}" mit Code "${code}" beendet`;
+        let msg =
+            `Prozessausführung "${
+                                  args.id
+                                }" mit Code "${code}" und Signal "${
+                                                                    signal
+                                                                  }" beendet`;
         ret.error = new Error(msg);
         if (this.log) {
           this.log.info(msg);

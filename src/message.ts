@@ -3,8 +3,9 @@ export const Info: MessageType = 'info';
 export const Error: MessageType = 'error';
 
 export class Message {
-  constructor(public readonly text: string, public readonly type: MessageType) {
-  }
+  constructor(
+      public readonly title: string, public readonly description: string,
+      public readonly type: MessageType) {}
 
   public isError() {
     return this.type == Error;
@@ -14,11 +15,15 @@ export class Message {
     return this.type == Info;
   }
 
-  static error(message: string) {
-    return new Message(message, Error);
+  public format(): string {
+    return `${this.title}: \n${this.description}`
   }
 
-  static info(message: string) {
-    return new Message(message, Info);
+  static error(title: string, description: string) {
+    return new Message(title, description, Error);
+  }
+
+  static info(title: string, description: string) {
+    return new Message(title, description, Info);
   }
 }
