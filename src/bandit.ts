@@ -17,6 +17,10 @@ export class BanditSpawner {
   private readonly banditVersionFallback = new Version(3, 0, 0);
   private banditVersionDetected: Version|undefined;
 
+  constructor(
+      private readonly config: config.BanditTestSuiteConfigurationI,
+      private log: Logger) {}
+
   private getBanditVersion(): Promise<Version> {
     return new Promise((resolve) => {
       if (!this.banditVersionDetected) {
@@ -58,10 +62,6 @@ export class BanditSpawner {
       }
     });
   }
-
-  constructor(
-      private readonly config: config.BanditTestSuiteConfigurationI,
-      private log: Logger) {}
 
   public run(node: BanditTestNode): Promise<BanditTestNode[]> {
     return new Promise((resolve) => {

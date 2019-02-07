@@ -10,6 +10,7 @@ import {Message} from './message';
 import {asTest, asTestGroup, BanditTest, BanditTestGroup, BanditTestNode} from './test'
 import * as teststatus from './teststatus'
 import {DisposableWatcher} from './watch';
+import {Testqueue} from './testqueue'
 
 export type NotifyTestsuiteChangeHandler = () => void;
 export type NotifyStatusHandler = (e: TestSuiteEvent|TestEvent) => void;
@@ -34,6 +35,9 @@ export class BanditTestSuite implements TestSuiteI {
   private changeTimeout: NodeJS.Timer|undefined;
   private testsuite = new BanditTestGroup(undefined, this.name);
   private spawner = new BanditSpawner(this.configuration, this.log);
+  private queue = new Testqueue(this.configuration, this.spawner, (node) => {
+    this.notifyStatus(node);
+  });
 
   constructor(
       private readonly configuration: BanditTestSuiteConfigurationI,  //
@@ -82,7 +86,7 @@ export class BanditTestSuite implements TestSuiteI {
 
   public start(ids: (string|RegExp)[]): Promise<void> {
     this.log.debug('Starte einen neuen Testlauf');
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       let nodes = new Array<BanditTestNode>();
       let unique_ids = new Set<(string | RegExp)>(ids);
       for (let id of unique_ids) {
@@ -95,32 +99,9 @@ export class BanditTestSuite implements TestSuiteI {
       }
       startedNodes = removeDuplicates(startedNodes, 'id');
       this.log.debug(`${nodes.length} Tests werden gestartet`);
-      this.notifyStart(nodes);
-      let promises = new Array<Promise<BanditTestNode[]>>();
-      let startTime = now();
-      startedNodes.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-      for (let node of startedNodes) {
-        if (asTest(node)) {
-          promises.push(this.spawner.run(node));
-        }
-      }
-      Promise.all(promises)
-          .then((nodes) => {
-            let duration = now() - startTime;
-            for (let finished_nodes of nodes) {
-              finished_nodes.map(this.notifyStatus, this);
-            }
-            this.log.debug(
-                `Testlauf erfolgreich beendet. Benötigte Zeit: ${
-                                                                 formatTimeDuration(
-                                                                     duration)
-                                                               }`);
-            resolve();
-          })
-          .catch((e) => {
-            reject(e);
-            this.notifyFinished();
-          });
+      this.notifyStart(startedNodes);
+      this.queue.push(startedNodes);
+      resolve();
     });
   }
 
@@ -128,6 +109,7 @@ export class BanditTestSuite implements TestSuiteI {
     return new Promise(() => {
       this.log.info('Breche alle laufenden Tests ab');
       this.testsuite.stop().map(this.notifyStatus, this);
+      this.queue.stop();
       this.spawner.stop();
     });
   }
