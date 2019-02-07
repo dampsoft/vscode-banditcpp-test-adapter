@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestInfo, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 
-import * as config from './configuration';
+import {BanditConfigurationI, Configuration, Property} from './configuration';
 import {DisposableI} from './disposable'
 import {escapeRegExp, Logger} from './helper';
 import {Message} from './message';
@@ -19,8 +19,8 @@ export class BanditTestAdapter implements TestAdapter {
                               TestSuiteEvent|TestEvent>();
   private readonly reloadEmitter = new vscode.EventEmitter<void>();
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
-  private config: config.BanditConfigurationI =
-      new config.Configuration(this.workspaceFolder);
+  private config: BanditConfigurationI =
+      new Configuration(this.workspaceFolder);
   private testSuites: TestSuiteI[] = [];
 
   /**
@@ -152,7 +152,7 @@ export class BanditTestAdapter implements TestAdapter {
    */
   private reset() {
     this.cancel();
-    this.config = new config.Configuration(this.workspaceFolder);
+    this.config = new Configuration(this.workspaceFolder);
     this.testSuites = [];
     let onStatusChange = (e: TestSuiteEvent|TestEvent) => {
       this.testStatesEmitter.fire(e);
@@ -184,7 +184,7 @@ export class BanditTestAdapter implements TestAdapter {
    */
   private createConfigWatch() {
     let watch = vscode.workspace.onDidChangeConfiguration(configChange => {
-      let affects = (property: config.Property): boolean => {
+      let affects = (property: Property): boolean => {
         return configChange.affectsConfiguration(
             this.config.fullname(property), this.workspaceFolder.uri);
       };

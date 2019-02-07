@@ -26,7 +26,7 @@ export class BanditSpawner {
       if (!this.banditVersionDetected) {
         this.createSpawnArgumentsVersion().then((spawn_args) => {
           this.log.debug('Ermittle die aktuelle Version des Testframeworks...');
-          Spawner.instance.spawn(spawn_args, this.config)
+          Spawner.instance.spawn(spawn_args)
               .then((ret: SpawnReturnsI) => {
                 let matches =
                     ret.stdout.match(/bandit version (\d+\.\d+\.\d+)/i);
@@ -66,7 +66,7 @@ export class BanditSpawner {
   public run(node: BanditTestNode): Promise<BanditTestNode[]> {
     return new Promise((resolve) => {
       this.createSpawnArgumentsTestRun(node).then((spawn_args) => {
-        Spawner.instance.spawn(spawn_args, this.config)
+        Spawner.instance.spawn(spawn_args)
             .then((ret: SpawnReturnsI) => {
               if (!ret.cancelled && ret.status < 0) {
                 let msg =
@@ -94,7 +94,7 @@ export class BanditSpawner {
   public dry(): Promise<ParseResultI> {
     return new Promise((resolve, reject) => {
       this.createSpawnArgumentsDryRun().then((spawn_args) => {
-        Spawner.instance.spawn(spawn_args, this.config)
+        Spawner.instance.spawn(spawn_args)
             .then((ret: SpawnReturnsI) => {
               if (ret.status < 0) {
                 this.log.error(
@@ -124,7 +124,9 @@ export class BanditSpawner {
 
   public stop() {
     this.log.info('Beende alle laufenden Prozesse');
-    Spawner.instance.killAll();
+    if (this.config.allowKillProcess) {
+      Spawner.instance.killAll();
+    }
   }
 
   private createSpawnOptions(): SpawnSyncOptionsWithStringEncoding {

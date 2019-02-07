@@ -86,7 +86,7 @@ export class BanditTestSuite implements TestSuiteI {
 
   public start(ids: (string|RegExp)[]): Promise<void> {
     this.log.debug('Starte einen neuen Testlauf');
-    return new Promise((resolve) => {
+    return new Promise(() => {
       let nodes = new Array<BanditTestNode>();
       let unique_ids = new Set<(string | RegExp)>(ids);
       for (let id of unique_ids) {
@@ -101,7 +101,6 @@ export class BanditTestSuite implements TestSuiteI {
       this.log.debug(`${nodes.length} Tests werden gestartet`);
       this.notifyStart(startedNodes);
       this.queue.push(startedNodes);
-      resolve();
     });
   }
 
@@ -208,15 +207,12 @@ export class BanditTestSuite implements TestSuiteI {
       paths.concat(this.configuration.watches);
     }
     const onReady = () => {
-      this.log.info(
-          `Beobachte Änderung an der Testumgebung ${
-                                                    this.configuration.name
-                                                  }...`);
+      this.log.info(`Beobachte Änderung an der Testumgebung ${this.name}...`);
     };
     const onChange = () => {
       this.log.info(
           `Änderung an der Testumgebung ${
-                                          this.configuration.name
+                                          this.name
                                         } erkannt. Führe Autorun aus.`);
       if (this.changeTimeout) {
         clearTimeout(this.changeTimeout);
@@ -229,7 +225,7 @@ export class BanditTestSuite implements TestSuiteI {
     const onError = () => {
       this.log.error(
           `Beim Beobachten der Testumgebung ${
-                                              this.configuration.name
+                                              this.name
                                             } ist ein Fehler aufgetreten.`);
     };
     this.watch = new DisposableWatcher(paths, onReady, onChange, onError);
