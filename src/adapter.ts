@@ -99,8 +99,6 @@ export class BanditTestAdapter implements TestAdapter {
       }
       Promise.all(promises)
           .then(() => {
-            this.testStatesEmitter.fire(
-                <TestRunFinishedEvent>{type: 'finished'});
             resolve();
           })
           .catch((e) => {

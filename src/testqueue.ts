@@ -13,7 +13,7 @@ export class Testqueue {
   constructor(
       private readonly config: BanditTestSuiteConfigurationI,
       private readonly spawner: BanditSpawner,
-      private readonly notifyFinished: (node: BanditTestNode) => void) {}
+      private readonly notifyChanged: (node: BanditTestNode) => void) {}
 
   public push(nodes: BanditTestNode[]) {
     nodes.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
@@ -69,10 +69,9 @@ export class Testqueue {
 
   private start(entry: TestQueueEntry) {
     entry.running = true;
+    this.notifyChanged(entry.node);
     this.spawner.run(entry.node).then((nodes) => {
-      nodes.forEach((node) => {
-        this.notifyFinished(node);
-      });
+      nodes.map(this.notifyChanged, this);
       this.finish(entry);
       this.continue();
     });
