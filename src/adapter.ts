@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestInfo, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 
-import {BanditConfigurationI, Configuration, Property} from './configuration';
+import {Configuration, Property} from './configuration';
 import {DisposableI} from './disposable'
 import {escapeRegExp} from './helper';
 import {Logger} from './logger';
@@ -20,7 +20,7 @@ export class BanditTestAdapter implements TestAdapter {
                               TestSuiteEvent|TestEvent>();
   private readonly reloadEmitter = new vscode.EventEmitter<void>();
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
-  private config: BanditConfigurationI;
+  private config = new Configuration(this.workspaceFolder);
   private testSuites: TestSuiteI[] = [];
 
   /**
@@ -30,7 +30,7 @@ export class BanditTestAdapter implements TestAdapter {
    */
   constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {
     Logger.instance.info('Initialisiere den Bandit Test-Adapter');
-    this.config = this.reloadConfiguration();
+    this.reloadConfiguration();
     this.disposables.push(this.testsEmitter);
     this.disposables.push(this.testStatesEmitter);
     this.disposables.push(this.reloadEmitter);
@@ -151,7 +151,7 @@ export class BanditTestAdapter implements TestAdapter {
    */
   private reset() {
     this.cancel();
-    this.config = this.reloadConfiguration();
+    this.resetConfiguration();
     this.testSuites = [];
     let onStatusChange = (e: TestSuiteEvent|TestEvent) => {
       this.testStatesEmitter.fire(e);
@@ -180,10 +180,13 @@ export class BanditTestAdapter implements TestAdapter {
     }
   }
 
-  private reloadConfiguration(): BanditConfigurationI {
-    let config = new Configuration(this.workspaceFolder);
-    Logger.instance.level = config.loglevel;
-    return config;
+  private resetConfiguration() {
+    this.config.reload();
+    this.reloadConfiguration();
+  }
+
+  private reloadConfiguration() {
+    Logger.instance.level = this.config.loglevel;
   }
 
   /**
@@ -195,8 +198,11 @@ export class BanditTestAdapter implements TestAdapter {
         return configChange.affectsConfiguration(
             this.config.fullname(property), this.workspaceFolder.uri);
       };
-      if (this.config.properties.some(affects)) {
+      if (this.config.propertiesHardReset.some(affects)) {
+        // Komplettes Neuladen wenn folgende Konfigurationen geändert wurden:
         this.load();
+      } else {
+        this.reloadConfiguration();
       }
     });
     this.disposables.push(watch);

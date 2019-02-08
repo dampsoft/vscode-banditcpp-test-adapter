@@ -8,12 +8,12 @@ import {LogLevel} from './logger'
 
 export type Property = 'cwd'|'testsuites'|'parallelProcessLimit'|
     'watchTimeoutSec'|'allowKillProcess'|'loglevel';
-export const cwd: Property = 'cwd';
-export const testsuites: Property = 'testsuites';
-export const parallelProcessLimit: Property = 'parallelProcessLimit';
-export const watchTimeoutSec: Property = 'watchTimeoutSec';
-export const allowKillProcess: Property = 'allowKillProcess';
-export const loglevel: Property = 'loglevel';
+export const PropertyCwd: Property = 'cwd';
+export const PropertyTestsuites: Property = 'testsuites';
+export const PropertyParallelProcessLimit: Property = 'parallelProcessLimit';
+export const PropertyWatchTimeoutSec: Property = 'watchTimeoutSec';
+export const PropertyAllowKillProcess: Property = 'allowKillProcess';
+export const PropertyLoglevel: Property = 'loglevel';
 
 export type EnvProperty = {
   [prop: string]: any
@@ -27,102 +27,86 @@ interface TestSuiteJsonConfigurationI {
   env?: EnvProperty;
 }
 
-export interface BanditTestSuiteConfigurationI {
-  name: string;
-  cmd: string;
-  cwd?: string;
-  options?: string[];
-  watches?: string[];
-  env?: EnvProperty;
-  readonly parallelProcessLimit: number;
-  readonly watchTimeoutSec: number;
-  readonly allowKillProcess: boolean;
-  readonly maxTimeouts?: number;
+export class BanditTestSuiteConfiguration {
+  constructor(
+      private readonly parentConfig: Configuration,
+      private readonly jsonConfig: TestSuiteJsonConfigurationI) {}
+
+  public get name() {
+    return this.jsonConfig.name;
+  }
+
+  public get cmd() {
+    return this.jsonConfig.cmd;
+  }
+
+  public get cwd() {
+    return this.jsonConfig.cwd;
+  }
+
+  public get options() {
+    return this.jsonConfig.options;
+  }
+
+  public get watches() {
+    return this.jsonConfig.watches;
+  }
+
+  public get env() {
+    return this.jsonConfig.env;
+  }
+
+  public get parallelProcessLimit(): number {
+    return this.parentConfig.parallelProcessLimit;
+  }
+
+  public get watchTimeoutSec(): number {
+    return this.parentConfig.watchTimeoutSec;
+  }
+
+  public get allowKillProcess(): boolean {
+    return this.parentConfig.allowKillProcess;
+  }
 }
 
-export interface BanditConfigurationI {
-  readonly testsuites: BanditTestSuiteConfigurationI[];
-  readonly parallelProcessLimit: number;
-  readonly watchTimeoutSec: number;
-  readonly allowKillProcess: boolean;
-  readonly loglevel: LogLevel;
-  readonly properties: Property[];
-  get(property: Property): any|undefined;
-  name(property: Property): string;
-  fullname(property: Property): string;
-}
-
-export class Configuration implements BanditConfigurationI {
+export class Configuration {
   private resolver = new VariableResolver(this.workspaceFolder);
   private propertyGetter = new Map<string, () => any>();
+  private banditTestSuiteConfigs = new Array<BanditTestSuiteConfiguration>();
 
   public baseConfigurationName: string = 'banditTestExplorer';
 
   constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {
-    this.propertyGetter.set(testsuites, () => {
-      let conf =
-          this.config.get<string|TestSuiteJsonConfigurationI[]>(testsuites);
-      let banditConfig: TestSuiteJsonConfigurationI[] = [];
-      if (typeof conf === 'string') {
-        try {
-          banditConfig = fs.readJsonSync(this.resolvePath(conf));
-        } catch (e) {
-        }
-      } else {
-        banditConfig = conf as TestSuiteJsonConfigurationI[];
-      }
-      // Resolve variables and paths:
-      for (let testsuite of banditConfig) {
-        testsuite.cmd = this.resolvePath(testsuite.cmd);
-        testsuite.cwd =
-            testsuite.cwd ? this.resolvePath(testsuite.cwd) : this.get(cwd);
-        testsuite.env = this.resolveEnv(testsuite.env);
-        testsuite.options = this.resolveOptions(testsuite.options);
-        let watches = new Array<string>();
-        if (testsuite.watches) {
-          for (let watch of testsuite.watches) {
-            watches.push(this.resolvePath(watch));
-          }
-        }
-        testsuite.watches = watches;
-      }
-      let banditTestSuiteConfigs = new Array<BanditTestSuiteConfigurationI>();
-      for (let config of banditConfig) {
-        banditTestSuiteConfigs.push({
-          name: config.name,
-          cmd: config.cmd,
-          cwd: config.cwd,
-          env: config.env,
-          options: config.options,
-          watches: config.watches,
-          parallelProcessLimit: this.parallelProcessLimit,
-          allowKillProcess: this.allowKillProcess,
-          watchTimeoutSec: this.watchTimeoutSec
-        } as BanditTestSuiteConfigurationI);
-      }
-      return banditTestSuiteConfigs;
+    this.propertyGetter.set(PropertyTestsuites, () => {
+      return this.banditTestSuiteConfigs;
     });
 
-    this.propertyGetter.set(parallelProcessLimit, () => {
-      return this.config.get<number>(parallelProcessLimit, 1);
+    this.propertyGetter.set(PropertyParallelProcessLimit, () => {
+      return this.config.get<number>(PropertyParallelProcessLimit, 1);
     });
 
-    this.propertyGetter.set(watchTimeoutSec, () => {
-      return this.config.get<number>(watchTimeoutSec, 10);
+    this.propertyGetter.set(PropertyWatchTimeoutSec, () => {
+      return this.config.get<number>(PropertyWatchTimeoutSec, 10);
     });
 
-    this.propertyGetter.set(allowKillProcess, () => {
-      return this.config.get<boolean>(allowKillProcess, false);
+    this.propertyGetter.set(PropertyAllowKillProcess, () => {
+      return this.config.get<boolean>(PropertyAllowKillProcess, false);
     });
 
-    this.propertyGetter.set(loglevel, () => {
-      return this.config.get<LogLevel>(loglevel, 'error');
+    this.propertyGetter.set(PropertyLoglevel, () => {
+      return this.config.get<LogLevel>(PropertyLoglevel, 'error');
     });
 
-    this.propertyGetter.set(cwd, () => {
-      return this.resolvePath(
-          this.config.get<string>(cwd, this.workspaceFolder.uri.fsPath));
+    this.propertyGetter.set(PropertyCwd, () => {
+      return this.resolvePath(this.config.get<string>(
+          PropertyCwd, this.workspaceFolder.uri.fsPath));
     });
+
+    this.reload();
+  }
+
+  public reload() {
+    this.initTestSuiteConfigs();
   }
 
   public get(property: Property): any|undefined {
@@ -134,31 +118,42 @@ export class Configuration implements BanditConfigurationI {
     }
   }
 
-  public get testsuites(): BanditTestSuiteConfigurationI[] {
-    return this.get(testsuites);
+  public get testsuites(): BanditTestSuiteConfiguration[] {
+    return this.get(PropertyTestsuites);
   }
 
   public get parallelProcessLimit(): number {
-    return this.get(parallelProcessLimit);
+    return this.get(PropertyParallelProcessLimit);
   }
 
   public get watchTimeoutSec(): number {
-    return this.get(watchTimeoutSec);
+    return this.get(PropertyWatchTimeoutSec);
   }
 
   public get allowKillProcess(): boolean {
-    return this.get(allowKillProcess);
+    return this.get(PropertyAllowKillProcess);
   }
 
   public get loglevel(): LogLevel {
-    return this.get(loglevel);
+    return this.get(PropertyLoglevel);
   }
 
   public get properties(): Property[] {
     return [
-      testsuites, watchTimeoutSec, parallelProcessLimit, allowKillProcess,
-      loglevel
+      PropertyTestsuites, PropertyWatchTimeoutSec, PropertyParallelProcessLimit,
+      PropertyAllowKillProcess, PropertyLoglevel
     ];
+  }
+
+  public get propertiesSoftReset(): Property[] {
+    return [
+      PropertyWatchTimeoutSec, PropertyParallelProcessLimit,
+      PropertyAllowKillProcess, PropertyLoglevel
+    ];
+  }
+
+  public get propertiesHardReset(): Property[] {
+    return [PropertyTestsuites];
   }
 
   public name(property: Property): string {
@@ -172,6 +167,40 @@ export class Configuration implements BanditConfigurationI {
   private get config(): vscode.WorkspaceConfiguration {
     return vscode.workspace.getConfiguration(
         this.baseConfigurationName, this.workspaceFolder.uri);
+  }
+
+  private initTestSuiteConfigs() {
+    let conf = this.config.get<string|TestSuiteJsonConfigurationI[]>(
+        PropertyTestsuites);
+    let banditConfig: TestSuiteJsonConfigurationI[] = [];
+    if (typeof conf === 'string') {
+      try {
+        banditConfig = fs.readJsonSync(this.resolvePath(conf));
+      } catch (e) {
+      }
+    } else {
+      banditConfig = conf as TestSuiteJsonConfigurationI[];
+    }
+    // Resolve variables and paths:
+    for (let testsuite of banditConfig) {
+      testsuite.cmd = this.resolvePath(testsuite.cmd);
+      testsuite.cwd = testsuite.cwd ? this.resolvePath(testsuite.cwd) :
+                                      this.get(PropertyCwd);
+      testsuite.env = this.resolveEnv(testsuite.env);
+      testsuite.options = this.resolveOptions(testsuite.options);
+      let watches = new Array<string>();
+      if (testsuite.watches) {
+        for (let watch of testsuite.watches) {
+          watches.push(this.resolvePath(watch));
+        }
+      }
+      testsuite.watches = watches;
+    }
+    this.banditTestSuiteConfigs = [];
+    for (let config of banditConfig) {
+      this.banditTestSuiteConfigs.push(
+          new BanditTestSuiteConfiguration(this, config));
+    }
   }
 
   private resolvePath(p: string|undefined): string {

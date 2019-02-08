@@ -3,7 +3,7 @@ import{TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 import {TestEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
 
 import {BanditSpawner} from './bandit';
-import {BanditTestSuiteConfigurationI} from './configuration';
+import {BanditTestSuiteConfiguration} from './configuration';
 import {DisposableI} from './disposable'
 import {escapeRegExp, formatTimeDuration, removeDuplicates} from './helper';
 import {Logger} from './logger';
@@ -41,11 +41,11 @@ export class BanditTestSuite implements TestSuiteI {
   });
 
   constructor(
-      private readonly configuration: BanditTestSuiteConfigurationI,  //
-      private readonly onSuiteChange: NotifyTestsuiteChangeHandler,   //
-      private readonly onStatusChange: NotifyStatusHandler,           //
-      private readonly onStart: NotifyStartHandler,                   //
-      private readonly onFinish: NotifyFinishHandler,                 //
+      public readonly configuration: BanditTestSuiteConfiguration,   //
+      private readonly onSuiteChange: NotifyTestsuiteChangeHandler,  //
+      private readonly onStatusChange: NotifyStatusHandler,          //
+      private readonly onStart: NotifyStartHandler,                  //
+      private readonly onFinish: NotifyFinishHandler,                //
       private readonly onMessage: NotifyMessageHandler) {}
 
   public dispose() {

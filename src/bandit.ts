@@ -1,6 +1,6 @@
 import {SpawnSyncOptionsWithStringEncoding} from 'child_process';
 
-import * as config from './configuration'
+import {BanditTestSuiteConfiguration} from './configuration'
 import {removeDuplicates} from './helper';
 import {Logger} from './logger'
 import {Message} from './message'
@@ -21,7 +21,7 @@ export class BanditSpawner {
   private readonly banditVersionFallback = new Version(3, 0, 0);
   private banditVersionDetected: Version|undefined;
 
-  constructor(private readonly config: config.BanditTestSuiteConfigurationI) {}
+  constructor(private readonly config: BanditTestSuiteConfiguration) {}
 
   /**
    * Ermittelt die Banditversion anhand eines Aufrufs der Testexecutable mit

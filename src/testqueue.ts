@@ -1,6 +1,6 @@
 
 import {BanditSpawner} from './bandit'
-import {BanditTestSuiteConfigurationI} from './configuration';
+import {BanditTestSuiteConfiguration} from './configuration';
 import {BanditTestNode} from './test';
 
 class TestQueueEntry {
@@ -11,7 +11,7 @@ export class Testqueue {
   private queue = new Map<string, TestQueueEntry>();
 
   constructor(
-      private readonly config: BanditTestSuiteConfigurationI,
+      private readonly config: BanditTestSuiteConfiguration,
       private readonly spawner: BanditSpawner,
       private readonly notifyChanged: (node: BanditTestNode) => void) {}
 
