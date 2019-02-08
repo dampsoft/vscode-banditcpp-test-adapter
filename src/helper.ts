@@ -1,7 +1,6 @@
 import {homedir} from 'os';
 import * as p from 'path'
 import * as vscode from 'vscode';
-import {Log} from 'vscode-test-adapter-util';
 
 export function escapeRegExp(text: string): string {
   return text.replace(
@@ -67,31 +66,4 @@ export function formatTimeDuration(millis: number): string {
   let s = date.getSeconds();
   let ms = date.getMilliseconds();
   return `${h}:${m}:${s},${ms}`;
-}
-
-export class Logger {
-  constructor(private readonly log: Log) {}
-  public info(message: string) {
-    if (this.log.enabled) {
-      this.log.info(message);
-    }
-  }
-  public warn(message: string) {
-    if (this.log.enabled) {
-      this.log.warn(message);
-    }
-  }
-  public error(message: string) {
-    if (this.log.enabled) {
-      this.log.error(message);
-    }
-  }
-  public debug(message: string) {
-    if (this.log.enabled) {
-      this.log.debug(message);
-    }
-  }
-  public dispose() {
-    this.log.dispose();
-  }
 }

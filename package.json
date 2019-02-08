@@ -103,6 +103,18 @@
           "description": "Write diagnostic logs to the given file.",
           "type": "string",
           "scope": "resource"
+        },
+        "banditTestExplorer.loglevel": {
+          "description": "Logging level used to log notifications. All notifications of the same or higher level will be logged.",
+          "type": "string",
+          "scope": "resource",
+          "default": "error",
+          "enum": [
+            "debug",
+            "info",
+            "warning",
+            "error"
+          ]
         }
       }
     },

@@ -1,7 +1,8 @@
 import {SpawnSyncOptionsWithStringEncoding} from 'child_process';
 
 import * as config from './configuration'
-import {Logger, removeDuplicates} from './helper';
+import {removeDuplicates} from './helper';
+import {Logger} from './logger'
 import {Message} from './message'
 import {SpawnArguments, Spawner, SpawnReturnsI} from './spawner'
 import {asTest, asTestGroup, BanditTestGroup, BanditTestNode} from './test'
@@ -13,19 +14,26 @@ export interface ParseResultI {
   messages: Message[]
 }
 
+/**
+ * Spezieller Wrapper der Spawner-Klasse für Aufrufe an das Bandit-Framework.
+ */
 export class BanditSpawner {
   private readonly banditVersionFallback = new Version(3, 0, 0);
   private banditVersionDetected: Version|undefined;
 
-  constructor(
-      private readonly config: config.BanditTestSuiteConfigurationI,
-      private log: Logger) {}
+  constructor(private readonly config: config.BanditTestSuiteConfigurationI) {}
 
+  /**
+   * Ermittelt die Banditversion anhand eines Aufrufs der Testexecutable mit
+   * --version.
+   * Wenn keine Version ermittelt werden konnte, wird die aktuellste angenommen. @see banditVersionFallback
+   */
   private getBanditVersion(): Promise<Version> {
     return new Promise((resolve) => {
       if (!this.banditVersionDetected) {
         this.createSpawnArgumentsVersion().then((spawn_args) => {
-          this.log.debug('Ermittle die aktuelle Version des Testframeworks...');
+          Logger.instance.debug(
+              'Ermittle die aktuelle Version des Testframeworks...');
           Spawner.instance.spawn(spawn_args)
               .then((ret: SpawnReturnsI) => {
                 let matches =
@@ -40,14 +48,14 @@ export class BanditSpawner {
                 let banditVersion = v ? v : this.banditVersionFallback;
                 this.banditVersionDetected = banditVersion;
                 if (v) {
-                  this.log.debug(
+                  Logger.instance.debug(
                       `Die Version des Testframeworks für ${
                                                             this.config.name
                                                           } wurde erfolgreich erkannt: ${
                                                                                          banditVersion
                                                                                        }`);
                 } else {
-                  this.log.warn(
+                  Logger.instance.warn(
                       `Die Version des Testframeworks für ${
                                                             this.config.name
                                                           } konnte nicht erkannt werden. Verwende aktuellste: ${
@@ -63,6 +71,12 @@ export class BanditSpawner {
     });
   }
 
+  /**
+   * Führt den Test für einen Testknoten aus.
+   * @param  node  Knoten für den der Test ausgeführt werden soll
+   * @returns      Gibt ein Promise mit allen betroffenen Testknoten nach der
+   *               Ausführung zurück.
+   */
   public run(node: BanditTestNode): Promise<BanditTestNode[]> {
     return new Promise((resolve) => {
       this.createSpawnArgumentsTestRun(node).then((spawn_args) => {
@@ -73,10 +87,10 @@ export class BanditSpawner {
                     `Fehlerhafter Return-Value beim run() Aufruf der Test-Executable ${
                                                                                        node.id
                                                                                      }`;
-                this.log.error(msg);
+                Logger.instance.error(msg);
                 resolve(node.finish(teststatus.Failed, msg));
               } else {
-                this.log.debug(
+                Logger.instance.debug(
                     `Test-Executable ${node.id} erfolgreich aufgerufen`);
                 resolve(this.updateNodeFromString(node, ret));
               }
@@ -84,34 +98,41 @@ export class BanditSpawner {
             .catch((e) => {
               let msg =
                   `Fehler beim run() Aufruf der Test-Executable ${node.id}`;
-              this.log.error(msg);
+              Logger.instance.error(msg);
               resolve(node.finish(teststatus.Failed, msg));
             });
       });
     });
   }
 
+  /**
+   * Startet einen Probelauf ohne tatsächliche Testausführung. Auf Basis der
+   * Ausgabe werden alle vorhandenen Tests und deren hierarchischer Zusammenhang
+   * ermittelt.
+   * @returns  Gibt ein Promise mit dem Ergebnis der Stdout-Analyse zurück.
+   */
   public dry(): Promise<ParseResultI> {
     return new Promise((resolve, reject) => {
       this.createSpawnArgumentsDryRun().then((spawn_args) => {
         Spawner.instance.spawn(spawn_args)
             .then((ret: SpawnReturnsI) => {
               if (ret.status < 0) {
-                this.log.error(
+                Logger.instance.error(
                     `Fehlerhafter Return-Value beim dry() Aufruf der Test-Executable ${
                                                                                        this.config
                                                                                            .name
                                                                                      }`);
                 reject(ret.error);
               } else {
-                this.log.debug(`Test-Executable ${
-                                                  this.config.name
-                                                } erfolgreich aufgerufen`);
+                Logger.instance.debug(
+                    `Test-Executable ${
+                                       this.config.name
+                                     } erfolgreich aufgerufen`);
                 resolve(this.parseString(ret.stdout));
               }
             })
             .catch((e) => {
-              this.log.error(
+              Logger.instance.error(
                   `Fehler beim dry() Aufruf der Test-Executable ${
                                                                   this.config
                                                                       .name
@@ -122,13 +143,20 @@ export class BanditSpawner {
     });
   }
 
+  /**
+   * Stoppt alle laufenden und alle wartenden Tests. Wenn zudem
+   * `allowKillProcess` aktiviert ist, werden laufende Prozesse hart beendet.
+   */
   public stop() {
-    this.log.info('Beende alle laufenden Prozesse');
+    Logger.instance.info('Beende alle laufenden Prozesse');
     if (this.config.allowKillProcess) {
       Spawner.instance.killAll();
     }
   }
 
+  /**
+   * Erzeugt die Optionen für den Aufruf der Testexecutable
+   */
   private createSpawnOptions(): SpawnSyncOptionsWithStringEncoding {
     return {
       cwd: this.config.cwd,
@@ -139,6 +167,9 @@ export class BanditSpawner {
     };
   }
 
+  /**
+   * Erzeugt die Basis-Parameter für den Aufruf der Testexecutable
+   */
   private createDefaultExecutionArguments(): Promise<string[]> {
     return new Promise((resolve) => {
       this.getBanditVersion().then((version) => {
@@ -154,6 +185,9 @@ export class BanditSpawner {
     });
   }
 
+  /**
+   * Erzeugt die speziellen Parameter zum Ermitteln der Bandit-Version
+   */
   private createSpawnArgumentsVersion(): Promise<SpawnArguments> {
     return new Promise((resolve) => {
       resolve(<SpawnArguments>{
@@ -165,6 +199,9 @@ export class BanditSpawner {
     });
   }
 
+  /**
+   * Erzeugt die speziellen Parameter für den Probelauf
+   */
   private createSpawnArgumentsDryRun(): Promise<SpawnArguments> {
     return new Promise((resolve) => {
       this.createDefaultExecutionArguments().then((execArguments) => {
@@ -187,6 +224,9 @@ export class BanditSpawner {
     });
   }
 
+  /**
+   * Erzeugt die speziellen Parameter für Testlauf eines Testknotens
+   */
   private createSpawnArgumentsTestRun(node: BanditTestNode):
       Promise<SpawnArguments> {
     return this.createDefaultExecutionArguments().then((execArguments) => {
@@ -214,6 +254,12 @@ export class BanditSpawner {
     });
   }
 
+  /**
+   * Parsed den Stdout String der Testausgabe
+   * @param  stdout  Ausgabestring
+   * @returns        Gibt das Wandlungsergebnis mit der erkannten Teststruktur
+   *                 und den Meldungen zurück
+   */
   private parseString(stdout: string): ParseResultI {
     let root = new BanditTestGroup(undefined, this.config.name);
     let result: ParseResultI = {testsuite: root, messages: []};
@@ -271,7 +317,8 @@ export class BanditSpawner {
          status: teststatus.TestStatus|undefined) => {
           if (status && node) {
             node.message = getMessage();
-            this.log.debug(`Status "${status}" für Test "${node.id}" erkannt`);
+            Logger.instance.debug(
+                `Status "${status}" für Test "${node.id}" erkannt`);
             let nodes = node.finish(status);
             if (status == teststatus.Failed) {
               error_nodes = error_nodes.concat(nodes);
@@ -296,7 +343,7 @@ export class BanditSpawner {
             } else {
               let msg =
                   `Fehlender Parent bei node mit der id "${current_suite.id}"`;
-              this.log.error(msg);
+              Logger.instance.error(msg);
               throw new Error(msg);
             }
             indentation_diff -= 1;
@@ -313,7 +360,7 @@ export class BanditSpawner {
                 asTestGroup(current_suite.findByLabel(newLabel));
             if (!existingGroup) {
               node = current_suite = current_suite.addSuite(newLabel);
-              this.log.debug(`Neue Gruppe erkannt: "${node.id}"`);
+              Logger.instance.debug(`Neue Gruppe erkannt: "${node.id}"`);
             } else {
               let msg =
                   `Eine Gruppe mit dem Label "${
@@ -322,9 +369,8 @@ export class BanditSpawner {
                                                                                      current_suite
                                                                                          .id
                                                                                    }"`;
-              this.log.error(msg);
-              result.messages.push(
-                  Message.error('Mehrdeutige Testgruppe', msg));
+              Logger.instance.warn(msg);
+              result.messages.push(Message.warn('Mehrdeutige Testgruppe', msg));
               node = current_suite = existingGroup;
             }
           } else if (isTest(line)) {
@@ -340,13 +386,13 @@ export class BanditSpawner {
                                                                          current_suite
                                                                              .id
                                                                        }" gefunden. Test wird ignoriert.`;
-              this.log.error(msg);
-              result.messages.push(Message.error('Ungültiger Test', msg));
+              Logger.instance.warn(msg);
+              result.messages.push(Message.warn('Ungültiger Test', msg));
             } else {
               let existingTest = asTest(current_suite.findByLabel(newLabel));
               if (!existingTest) {
                 node = current_suite.addTest(newLabel);
-                this.log.debug(`Neuen Test erkannt: "${node.id}"`);
+                Logger.instance.debug(`Neuen Test erkannt: "${node.id}"`);
               } else {
                 let msg =
                     `Ein Test mit dem Label "${
@@ -355,8 +401,8 @@ export class BanditSpawner {
                                                                                     current_suite
                                                                                         .id
                                                                                   }"`;
-                this.log.error(msg);
-                result.messages.push(Message.error('Mehrdeutiger Test', msg));
+                Logger.instance.warn(msg);
+                result.messages.push(Message.warn('Mehrdeutiger Test', msg));
                 node = existingTest;
               }
             }
@@ -384,7 +430,7 @@ export class BanditSpawner {
             if (lines[0].startsWith(requiredLineStart)) {
               node.message =
                   lines.slice(1, lines.length).join('\n').replace(/\n$/, '');
-              this.log.debug(
+              Logger.instance.debug(
                   `Fehlermeldung für Test "${node.id}" erkannt:\n${
                                                                    node.message
                                                                  }\n`);
@@ -396,20 +442,28 @@ export class BanditSpawner {
     return result;
   }
 
+  /**
+   * Aktualisiert einen Testknoten auf Basis des Ausgabestrings.
+   * Dazu wird der String zunächst als vollständige Testhierarchie geparsed,
+   * dort der gesuchte Knoten ermittelt und dessen Status verwendet.
+   * @param  node  Knoten, der aktualisiert werden soll
+   * @param  ret   Ausgabe des Testlaufs
+   * @returns      Gibt alle aktualisierten Testknoten zurück.
+   */
   private updateNodeFromString(node: BanditTestNode, ret: SpawnReturnsI):
       BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
     if (ret.cancelled) {
-      nodes = node.stop();
+      nodes = node.cancel();
     } else {
       let parsedResult = this.parseString(ret.stdout);
       let resultNode = parsedResult.testsuite.find(node.id);
       if (resultNode) {
-        this.log.debug(
+        Logger.instance.debug(
             `Status "${resultNode.status}" für Test "${node.id}" erkannt`);
         nodes = node.finish(resultNode.status, resultNode.message);
       } else {
-        this.log.warn(
+        Logger.instance.warn(
             `In der Testausgabe konnte der Test "${
                                                    node.id
                                                  }" nicht gefunden werden`);

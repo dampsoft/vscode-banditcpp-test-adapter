@@ -1,7 +1,7 @@
 
 import * as cp from 'child_process';
 
-import {Logger} from './helper';
+import {Logger} from './logger';
 
 export interface SpawnReturnsI extends cp.SpawnSyncReturns<string> {
   cancelled?: boolean
@@ -20,28 +20,21 @@ export class Spawner {
   public static readonly instance = new Spawner();
 
   private spawnedProcesses = new Map<string, SpawnTokenI>();
-  private log: Logger|undefined;
-
-  public setLog(logger: Logger) {
-    this.log = logger;
-  }
 
   public spawn(args: SpawnArguments): Promise<SpawnReturnsI> {
-    if (this.log) {
-      this.log.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
-    }
+    Logger.instance.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
 
     if (this.exists(args.id)) {
       let msg = `Ein Prozess mit id "${args.id}" exisitiert bereits.`;
-      if (this.log) {
-        this.log.warn(msg);
-      }
+      Logger.instance.error(msg);
       throw new Error(msg);
     }
-    if (this.log) {
-      let msg = `Starte Prozessausführung "${args.id}".`;
-      this.log.info(msg);
+    let cmd = args.cmd;
+    if (args.args) {
+      cmd += ' ' + args.args.join(' ');
     }
+    let msg = `Starte Prozess mit id "${args.id}": ${cmd}`;
+    Logger.instance.info(msg);
     return new Promise((resolve, reject) => {
       const ret: SpawnReturnsI = {
         pid: 0,
@@ -62,11 +55,9 @@ export class Spawner {
       }
       command.on('error', (err: Error) => {
         ret.error = err;
-        if (this.log) {
-          let msg =
-              `Fehler bei der Prozessausführung "${args.id}": ${err.message}`;
-          this.log.error(msg);
-        }
+        let msg =
+            `Fehler bei der Prozessausführung "${args.id}": ${err.message}`;
+        Logger.instance.error(msg);
         reject(ret);
         this.remove(args.id);
       });
@@ -79,9 +70,7 @@ export class Spawner {
                                                                     signal
                                                                   }" beendet`;
         ret.error = new Error(msg);
-        if (this.log) {
-          this.log.info(msg);
-        }
+        Logger.instance.info(msg);
         resolve(ret);
         this.remove(args.id);
       });

@@ -25,7 +25,7 @@ abstract class TestNode {
   }
   // API
   public abstract start(): BanditTestNode[];
-  public abstract stop(): BanditTestNode[];
+  public abstract cancel(): BanditTestNode[];
   public abstract finish(status: teststatus.TestStatus, message?: string):
       BanditTestNode[];
   // Konstruktor
@@ -167,10 +167,10 @@ export class BanditTestGroup extends TestNode {
     return nodes;
   }
 
-  public stop(): BanditTestNode[] {
+  public cancel(): BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
     for (var node of this.children) {
-      nodes = nodes.concat(node.stop());
+      nodes = nodes.concat(node.cancel());
     }
     return nodes;
   }
@@ -243,11 +243,13 @@ export class BanditTest extends TestNode {
     return nodes;
   }
 
-  public stop(): BanditTestNode[] {
+  public cancel(): BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
     if (this.status != teststatus.Idle) {
-      this.test_status = teststatus.Idle;  // Reset the node state
-      nodes.push(this);
+      if (this.status == teststatus.Running) {
+        this.test_status = teststatus.Idle;  // Reset the node state
+        nodes.push(this);
+      }
     }
     return nodes;
   }

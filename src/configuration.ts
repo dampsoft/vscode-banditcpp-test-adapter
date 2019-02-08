@@ -4,14 +4,16 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import {cleanPath, VariableResolver} from './helper';
+import {LogLevel} from './logger'
 
 export type Property = 'cwd'|'testsuites'|'parallelProcessLimit'|
-    'watchTimeoutSec'|'allowKillProcess';
+    'watchTimeoutSec'|'allowKillProcess'|'loglevel';
 export const cwd: Property = 'cwd';
 export const testsuites: Property = 'testsuites';
 export const parallelProcessLimit: Property = 'parallelProcessLimit';
 export const watchTimeoutSec: Property = 'watchTimeoutSec';
 export const allowKillProcess: Property = 'allowKillProcess';
+export const loglevel: Property = 'loglevel';
 
 export type EnvProperty = {
   [prop: string]: any
@@ -43,6 +45,7 @@ export interface BanditConfigurationI {
   readonly parallelProcessLimit: number;
   readonly watchTimeoutSec: number;
   readonly allowKillProcess: boolean;
+  readonly loglevel: LogLevel;
   readonly properties: Property[];
   get(property: Property): any|undefined;
   name(property: Property): string;
@@ -112,6 +115,10 @@ export class Configuration implements BanditConfigurationI {
       return this.config.get<boolean>(allowKillProcess, false);
     });
 
+    this.propertyGetter.set(loglevel, () => {
+      return this.config.get<LogLevel>(loglevel, 'error');
+    });
+
     this.propertyGetter.set(cwd, () => {
       return this.resolvePath(
           this.config.get<string>(cwd, this.workspaceFolder.uri.fsPath));
@@ -143,9 +150,14 @@ export class Configuration implements BanditConfigurationI {
     return this.get(allowKillProcess);
   }
 
+  public get loglevel(): LogLevel {
+    return this.get(loglevel);
+  }
+
   public get properties(): Property[] {
     return [
-      testsuites, watchTimeoutSec, parallelProcessLimit, allowKillProcess
+      testsuites, watchTimeoutSec, parallelProcessLimit, allowKillProcess,
+      loglevel
     ];
   }
 

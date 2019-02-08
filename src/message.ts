@@ -1,6 +1,7 @@
-export type MessageType = 'info'|'error';
+export type MessageType = 'info'|'error'|'warning';
 export const Info: MessageType = 'info';
 export const Error: MessageType = 'error';
+export const Warning: MessageType = 'warning';
 
 export class Message {
   constructor(
@@ -15,6 +16,10 @@ export class Message {
     return this.type == Info;
   }
 
+  public isWarning() {
+    return this.type == Warning;
+  }
+
   public format(): string {
     return `${this.title}: \n${this.description}`
   }
@@ -25,5 +30,9 @@ export class Message {
 
   static info(title: string, description: string) {
     return new Message(title, description, Info);
+  }
+
+  static warn(title: string, description: string) {
+    return new Message(title, description, Warning);
   }
 }

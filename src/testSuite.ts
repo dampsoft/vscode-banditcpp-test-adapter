@@ -5,7 +5,8 @@ import {TestEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} fr
 import {BanditSpawner} from './bandit';
 import {BanditTestSuiteConfigurationI} from './configuration';
 import {DisposableI} from './disposable'
-import {escapeRegExp, formatTimeDuration, Logger, removeDuplicates} from './helper';
+import {escapeRegExp, formatTimeDuration, removeDuplicates} from './helper';
+import {Logger} from './logger';
 import {Message} from './message';
 import {asTest, asTestGroup, BanditTest, BanditTestGroup, BanditTestNode} from './test'
 import * as teststatus from './teststatus'
@@ -34,7 +35,7 @@ export class BanditTestSuite implements TestSuiteI {
   private watch: DisposableI|undefined;
   private changeTimeout: NodeJS.Timer|undefined;
   private testsuite = new BanditTestGroup(undefined, this.name);
-  private spawner = new BanditSpawner(this.configuration, this.log);
+  private spawner = new BanditSpawner(this.configuration);
   private queue = new Testqueue(this.configuration, this.spawner, (node) => {
     this.notifyStatus(node);
   });
@@ -45,8 +46,7 @@ export class BanditTestSuite implements TestSuiteI {
       private readonly onStatusChange: NotifyStatusHandler,           //
       private readonly onStart: NotifyStartHandler,                   //
       private readonly onFinish: NotifyFinishHandler,                 //
-      private readonly onMessage: NotifyMessageHandler,               //
-      private readonly log: Logger) {}
+      private readonly onMessage: NotifyMessageHandler) {}
 
   public dispose() {
     if (this.watch) {
@@ -57,35 +57,37 @@ export class BanditTestSuite implements TestSuiteI {
 
   public reload(): Promise<TestSuiteInfo|TestInfo> {
     return new Promise((resolve, reject) => {
-      this.log.debug('Starte das Laden der Tests');
-      let startTime = now();
-      this.spawner.dry()
-          .then((result) => {
-            const duration = now() - startTime;
-            result.testsuite.label = this.name;
-            this.testsuite = result.testsuite;
-            this.log.debug(
-                `Ladend der Tests erfolgreich beendet. Benötigte Zeit: ${
-                                                                         formatTimeDuration(
-                                                                             duration)
-                                                                       }`);
-            this.resetWatch();
-            // Display Errors:
-            for (let message of result.messages) {
-              this.onMessage(message);
-            }
-            resolve(this.testsuite.getTestInfo());
-          })
-          .catch((e) => {
-            this.log.error('Fehler beim Laden der Tests');
-            this.notifyFinished();
-            reject(e);
-          });
+      this.cancel().then(() => {
+        Logger.instance.debug('Starte das Laden der Tests');
+        let startTime = now();
+        this.spawner.dry()
+            .then((result) => {
+              const duration = now() - startTime;
+              result.testsuite.label = this.name;
+              this.testsuite = result.testsuite;
+              Logger.instance.debug(
+                  `Laden der Tests erfolgreich beendet. Benötigte Zeit: ${
+                                                                          formatTimeDuration(
+                                                                              duration)
+                                                                        }`);
+              this.resetWatch();
+              // Display Errors:
+              for (let message of result.messages) {
+                this.onMessage(message);
+              }
+              resolve(this.testsuite.getTestInfo());
+            })
+            .catch((e) => {
+              Logger.instance.error('Fehler beim Laden der Tests');
+              this.notifyFinished();
+              reject(e);
+            });
+      });
     });
   }
 
   public start(ids: (string|RegExp)[]): Promise<void> {
-    this.log.debug('Starte einen neuen Testlauf');
+    Logger.instance.debug('Starte einen neuen Testlauf');
     return new Promise(() => {
       let nodes = new Array<BanditTestNode>();
       let unique_ids = new Set<(string | RegExp)>(ids);
@@ -98,18 +100,19 @@ export class BanditTestSuite implements TestSuiteI {
         startedNodes = startedNodes.concat(node.start());
       }
       startedNodes = removeDuplicates(startedNodes, 'id');
-      this.log.debug(`${nodes.length} Tests werden gestartet`);
+      Logger.instance.debug(`${nodes.length} Tests werden gestartet`);
       this.notifyStart(startedNodes);
       this.queue.push(startedNodes);
     });
   }
 
   public cancel(): Promise<void> {
-    return new Promise(() => {
-      this.log.info('Breche alle laufenden Tests ab');
-      this.testsuite.stop().map(this.notifyStatus, this);
+    return new Promise((resolve) => {
+      Logger.instance.info('Breche alle laufenden Tests ab');
+      this.testsuite.cancel().map(this.notifyStatus, this);
       this.queue.stop();
       this.spawner.stop();
+      resolve();
     });
   }
 
@@ -207,10 +210,11 @@ export class BanditTestSuite implements TestSuiteI {
       paths.concat(this.configuration.watches);
     }
     const onReady = () => {
-      this.log.info(`Beobachte Änderung an der Testumgebung ${this.name}...`);
+      Logger.instance.info(
+          `Beobachte Änderung an der Testumgebung ${this.name}...`);
     };
     const onChange = () => {
-      this.log.info(
+      Logger.instance.info(
           `Änderung an der Testumgebung ${
                                           this.name
                                         } erkannt. Führe Autorun aus.`);
@@ -223,7 +227,7 @@ export class BanditTestSuite implements TestSuiteI {
       }, this.configuration.watchTimeoutSec * 1000);
     };
     const onError = () => {
-      this.log.error(
+      Logger.instance.error(
           `Beim Beobachten der Testumgebung ${
                                               this.name
                                             } ist ein Fehler aufgetreten.`);
