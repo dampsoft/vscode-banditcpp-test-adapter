@@ -42,7 +42,7 @@ abstract class TestNode {
   public abstract getTestInfo(): TestSuiteInfo|TestInfo;
   public get displayTitle(): string {
     if (this.parent) {
-      return (`${this.parent.displayTitle} ${this.label}`).trim();
+      return `${this.parent.displayTitle} ${this.label}`;
     } else {
       return '';
     }

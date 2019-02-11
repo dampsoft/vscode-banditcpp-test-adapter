@@ -47,13 +47,14 @@ export class Spawner {
       };
       const command = cp.spawn(args.cmd, args.args, args.options);
       ret.pid = command.pid;
+
       if (command.stdout != null) {
         command.stdout.on('data', (data) => {
           ret.stdout += data;
           ret.output[0] = ret.stdout;
         });
       }
-      command.on('error', (err: Error) => {
+      command.once('error', (err: Error) => {
         ret.error = err;
         let msg =
             `Fehler bei der Prozessausführung "${args.id}": ${err.message}`;
@@ -61,7 +62,16 @@ export class Spawner {
         reject(ret);
         this.remove(args.id);
       });
-      command.on('close', (code, signal) => {
+      command.once('exit', function(code, signal) {
+        let msg =
+            `Prozessausführung "${
+                                  args.id
+                                }" mit Code "${code}" und Signal "${
+                                                                    signal
+                                                                  }" beendet`;
+        Logger.instance.info(msg);
+      });
+      command.once('close', (code, signal) => {
         ret.status = code;
         let msg =
             `Prozessausführung "${
@@ -78,7 +88,7 @@ export class Spawner {
         cancel: () => {
           try {
             command.stdout.pause();
-            command.kill();
+            command.kill('SIGKILL');
           } catch (e) {
           }
           ret.cancelled = true;

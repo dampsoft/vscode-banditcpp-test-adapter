@@ -1,7 +1,7 @@
 import {SpawnSyncOptionsWithStringEncoding} from 'child_process';
 
 import {BanditTestSuiteConfiguration} from './configuration'
-import {removeDuplicates} from './helper';
+import {escapeRegExp, removeDuplicates} from './helper';
 import {Logger} from './logger'
 import {Message} from './message'
 import {SpawnArguments, Spawner, SpawnReturnsI} from './spawner'
@@ -420,14 +420,20 @@ export class BanditSpawner {
     // Nachfolgende Fehlermeldungen verarbeiten:
     let block = getFailureBlock(stdout);
     if (block) {
-      let nodes = removeDuplicates(error_nodes, 'id');
+      let nodes: BanditTestNode[] = removeDuplicates(error_nodes, 'id');
       let blocks = block.trim().split(/\n{3,}/g);
       for (let error of blocks) {
         let lines = error.split(/[\n]+/);
         if (lines.length > 1) {
           for (let node of nodes) {
-            let requiredLineStart = `${node.displayTitle.trim()}:`;
-            if (lines[0].startsWith(requiredLineStart)) {
+            let labels = [node.label];
+            node.parents.forEach((parent) => {
+              if (parent.parent) {
+                labels.push(escapeRegExp(parent.label));
+              }
+            });
+            let requiredLineStart = `^${labels.reverse().join('[ ]+')}:.*`;
+            if (lines[0].match(requiredLineStart)) {
               node.message =
                   lines.slice(1, lines.length).join('\n').replace(/\n$/, '');
               Logger.instance.debug(

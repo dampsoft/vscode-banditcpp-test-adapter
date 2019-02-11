@@ -17,7 +17,8 @@ export const PropertyLoglevel: Property = 'loglevel';
 
 export type EnvProperty = {
   [prop: string]: any
-};
+}
+
 interface TestSuiteJsonConfigurationI {
   name: string;
   cmd: string;
