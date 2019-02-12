@@ -9,7 +9,7 @@ export interface SpawnReturnsI extends cp.SpawnSyncReturns<string> {
 
 export type SpawnArguments = {
   id: string,
-  cmd: string, args?: string[], options?: cp.SpawnSyncOptionsWithStringEncoding
+  cmd: string, args?: string[], options?: cp.SpawnSyncOptions
 };
 
 interface SpawnTokenI {
@@ -87,8 +87,9 @@ export class Spawner {
       let token = <SpawnTokenI>{
         cancel: () => {
           try {
+            command.kill();
+            command.stdin.end();
             command.stdout.pause();
-            command.kill('SIGKILL');
           } catch (e) {
           }
           ret.cancelled = true;

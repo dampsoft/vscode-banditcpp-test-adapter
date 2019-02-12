@@ -16,7 +16,7 @@ export const PropertyAllowKillProcess: Property = 'allowKillProcess';
 export const PropertyLoglevel: Property = 'loglevel';
 
 export type EnvProperty = {
-  [prop: string]: any
+  [prop: string]: string|undefined
 }
 
 interface TestSuiteJsonConfigurationI {
@@ -244,5 +244,25 @@ export class Configuration {
       }
     }
     return resultEnv;
+    /*
+    let merge =
+        (a: string|undefined, b: string|undefined): string|undefined => {
+          return a ? (b ? [a, b].join(';') : a) : b;
+        };
+    const processEnv = process.env;
+    const configEnv: EnvProperty = env || {};
+    const resultEnv = {...processEnv};
+    let propsProcess = Object.keys(processEnv);
+    for (const prop in configEnv) {
+      const val: string|undefined =
+          this.resolver.resolve(String(configEnv[prop]));
+      if (propsProcess.indexOf(prop) >= 0) {
+        resultEnv[prop] = merge(resultEnv[prop], val);
+      } else {
+        resultEnv[prop] = val;
+      }
+    }
+    return resultEnv;
+     */
   }
 }

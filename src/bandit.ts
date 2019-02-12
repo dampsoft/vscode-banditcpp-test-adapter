@@ -1,4 +1,4 @@
-import {SpawnSyncOptionsWithStringEncoding} from 'child_process';
+import {SpawnSyncOptions} from 'child_process';
 
 import {BanditTestSuiteConfiguration} from './configuration'
 import {escapeRegExp, removeDuplicates} from './helper';
@@ -157,7 +157,7 @@ export class BanditSpawner {
   /**
    * Erzeugt die Optionen für den Aufruf der Testexecutable
    */
-  private createSpawnOptions(): SpawnSyncOptionsWithStringEncoding {
+  private createSpawnOptions(): SpawnSyncOptions {
     return {
       cwd: this.config.cwd,
       env: this.config.env,

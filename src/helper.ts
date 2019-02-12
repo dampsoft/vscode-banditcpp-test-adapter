@@ -7,12 +7,25 @@ export function escapeRegExp(text: string): string {
       /[.*+?^${}()|[\]\\]/g, '\\$&');  // $& means the whole matched string
 }
 
+type CallableSymbolResolver = (p: RegExpMatchArray) => string|undefined;
+type SymbolResolver = string|CallableSymbolResolver;
+type Symbol = RegExp;
+type SymbolMap = [Symbol, SymbolResolver][];
+
 export class VariableResolver {
-  private readonly varValue: [string|RegExp, string][] = [
-    ['${workspaceDirectory}', this.workspaceFolder.uri.fsPath],
-    ['${workspaceFolder}', this.workspaceFolder.uri.fsPath],  //
-    ['${Home}', homedir()],                                   //
-    [/^~($|\/|\\)/, `${homedir()}$1`]
+  private readonly varValue: SymbolMap = [
+    [/\${workspaceDirectory}/, this.workspaceFolder.uri.fsPath],
+    [/\${workspaceFolder}/, this.workspaceFolder.uri.fsPath],
+    [/\${User}/, homedir()], [/^~($|\/|\\)/, `${homedir()}$1`],
+    [
+      /\${env:(\w+)}/,
+      (matches: RegExpMatchArray) => {
+        if (matches && matches.length > 0) {
+          return process.env[matches[1]];
+        }
+        return undefined;
+      }
+    ]
   ];
 
   constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {}
@@ -23,15 +36,22 @@ export class VariableResolver {
 
   private resolveVariables(value: any): any {
     if (typeof value === 'string') {
+      let strValue = value as string;
       for (let i = 0; i < this.varValue.length; ++i) {
-        if (typeof this.varValue[i][0] === 'string' &&
-            typeof this.varValue[i][1] != 'string' &&
-            value === this.varValue[i][0]) {
-          return this.varValue[i][1];
+        let matches = strValue.match(this.varValue[i][0]);
+        if (matches && matches.length > 0) {
+          let replacement: string|undefined;
+          if (typeof this.varValue[i][1] === 'string') {
+            replacement = this.varValue[i][1] as string;
+          } else {
+            replacement =
+                (this.varValue[i][1] as CallableSymbolResolver)(matches);
+          }
+          // Regex:
+          strValue = strValue.replace(this.varValue[i][0], replacement || '');
         }
-        value = value.replace(this.varValue[i][0], this.varValue[i][1]);
       }
-      return value;
+      return strValue;
     } else if (Array.isArray(value)) {
       return (<any[]>value).map((v: any) => this.resolveVariables(v));
     } else if (typeof value == 'object') {
