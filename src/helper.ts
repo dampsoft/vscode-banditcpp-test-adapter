@@ -1,14 +1,13 @@
-import {homedir} from 'os';
-import * as p from 'path'
-import * as vscode from 'vscode';
+import { homedir } from "os";
+import * as p from "path";
+import * as vscode from "vscode";
 
 export function escapeRegExp(text: string): string {
-  return text.replace(
-      /[.*+?^${}()|[\]\\]/g, '\\$&');  // $& means the whole matched string
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); // $& means the whole matched string
 }
 
-type CallableSymbolResolver = (p: RegExpMatchArray) => string|undefined;
-type SymbolResolver = string|CallableSymbolResolver;
+type CallableSymbolResolver = (p: RegExpMatchArray) => string | undefined;
+type SymbolResolver = string | CallableSymbolResolver;
 type Symbol = RegExp;
 type SymbolMap = [Symbol, SymbolResolver][];
 
@@ -16,7 +15,8 @@ export class VariableResolver {
   private readonly varValue: SymbolMap = [
     [/\${workspaceDirectory}/, this.workspaceFolder.uri.fsPath],
     [/\${workspaceFolder}/, this.workspaceFolder.uri.fsPath],
-    [/\${User}/, homedir()], [/^~($|\/|\\)/, `${homedir()}$1`],
+    [/\${User}/, homedir()],
+    [/^~($|\/|\\)/, `${homedir()}$1`],
     [
       /\${env:(\w+)}/,
       (matches: RegExpMatchArray) => {
@@ -35,26 +35,27 @@ export class VariableResolver {
   }
 
   private resolveVariables(value: any): any {
-    if (typeof value === 'string') {
+    if (typeof value === "string") {
       let strValue = value as string;
       for (let i = 0; i < this.varValue.length; ++i) {
         let matches = strValue.match(this.varValue[i][0]);
         if (matches && matches.length > 0) {
-          let replacement: string|undefined;
-          if (typeof this.varValue[i][1] === 'string') {
+          let replacement: string | undefined;
+          if (typeof this.varValue[i][1] === "string") {
             replacement = this.varValue[i][1] as string;
           } else {
-            replacement =
-                (this.varValue[i][1] as CallableSymbolResolver)(matches);
+            replacement = (this.varValue[i][1] as CallableSymbolResolver)(
+              matches
+            );
           }
           // Regex:
-          strValue = strValue.replace(this.varValue[i][0], replacement || '');
+          strValue = strValue.replace(this.varValue[i][0], replacement || "");
         }
       }
       return strValue;
     } else if (Array.isArray(value)) {
       return (<any[]>value).map((v: any) => this.resolveVariables(v));
-    } else if (typeof value == 'object') {
+    } else if (typeof value == "object") {
       const newValue: any = {};
       for (const prop in value) {
         newValue[prop] = this.resolveVariables(value[prop]);

@@ -1,7 +1,6 @@
-
-import {BanditSpawner} from './bandit'
-import {BanditTestSuiteConfiguration} from './configuration';
-import {BanditTestNode} from './test';
+import { BanditSpawner } from "./bandit";
+import { BanditTestSuiteConfiguration } from "./configuration";
+import { BanditTestNode } from "./test";
 
 class TestQueueEntry {
   constructor(public node: BanditTestNode, public running: boolean = false) {}
@@ -11,12 +10,13 @@ export class Testqueue {
   private queue = new Map<string, TestQueueEntry>();
 
   constructor(
-      private readonly config: BanditTestSuiteConfiguration,
-      private readonly spawner: BanditSpawner,
-      private readonly notifyChanged: (node: BanditTestNode) => void) {}
+    private readonly config: BanditTestSuiteConfiguration,
+    private readonly spawner: BanditSpawner,
+    private readonly notifyChanged: (node: BanditTestNode) => void
+  ) {}
 
   public push(nodes: BanditTestNode[]) {
-    nodes.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    nodes.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     for (let node of nodes) {
       if (!this.nodeAlreadyExists(node)) {
         this.queue.set(node.id, new TestQueueEntry(node));
@@ -70,7 +70,7 @@ export class Testqueue {
   private start(entry: TestQueueEntry) {
     entry.running = true;
     this.notifyChanged(entry.node);
-    this.spawner.run(entry.node).then((nodes) => {
+    this.spawner.run(entry.node).then(nodes => {
       nodes.map(this.notifyChanged, this);
       this.finish(entry);
       this.continue();

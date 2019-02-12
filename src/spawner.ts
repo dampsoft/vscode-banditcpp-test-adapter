@@ -1,15 +1,17 @@
+import * as cp from "child_process";
+const { spawn } = require("child_process");
 
-import * as cp from 'child_process';
-
-import {Logger} from './logger';
+import { Logger } from "./logger";
 
 export interface SpawnReturnsI extends cp.SpawnSyncReturns<string> {
-  cancelled?: boolean
+  cancelled?: boolean;
 }
 
 export type SpawnArguments = {
-  id: string,
-  cmd: string, args?: string[], options?: cp.SpawnSyncOptions
+  id: string;
+  cmd: string;
+  args?: string[];
+  options?: cp.SpawnSyncOptions;
 };
 
 interface SpawnTokenI {
@@ -31,67 +33,57 @@ export class Spawner {
     }
     let cmd = args.cmd;
     if (args.args) {
-      cmd += ' ' + args.args.join(' ');
+      cmd += " " + args.args.join(" ");
     }
     let msg = `Starte Prozess mit id "${args.id}": ${cmd}`;
     Logger.instance.info(msg);
-    return new Promise((resolve, reject) => {
+    return new Promise(resolve => {
       const ret: SpawnReturnsI = {
         pid: 0,
-        output: ['', ''],
-        stdout: '',
-        stderr: '',
+        stdout: "",
+        stderr: "",
+        output: ["", ""],
         status: 0,
-        signal: '',
+        signal: "",
         error: new Error()
       };
-      const command = cp.spawn(args.cmd, args.args, args.options);
+      const command = spawn(args.cmd, args.args, args.options);
       ret.pid = command.pid;
 
-      if (command.stdout != null) {
-        command.stdout.on('data', (data) => {
-          ret.stdout += data;
-          ret.output[0] = ret.stdout;
-        });
-      }
-      command.once('error', (err: Error) => {
+      command.stdout.on("data", (data: any) => {
+        ret.stdout += data;
+      });
+      command.stderr.on("data", (data: any) => {
+        ret.stderr += data;
+      });
+      command.on("error", (err: Error) => {
         ret.error = err;
-        let msg =
-            `Fehler bei der Prozessausführung "${args.id}": ${err.message}`;
+        let msg = `Fehler bei der Prozessausführung "${args.id}": ${
+          err.message
+        }`;
         Logger.instance.error(msg);
-        reject(ret);
+        ret.error = err;
         this.remove(args.id);
-      });
-      command.once('exit', function(code, signal) {
-        let msg =
-            `Prozessausführung "${
-                                  args.id
-                                }" mit Code "${code}" und Signal "${
-                                                                    signal
-                                                                  }" beendet`;
-        Logger.instance.info(msg);
-      });
-      command.once('close', (code, signal) => {
-        ret.status = code;
-        let msg =
-            `Prozessausführung "${
-                                  args.id
-                                }" mit Code "${code}" und Signal "${
-                                                                    signal
-                                                                  }" beendet`;
-        ret.error = new Error(msg);
-        Logger.instance.info(msg);
         resolve(ret);
+      });
+      command.once("close", (code: number, signal: string) => {
+        ret.status = code;
+        let msg = `Prozessausführung "${
+          args.id
+        }" mit Code "${code}" und Signal "${signal}" beendet`;
+        Logger.instance.info(msg);
+        ret.error = new Error(msg);
+        ret.signal = signal;
         this.remove(args.id);
+        resolve(ret);
       });
       let token = <SpawnTokenI>{
         cancel: () => {
           try {
-            command.kill();
             command.stdin.end();
             command.stdout.pause();
-          } catch (e) {
-          }
+            command.kill();
+          } catch (e) {}
           ret.cancelled = true;
           resolve(ret);
         }

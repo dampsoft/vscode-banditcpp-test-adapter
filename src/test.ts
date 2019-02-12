@@ -1,13 +1,12 @@
-import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
+import { TestInfo, TestSuiteInfo } from "vscode-test-adapter-api";
 
-import * as teststatus from './teststatus'
+import * as teststatus from "./teststatus";
 
-export type BanditTestNode = BanditTest|BanditTestGroup;
+export type BanditTestNode = BanditTest | BanditTestGroup;
 
-export type BanditTestType = 'test'|'suite';
-export const Test: BanditTestType = 'test';
-export const Suite: BanditTestType = 'suite';
-
+export type BanditTestType = "test" | "suite";
+export const Test: BanditTestType = "test";
+export const Suite: BanditTestType = "suite";
 
 /**
  * Basis Test-Knoten
@@ -26,10 +25,12 @@ abstract class TestNode {
   // API
   public abstract start(): BanditTestNode[];
   public abstract cancel(): BanditTestNode[];
-  public abstract finish(status: teststatus.TestStatus, message?: string):
-      BanditTestNode[];
+  public abstract finish(
+    status: teststatus.TestStatus,
+    message?: string
+  ): BanditTestNode[];
   // Konstruktor
-  constructor(public parent: BanditTestGroup|undefined) {}
+  constructor(public parent: BanditTestGroup | undefined) {}
   public get parents(): Array<BanditTestGroup> {
     let parents = new Array<BanditTestGroup>();
     let p = this.parent;
@@ -39,16 +40,15 @@ abstract class TestNode {
     }
     return parents.reverse();
   }
-  public abstract getTestInfo(): TestSuiteInfo|TestInfo;
+  public abstract getTestInfo(): TestSuiteInfo | TestInfo;
   public get displayTitle(): string {
     if (this.parent) {
       return `${this.parent.displayTitle} ${this.label}`;
     } else {
-      return '';
+      return "";
     }
   }
 }
-
 
 /************************************************************************/
 /**
@@ -59,11 +59,12 @@ export class BanditTestGroup extends TestNode {
   public readonly type = Suite;
 
   constructor(
-      parent: BanditTestGroup|undefined,  //
-      public label: string,               //
-      public file?: string,               //
-      public line?: number,               //
-      public message?: string) {
+    parent: BanditTestGroup | undefined, //
+    public label: string, //
+    public file?: string, //
+    public line?: number, //
+    public message?: string
+  ) {
     super(parent);
   }
 
@@ -79,8 +80,9 @@ export class BanditTestGroup extends TestNode {
         } else if (node_status == teststatus.Failed) {
           aggr_status = teststatus.Failed;
         } else if (
-            aggr_status == teststatus.Skipped &&
-            node_status == teststatus.Passed) {
+          aggr_status == teststatus.Skipped &&
+          node_status == teststatus.Passed
+        ) {
           aggr_status = teststatus.Passed;
         }
       }
@@ -102,16 +104,21 @@ export class BanditTestGroup extends TestNode {
     return test_children;
   }
 
-  public add(node: BanditTestNode): BanditTest|BanditTestGroup {
+  public add(node: BanditTestNode): BanditTest | BanditTestGroup {
     this.children.push(node);
-    this.children.sort(
-        (a, b) => a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
+    this.children.sort((a, b) =>
+      a.label < b.label ? -1 : a.label > b.label ? 1 : 0
+    );
     node.parent = this;
     return node;
   }
 
-  public addTest(name: string, file?: string, line?: number, skipped?: boolean):
-      BanditTest {
+  public addTest(
+    name: string,
+    file?: string,
+    line?: number,
+    skipped?: boolean
+  ): BanditTest {
     var test = new BanditTest(this, name, file, line, skipped);
     this.add(test);
     return test;
@@ -123,10 +130,10 @@ export class BanditTestGroup extends TestNode {
     return suite;
   }
 
-  public findAll(id: string|RegExp): Array<BanditTestNode> {
+  public findAll(id: string | RegExp): Array<BanditTestNode> {
     var matches = new Array<BanditTestNode>();
     for (var child of this.children) {
-      if (typeof id === 'string' ? child.id === id : child.id.match(id)) {
+      if (typeof id === "string" ? child.id === id : child.id.match(id)) {
         matches.push(child);
       } else {
         let group = asTestGroup(child);
@@ -138,23 +145,26 @@ export class BanditTestGroup extends TestNode {
     return matches;
   }
 
-  public find(id: string|RegExp): BanditTestNode|undefined {
+  public find(id: string | RegExp): BanditTestNode | undefined {
     var matches = this.findAll(id);
     return matches ? matches[0] : undefined;
   }
 
-  public findAllByLabel(label: string|RegExp): Array<BanditTestNode> {
+  public findAllByLabel(label: string | RegExp): Array<BanditTestNode> {
     var matches = new Array<BanditTestNode>();
     for (var child of this.children) {
-      if ((typeof label === 'string') ? child.label === label :
-                                        child.label.match(label)) {
+      if (
+        typeof label === "string"
+          ? child.label === label
+          : child.label.match(label)
+      ) {
         matches.push(child);
       }
     }
     return matches;
   }
 
-  public findByLabel(label: string|RegExp): BanditTestNode|undefined {
+  public findByLabel(label: string | RegExp): BanditTestNode | undefined {
     var matches = this.findAllByLabel(label);
     return matches ? matches[0] : undefined;
   }
@@ -175,8 +185,10 @@ export class BanditTestGroup extends TestNode {
     return nodes;
   }
 
-  public finish(status: teststatus.TestStatus, message?: string):
-      BanditTestNode[] {
+  public finish(
+    status: teststatus.TestStatus,
+    message?: string
+  ): BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
     for (var node of this.children) {
       nodes = nodes.concat(node.finish(status));
@@ -184,13 +196,13 @@ export class BanditTestGroup extends TestNode {
     return nodes;
   }
 
-  public getTestInfo(): TestSuiteInfo|TestInfo {
-    let child_info = new Array<TestInfo|TestSuiteInfo>();
+  public getTestInfo(): TestSuiteInfo | TestInfo {
+    let child_info = new Array<TestInfo | TestSuiteInfo>();
     for (let child of this.children) {
       child_info.push(child.getTestInfo());
     }
     return {
-      type: 'suite',
+      type: "suite",
       id: this.id,
       label: this.label,
       file: this.file,
@@ -200,22 +212,22 @@ export class BanditTestGroup extends TestNode {
   }
 }
 
-
 /************************************************************************/
 /**
  * Test Klasse
  */
 export class BanditTest extends TestNode {
-  public readonly type = 'test';
+  public readonly type = "test";
   private test_status: teststatus.TestStatus = teststatus.Idle;
 
   constructor(
-      parent: BanditTestGroup|undefined,  //
-      public label: string,               //
-      public file?: string,               //
-      public line?: number,               //
-      public skipped?: boolean,           //
-      public message?: string) {
+    parent: BanditTestGroup | undefined, //
+    public label: string, //
+    public file?: string, //
+    public line?: number, //
+    public skipped?: boolean, //
+    public message?: string
+  ) {
     super(parent);
   }
 
@@ -232,8 +244,10 @@ export class BanditTest extends TestNode {
     return nodes;
   }
 
-  public finish(status: teststatus.TestStatus, message?: string):
-      BanditTestNode[] {
+  public finish(
+    status: teststatus.TestStatus,
+    message?: string
+  ): BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
     if (this.status !== status) {
       this.test_status = status;
@@ -247,16 +261,16 @@ export class BanditTest extends TestNode {
     let nodes = new Array<BanditTestNode>();
     if (this.status != teststatus.Idle) {
       if (this.status == teststatus.Running) {
-        this.test_status = teststatus.Idle;  // Reset the node state
+        this.test_status = teststatus.Idle; // Reset the node state
         nodes.push(this);
       }
     }
     return nodes;
   }
 
-  public getTestInfo(): TestSuiteInfo|TestInfo {
+  public getTestInfo(): TestSuiteInfo | TestInfo {
     return {
-      type: 'test',
+      type: "test",
       id: this.id,
       label: this.label,
       file: this.file,
@@ -266,11 +280,12 @@ export class BanditTest extends TestNode {
   }
 }
 
-
-export function asTest(node: any): BanditTest|undefined {
-  return node instanceof BanditTest ? node as BanditTest : undefined;
+export function asTest(node: any): BanditTest | undefined {
+  return node instanceof BanditTest ? (node as BanditTest) : undefined;
 }
 
-export function asTestGroup(node: any): BanditTestGroup|undefined {
-  return node instanceof BanditTestGroup ? node as BanditTestGroup : undefined;
+export function asTestGroup(node: any): BanditTestGroup | undefined {
+  return node instanceof BanditTestGroup
+    ? (node as BanditTestGroup)
+    : undefined;
 }

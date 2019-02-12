@@ -1,20 +1,31 @@
-var now = require('performance-now')
-import{TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
-import {TestEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent} from 'vscode-test-adapter-api';
+var now = require("performance-now");
+import { TestInfo, TestSuiteInfo } from "vscode-test-adapter-api";
+import {
+  TestEvent,
+  TestRunFinishedEvent,
+  TestRunStartedEvent,
+  TestSuiteEvent
+} from "vscode-test-adapter-api";
 
-import {BanditSpawner} from './bandit';
-import {BanditTestSuiteConfiguration} from './configuration';
-import {DisposableI} from './disposable'
-import {escapeRegExp, formatTimeDuration, removeDuplicates} from './helper';
-import {Logger} from './logger';
-import {Message} from './message';
-import {asTest, asTestGroup, BanditTest, BanditTestGroup, BanditTestNode} from './test'
-import * as teststatus from './teststatus'
-import {DisposableWatcher} from './watch';
-import {Testqueue} from './testqueue'
+import { BanditSpawner } from "./bandit";
+import { BanditTestSuiteConfiguration } from "./configuration";
+import { DisposableI } from "./disposable";
+import { escapeRegExp, formatTimeDuration, removeDuplicates } from "./helper";
+import { Logger } from "./logger";
+import { Message } from "./message";
+import {
+  asTest,
+  asTestGroup,
+  BanditTest,
+  BanditTestGroup,
+  BanditTestNode
+} from "./test";
+import * as teststatus from "./teststatus";
+import { DisposableWatcher } from "./watch";
+import { Testqueue } from "./testqueue";
 
 export type NotifyTestsuiteChangeHandler = () => void;
-export type NotifyStatusHandler = (e: TestSuiteEvent|TestEvent) => void;
+export type NotifyStatusHandler = (e: TestSuiteEvent | TestEvent) => void;
 export type NotifyStartHandler = (e: TestRunStartedEvent) => void;
 export type NotifyFinishHandler = (e: TestRunFinishedEvent) => void;
 export type NotifyMessageHandler = (e: Message) => void;
@@ -23,8 +34,8 @@ export type NotifyMessageHandler = (e: Message) => void;
  * Interface für Testsuites
  */
 export interface TestSuiteI extends DisposableI {
-  reload(): Promise<TestSuiteInfo|TestInfo>;
-  start(ids: (string|RegExp)[]): Promise<void>;
+  reload(): Promise<TestSuiteInfo | TestInfo>;
+  start(ids: (string | RegExp)[]): Promise<void>;
   cancel(): Promise<void>;
 }
 
@@ -32,21 +43,22 @@ export interface TestSuiteI extends DisposableI {
  * Implementierung der Testsuite für Bandit
  */
 export class BanditTestSuite implements TestSuiteI {
-  private watch: DisposableI|undefined;
-  private changeTimeout: NodeJS.Timer|undefined;
+  private watch: DisposableI | undefined;
+  private changeTimeout: NodeJS.Timer | undefined;
   private testsuite = new BanditTestGroup(undefined, this.name);
   private spawner = new BanditSpawner(this.configuration);
-  private queue = new Testqueue(this.configuration, this.spawner, (node) => {
+  private queue = new Testqueue(this.configuration, this.spawner, node => {
     this.notifyStatus(node);
   });
 
   constructor(
-      public readonly configuration: BanditTestSuiteConfiguration,   //
-      private readonly onSuiteChange: NotifyTestsuiteChangeHandler,  //
-      private readonly onStatusChange: NotifyStatusHandler,          //
-      private readonly onStart: NotifyStartHandler,                  //
-      private readonly onFinish: NotifyFinishHandler,                //
-      private readonly onMessage: NotifyMessageHandler) {}
+    public readonly configuration: BanditTestSuiteConfiguration, //
+    private readonly onSuiteChange: NotifyTestsuiteChangeHandler, //
+    private readonly onStatusChange: NotifyStatusHandler, //
+    private readonly onStart: NotifyStartHandler, //
+    private readonly onFinish: NotifyFinishHandler, //
+    private readonly onMessage: NotifyMessageHandler
+  ) {}
 
   public dispose() {
     if (this.watch) {
@@ -55,51 +67,52 @@ export class BanditTestSuite implements TestSuiteI {
     }
   }
 
-  public reload(): Promise<TestSuiteInfo|TestInfo> {
+  public reload(): Promise<TestSuiteInfo | TestInfo> {
     return new Promise((resolve, reject) => {
       this.cancel().then(() => {
-        Logger.instance.debug('Starte das Laden der Tests');
+        Logger.instance.debug("Starte das Laden der Tests");
         let startTime = now();
-        this.spawner.dry()
-            .then((result) => {
-              const duration = now() - startTime;
-              result.testsuite.label = this.name;
-              this.testsuite = result.testsuite;
-              Logger.instance.debug(
-                  `Laden der Tests erfolgreich beendet. Benötigte Zeit: ${
-                                                                          formatTimeDuration(
-                                                                              duration)
-                                                                        }`);
-              this.resetWatch();
-              // Display Errors:
-              for (let message of result.messages) {
-                this.onMessage(message);
-              }
-              resolve(this.testsuite.getTestInfo());
-            })
-            .catch((e) => {
-              Logger.instance.error('Fehler beim Laden der Tests');
-              this.notifyFinished();
-              reject(e);
-            });
+        this.spawner
+          .dry()
+          .then(result => {
+            const duration = now() - startTime;
+            result.testsuite.label = this.name;
+            this.testsuite = result.testsuite;
+            Logger.instance.debug(
+              `Laden der Tests erfolgreich beendet. Benötigte Zeit: ${formatTimeDuration(
+                duration
+              )}`
+            );
+            this.resetWatch();
+            // Display Errors:
+            for (let message of result.messages) {
+              this.onMessage(message);
+            }
+            resolve(this.testsuite.getTestInfo());
+          })
+          .catch(e => {
+            Logger.instance.error("Fehler beim Laden der Tests");
+            this.notifyFinished();
+            reject(e);
+          });
       });
     });
   }
 
-  public start(ids: (string|RegExp)[]): Promise<void> {
-    Logger.instance.debug('Starte einen neuen Testlauf');
+  public start(ids: (string | RegExp)[]): Promise<void> {
+    Logger.instance.debug("Starte einen neuen Testlauf");
     return new Promise(() => {
       let nodes = new Array<BanditTestNode>();
-      let unique_ids = new Set<(string | RegExp)>(ids);
+      let unique_ids = new Set<string | RegExp>(ids);
       for (let id of unique_ids) {
-        let r = (typeof id === 'string') ? new RegExp(escapeRegExp(id)) : id;
+        let r = typeof id === "string" ? new RegExp(escapeRegExp(id)) : id;
         nodes = nodes.concat(this.testsuite.findAll(r));
       }
       let startedNodes = new Array<BanditTestNode>();
       for (var node of nodes) {
         startedNodes = startedNodes.concat(node.start());
       }
-      startedNodes = removeDuplicates(startedNodes, 'id');
+      startedNodes = removeDuplicates(startedNodes, "id");
       Logger.instance.debug(`${nodes.length} Tests werden gestartet`);
       this.notifyStart(startedNodes);
       this.queue.push(startedNodes);
@@ -107,8 +120,8 @@ export class BanditTestSuite implements TestSuiteI {
   }
 
   public cancel(): Promise<void> {
-    return new Promise((resolve) => {
-      Logger.instance.info('Breche alle laufenden Tests ab');
+    return new Promise(resolve => {
+      Logger.instance.info("Breche alle laufenden Tests ab");
       this.testsuite.cancel().map(this.notifyStatus, this);
       this.queue.stop();
       this.spawner.stop();
@@ -142,15 +155,16 @@ export class BanditTestSuite implements TestSuiteI {
         }
       }
     }
-    this.onStart(<TestRunStartedEvent>{type: 'started', tests: ids});
+    this.onStart(<TestRunStartedEvent>{ type: "started", tests: ids });
   }
 
   private notifyFinished() {
-    this.onFinish(<TestRunFinishedEvent>{type: 'finished'});
+    this.onFinish(<TestRunFinishedEvent>{ type: "finished" });
   }
 
-  private getStatusEvent(node: BanditTestNode): TestEvent|TestSuiteEvent
-      |undefined {
+  private getStatusEvent(
+    node: BanditTestNode
+  ): TestEvent | TestSuiteEvent | undefined {
     let test = asTest(node);
     let group = asTestGroup(node);
     if (test) {
@@ -164,16 +178,16 @@ export class BanditTestSuite implements TestSuiteI {
   private getTestStatusEvent(test: BanditTest): TestEvent {
     let status;
     if (test.status == teststatus.Running) {
-      status = 'running';
+      status = "running";
     } else if (test.status == teststatus.Passed) {
-      status = 'passed';
+      status = "passed";
     } else if (test.status == teststatus.Failed) {
-      status = 'failed';
+      status = "failed";
     } else {
-      status = 'skipped';
+      status = "skipped";
     }
     return {
-      type: 'test',
+      type: "test",
       test: test.id,
       state: status,
       message: test.message
@@ -183,12 +197,12 @@ export class BanditTestSuite implements TestSuiteI {
   private getGroupStatusEvent(group: BanditTestGroup): TestSuiteEvent {
     let status;
     if (group.status == teststatus.Running) {
-      status = 'running';
+      status = "running";
     } else {
-      status = 'completed';
+      status = "completed";
     }
     return {
-      type: 'suite',
+      type: "suite",
       suite: group.id,
       state: status,
       message: group.message
@@ -211,13 +225,13 @@ export class BanditTestSuite implements TestSuiteI {
     }
     const onReady = () => {
       Logger.instance.info(
-          `Beobachte Änderung an der Testumgebung ${this.name}...`);
+        `Beobachte Änderung an der Testumgebung ${this.name}...`
+      );
     };
     const onChange = () => {
       Logger.instance.info(
-          `Änderung an der Testumgebung ${
-                                          this.name
-                                        } erkannt. Führe Autorun aus.`);
+        `Änderung an der Testumgebung ${this.name} erkannt. Führe Autorun aus.`
+      );
       if (this.changeTimeout) {
         clearTimeout(this.changeTimeout);
         this.changeTimeout = undefined;
@@ -228,9 +242,10 @@ export class BanditTestSuite implements TestSuiteI {
     };
     const onError = () => {
       Logger.instance.error(
-          `Beim Beobachten der Testumgebung ${
-                                              this.name
-                                            } ist ein Fehler aufgetreten.`);
+        `Beim Beobachten der Testumgebung ${
+          this.name
+        } ist ein Fehler aufgetreten.`
+      );
     };
     this.watch = new DisposableWatcher(paths, onReady, onChange, onError);
   }

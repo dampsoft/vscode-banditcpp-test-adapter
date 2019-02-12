@@ -1,12 +1,14 @@
-export type MessageType = 'info'|'error'|'warning';
-export const Info: MessageType = 'info';
-export const Error: MessageType = 'error';
-export const Warning: MessageType = 'warning';
+export type MessageType = "info" | "error" | "warning";
+export const Info: MessageType = "info";
+export const Error: MessageType = "error";
+export const Warning: MessageType = "warning";
 
 export class Message {
   constructor(
-      public readonly title: string, public readonly description: string,
-      public readonly type: MessageType) {}
+    public readonly title: string,
+    public readonly description: string,
+    public readonly type: MessageType
+  ) {}
 
   public isError() {
     return this.type == Error;
@@ -21,7 +23,7 @@ export class Message {
   }
 
   public format(): string {
-    return `${this.title}: \n${this.description}`
+    return `${this.title}: \n${this.description}`;
   }
 
   static error(title: string, description: string) {
