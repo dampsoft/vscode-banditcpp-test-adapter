@@ -96,7 +96,7 @@ export class BanditTestAdapter implements TestAdapter {
         .catch(e => {
           Logger.instance.error(e.message);
           this.testsEmitter.fire(<TestLoadFinishedEvent>{ type: "finished" });
-          reject(e);
+          resolve();
         });
     });
   }

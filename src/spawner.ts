@@ -3,8 +3,20 @@ const { spawn } = require("child_process");
 
 import { Logger } from "./logger";
 
-export interface SpawnReturnsI extends cp.SpawnSyncReturns<string> {
-  cancelled?: boolean;
+export class SpawnResult {
+  constructor(
+    public pid: number = 0,
+    public stdout: string = "",
+    public stderr: string = "",
+    public status: number = 0,
+    public signal: string = "",
+    public cancelled: boolean = false
+  ) {}
+  public error?: Error;
+
+  public isFailed(): boolean {
+    return this.error != undefined || this.signal != null || this.status < 0;
+  }
 }
 
 export type SpawnArguments = {
@@ -23,7 +35,7 @@ export class Spawner {
 
   private spawnedProcesses = new Map<string, SpawnTokenI>();
 
-  public spawn(args: SpawnArguments): Promise<SpawnReturnsI> {
+  public spawn(args: SpawnArguments): Promise<SpawnResult> {
     Logger.instance.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
 
     if (this.exists(args.id)) {
@@ -37,19 +49,9 @@ export class Spawner {
     }
     let msg = `Starte Prozess mit id "${args.id}": ${cmd}`;
     Logger.instance.info(msg);
-    return new Promise(resolve => {
-      const ret: SpawnReturnsI = {
-        pid: 0,
-        stdout: "",
-        stderr: "",
-        output: ["", ""],
-        status: 0,
-        signal: "",
-        error: new Error()
-      };
+    return new Promise((resolve, reject) => {
       const command = spawn(args.cmd, args.args, args.options);
-      ret.pid = command.pid;
-
+      const ret = new SpawnResult(command.pid);
       command.stdout.on("data", (data: any) => {
         ret.stdout += data;
       });
@@ -58,24 +60,21 @@ export class Spawner {
       });
       command.on("error", (err: Error) => {
         ret.error = err;
-        let msg = `Fehler bei der Prozessausführung "${args.id}": ${
-          err.message
-        }`;
-        Logger.instance.error(msg);
-        ret.error = err;
-        this.remove(args.id);
-        resolve(ret);
       });
       command.once("close", (code: number, signal: string) => {
         ret.status = code;
+        ret.signal = signal;
+        this.remove(args.id);
         let msg = `Prozessausführung "${
           args.id
         }" mit Code "${code}" und Signal "${signal}" beendet`;
-        Logger.instance.info(msg);
-        ret.error = new Error(msg);
-        ret.signal = signal;
-        this.remove(args.id);
-        resolve(ret);
+        if (ret.isFailed()) {
+          Logger.instance.error(msg);
+          reject(ret);
+        } else {
+          Logger.instance.debug(msg);
+          resolve(ret);
+        }
       });
       let token = <SpawnTokenI>{
         cancel: () => {

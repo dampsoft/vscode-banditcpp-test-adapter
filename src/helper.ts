@@ -88,3 +88,7 @@ export function formatTimeDuration(millis: number): string {
   let ms = date.getMilliseconds();
   return `${h}:${m}:${s},${ms}`;
 }
+
+export function isWindows() {
+  return /^win/.test(process.platform);
+}

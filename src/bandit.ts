@@ -4,7 +4,7 @@ import { BanditTestSuiteConfiguration } from "./configuration";
 import { escapeRegExp, removeDuplicates } from "./helper";
 import { Logger } from "./logger";
 import { Message } from "./message";
-import { SpawnArguments, Spawner, SpawnReturnsI } from "./spawner";
+import { SpawnArguments, Spawner, SpawnResult } from "./spawner";
 import { asTest, asTestGroup, BanditTestGroup, BanditTestNode } from "./test";
 import * as teststatus from "./teststatus";
 import { Version } from "./version";
@@ -37,7 +37,7 @@ export class BanditSpawner {
           );
           Spawner.instance
             .spawn(spawn_args)
-            .then((ret: SpawnReturnsI) => {
+            .then((ret: SpawnResult) => {
               let matches = ret.stdout.match(/bandit version (\d+\.\d+\.\d+)/i);
               if (matches && matches.length == 2) {
                 return Version.fromString(matches[1]);
@@ -62,6 +62,10 @@ export class BanditSpawner {
                 );
               }
               resolve(banditVersion);
+            })
+            .catch(error => {
+              this.logError("Fehler beim Ermitteln der Bandit-Version", error);
+              resolve(this.banditVersionFallback);
             });
         });
       } else {
@@ -81,7 +85,7 @@ export class BanditSpawner {
       this.createSpawnArgumentsTestRun(node).then(spawn_args => {
         Spawner.instance
           .spawn(spawn_args)
-          .then((ret: SpawnReturnsI) => {
+          .then((ret: SpawnResult) => {
             if (!ret.cancelled && ret.status < 0) {
               let msg = `Fehlerhafter Return-Value beim run() Aufruf der Test-Executable ${
                 node.id
@@ -95,10 +99,12 @@ export class BanditSpawner {
               resolve(this.updateNodeFromString(node, ret));
             }
           })
-          .catch(e => {
-            let msg = `Fehler beim run() Aufruf der Test-Executable ${node.id}`;
-            Logger.instance.error(msg);
-            resolve(node.finish(teststatus.Failed, msg));
+          .catch(error => {
+            this.logError(
+              `Fehler beim run() Aufruf der Test-Executable ${node.id}`,
+              error
+            );
+            resolve(node.finish(teststatus.Failed));
           });
       });
     });
@@ -115,7 +121,7 @@ export class BanditSpawner {
       this.createSpawnArgumentsDryRun().then(spawn_args => {
         Spawner.instance
           .spawn(spawn_args)
-          .then((ret: SpawnReturnsI) => {
+          .then((ret: SpawnResult) => {
             if (ret.status < 0) {
               Logger.instance.error(
                 `Fehlerhafter Return-Value beim dry() Aufruf der Test-Executable ${
@@ -127,14 +133,17 @@ export class BanditSpawner {
               Logger.instance.debug(
                 `Test-Executable ${this.config.name} erfolgreich aufgerufen`
               );
-              resolve(this.parseString(ret.stdout));
+              resolve(this.parseResult(ret));
             }
           })
-          .catch(e => {
-            Logger.instance.error(
-              `Fehler beim dry() Aufruf der Test-Executable ${this.config.name}`
+          .catch(error => {
+            this.logError(
+              `Fehler beim dry() Aufruf der Test-Executable ${
+                this.config.name
+              }`,
+              error
             );
-            reject(e);
+            reject(error);
           });
       });
     });
@@ -158,7 +167,7 @@ export class BanditSpawner {
     return {
       cwd: this.config.cwd,
       env: this.config.env,
-      // shell: true,
+      shell: true,
       windowsVerbatimArguments: true,
       encoding: "utf8"
     };
@@ -254,12 +263,12 @@ export class BanditSpawner {
   }
 
   /**
-   * Parsed den Stdout String der Testausgabe
-   * @param  stdout  Ausgabestring
-   * @returns        Gibt das Wandlungsergebnis mit der erkannten Teststruktur
-   *                 und den Meldungen zurück
+   * Parsed das Ergebnis der Testausgabe
+   * @param  spawnresult  Ergebnis der Testausführung
+   * @returns             Gibt das Wandlungsergebnis mit der erkannten Teststruktur
+   *                      und den Meldungen zurück
    */
-  private parseString(stdout: string): ParseResultI {
+  private parseResult(spawnresult: SpawnResult): ParseResultI {
     let root = new BanditTestGroup(undefined, this.config.name);
     let result: ParseResultI = { testsuite: root, messages: [] };
     let messages = Array<String>();
@@ -340,7 +349,7 @@ export class BanditSpawner {
     let node: BanditTestNode | undefined;
     let last_indentation = 0;
     let status: teststatus.TestStatus | undefined;
-    stdout = stdout.replace(/\r\n/g, "\n");
+    let stdout = spawnresult.stdout.replace(/\r\n/g, "\n");
     let lines = stdout.split(/[\n]+/);
     for (let line of lines) {
       if (line.length) {
@@ -464,13 +473,13 @@ export class BanditSpawner {
    */
   private updateNodeFromString(
     node: BanditTestNode,
-    ret: SpawnReturnsI
+    ret: SpawnResult
   ): BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
     if (ret.cancelled) {
       nodes = node.cancel();
     } else {
-      let parsedResult = this.parseString(ret.stdout);
+      let parsedResult = this.parseResult(ret);
       let resultNode = parsedResult.testsuite.find(node.id);
       if (resultNode) {
         Logger.instance.debug(
@@ -487,5 +496,18 @@ export class BanditSpawner {
       }
     }
     return nodes;
+  }
+
+  private logError(message: string, error: any) {
+    let msg = message;
+    if (typeof error === "string") {
+      if (error.length > 0) msg += `\n${error}`;
+    } else if (error instanceof Error) {
+      msg += `\n${error.name} - "${error.message}"`;
+      if (error.stack) msg += `Stacktrace:\n${error.stack}`;
+    } else if (error instanceof SpawnResult) {
+      if (error.stderr.length) msg += `\n${error.stderr}`;
+    }
+    Logger.instance.error(msg);
   }
 }
