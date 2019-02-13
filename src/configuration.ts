@@ -6,13 +6,11 @@ import { cleanPath, VariableResolver } from "./helper";
 import { LogLevel } from "./logger";
 
 export type Property =
-  | "cwd"
   | "testsuites"
   | "parallelProcessLimit"
   | "watchTimeoutSec"
   | "allowKillProcess"
   | "loglevel";
-export const PropertyCwd: Property = "cwd";
 export const PropertyTestsuites: Property = "testsuites";
 export const PropertyParallelProcessLimit: Property = "parallelProcessLimit";
 export const PropertyWatchTimeoutSec: Property = "watchTimeoutSec";
@@ -47,7 +45,7 @@ export class BanditTestSuiteConfiguration {
   }
 
   public get cwd() {
-    return this.jsonConfig.cwd;
+    return this.jsonConfig.cwd || this.parentConfig.cwd;
   }
 
   public get options() {
@@ -103,12 +101,6 @@ export class Configuration {
       return this.config.get<LogLevel>(PropertyLoglevel, "error");
     });
 
-    this.propertyGetter.set(PropertyCwd, () => {
-      return this.resolvePath(
-        this.config.get<string>(PropertyCwd, this.workspaceFolder.uri.fsPath)
-      );
-    });
-
     this.reload();
   }
 
@@ -143,6 +135,10 @@ export class Configuration {
 
   public get loglevel(): LogLevel {
     return this.get(PropertyLoglevel);
+  }
+
+  public get cwd(): string {
+    return this.workspaceFolder.uri.fsPath;
   }
 
   public get properties(): Property[] {
@@ -197,16 +193,16 @@ export class Configuration {
     }
     // Resolve variables and paths:
     for (let testsuite of banditConfig) {
-      testsuite.cmd = this.resolvePath(testsuite.cmd);
-      testsuite.cwd = testsuite.cwd
-        ? this.resolvePath(testsuite.cwd)
-        : this.get(PropertyCwd);
+      if (testsuite.cwd) {
+        testsuite.cwd = this.resolvePath(testsuite.cwd);
+      }
+      testsuite.cmd = this.resolvePath(testsuite.cmd, testsuite.cwd);
       testsuite.env = this.resolveEnv(testsuite.env);
       testsuite.options = this.resolveOptions(testsuite.options);
       let watches = new Array<string>();
       if (testsuite.watches) {
         for (let watch of testsuite.watches) {
-          watches.push(this.resolvePath(watch));
+          watches.push(this.resolvePath(watch, testsuite.cwd));
         }
       }
       testsuite.watches = watches;
@@ -219,12 +215,12 @@ export class Configuration {
     }
   }
 
-  private resolvePath(p: string | undefined): string {
+  private resolvePath(p: string | undefined, cwd?: string): string {
     const resolved: string = p ? this.resolver.resolve(p) : "";
     if (path.isAbsolute(resolved)) {
       return cleanPath(resolved);
     } else {
-      return cleanPath(path.resolve(this.workspaceFolder.uri.fsPath, resolved));
+      return cleanPath(path.resolve(cwd || this.cwd, resolved));
     }
   }
 
