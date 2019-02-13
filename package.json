@@ -32,7 +32,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "rebuild": "npm run clean && npm run build",
-    "package": "vsce package --yarn",
+    "package": "vsce package",
     "publish": "vsce publish"
   },
   "dependencies": {
@@ -46,8 +46,8 @@
     "xml2js": "^0.4.19"
   },
   "devDependencies": {
-    "@types/fs-extra": "^5.0.4",
     "@types/entities": "^1.1.0",
+    "@types/fs-extra": "^5.0.5",
     "@types/xml-parser": "^1.2.29",
     "@types/xml2js": "^0.4.2",
     "typescript": "^3.0.3",
