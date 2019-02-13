@@ -1,17 +1,13 @@
-import * as cp from "child_process";
-const { spawn } = require("child_process");
+import * as cp from 'child_process';
+const {spawn} = require('child_process');
 
-import { Logger } from "./logger";
+import {Logger} from './logger';
 
 export class SpawnResult {
   constructor(
-    public pid: number = 0,
-    public stdout: string = "",
-    public stderr: string = "",
-    public status: number = 0,
-    public signal: string = "",
-    public cancelled: boolean = false
-  ) {}
+      public pid: number = 0, public stdout: string = '',
+      public stderr: string = '', public status: number = 0,
+      public signal: string = '', public cancelled: boolean = false) {}
   public error?: Error;
 
   public isFailed(): boolean {
@@ -20,8 +16,7 @@ export class SpawnResult {
 }
 
 export type SpawnArguments = {
-  id: string;
-  cmd: string;
+  id: string; cmd: string;
   args?: string[];
   options?: cp.SpawnSyncOptions;
 };
@@ -45,29 +40,28 @@ export class Spawner {
     }
     let cmd = args.cmd;
     if (args.args) {
-      cmd += " " + args.args.join(" ");
+      cmd += ' ' + args.args.join(' ');
     }
     let msg = `Starte Prozess mit id "${args.id}": ${cmd}`;
     Logger.instance.info(msg);
     return new Promise((resolve, reject) => {
       const command = spawn(args.cmd, args.args, args.options);
       const ret = new SpawnResult(command.pid);
-      command.stdout.on("data", (data: any) => {
+      command.stdout.on('data', (data: any) => {
         ret.stdout += data;
       });
-      command.stderr.on("data", (data: any) => {
+      command.stderr.on('data', (data: any) => {
         ret.stderr += data;
       });
-      command.on("error", (err: Error) => {
+      command.on('error', (err: Error) => {
         ret.error = err;
       });
-      command.once("close", (code: number, signal: string) => {
+      command.once('close', (code: number, signal: string) => {
         ret.status = code;
         ret.signal = signal;
         this.remove(args.id);
-        let msg = `Prozessausführung "${
-          args.id
-        }" mit Code "${code}" und Signal "${signal}" beendet`;
+        let msg = `Prozessausführung "${args.id}" mit Code "${
+            code}" und Signal "${signal}" beendet`;
         if (ret.isFailed()) {
           Logger.instance.error(msg);
           reject(ret);
@@ -82,7 +76,8 @@ export class Spawner {
             command.stdin.end();
             command.stdout.pause();
             command.kill();
-          } catch (e) {}
+          } catch (e) {
+          }
           ret.cancelled = true;
           resolve(ret);
         }

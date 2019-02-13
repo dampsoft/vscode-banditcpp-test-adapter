@@ -1,15 +1,15 @@
-import { Log } from "vscode-test-adapter-util";
+import {Log} from 'vscode-test-adapter-util';
 
-export type LogLevel = "debug" | "info" | "warning" | "error";
-export const LogLevelDebug: LogLevel = "debug";
-export const LogLevelInfo: LogLevel = "info";
-export const LogLevelWarning: LogLevel = "warning";
-export const LogLevelError: LogLevel = "error";
+export type LogLevel = 'debug'|'info'|'warning'|'error';
+export const LogLevelDebug: LogLevel = 'debug';
+export const LogLevelInfo: LogLevel = 'info';
+export const LogLevelWarning: LogLevel = 'warning';
+export const LogLevelError: LogLevel = 'error';
 
 export class Logger {
   public static instance = new Logger();
 
-  private logger: Log | undefined;
+  private logger: Log|undefined;
   public level: LogLevel = LogLevelWarning;
 
   public setLog(logger: Log) {

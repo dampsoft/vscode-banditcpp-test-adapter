@@ -1,6 +1,6 @@
-import { BanditSpawner } from "./bandit";
-import { BanditTestSuiteConfiguration } from "./configuration";
-import { BanditTestNode } from "./test";
+import {BanditSpawner} from './bandit';
+import {BanditTestSuiteConfiguration} from './configuration';
+import {BanditTestNode} from './test';
 
 class TestQueueEntry {
   constructor(public node: BanditTestNode, public running: boolean = false) {}
@@ -10,10 +10,9 @@ export class Testqueue {
   private queue = new Map<string, TestQueueEntry>();
 
   constructor(
-    private readonly config: BanditTestSuiteConfiguration,
-    private readonly spawner: BanditSpawner,
-    private readonly notifyChanged: (node: BanditTestNode) => void
-  ) {}
+      private readonly config: BanditTestSuiteConfiguration,
+      private readonly spawner: BanditSpawner,
+      private readonly notifyChanged: (node: BanditTestNode) => void) {}
 
   public push(nodes: BanditTestNode[]) {
     nodes.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));

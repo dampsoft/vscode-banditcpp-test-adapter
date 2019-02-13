@@ -1,24 +1,20 @@
-import * as fs from "fs-extra";
-import * as path from "path";
-import * as vscode from "vscode";
+import * as fs from 'fs-extra';
+import * as path from 'path';
+import * as vscode from 'vscode';
 
-import { cleanPath, VariableResolver } from "./helper";
-import { LogLevel } from "./logger";
+import {cleanPath, VariableResolver} from './helper';
+import {LogLevel} from './logger';
 
-export type Property =
-  | "testsuites"
-  | "parallelProcessLimit"
-  | "watchTimeoutSec"
-  | "allowKillProcess"
-  | "loglevel";
-export const PropertyTestsuites: Property = "testsuites";
-export const PropertyParallelProcessLimit: Property = "parallelProcessLimit";
-export const PropertyWatchTimeoutSec: Property = "watchTimeoutSec";
-export const PropertyAllowKillProcess: Property = "allowKillProcess";
-export const PropertyLoglevel: Property = "loglevel";
+export type Property =|'testsuites'|'parallelProcessLimit'|'watchTimeoutSec'|
+    'allowKillProcess'|'loglevel';
+export const PropertyTestsuites: Property = 'testsuites';
+export const PropertyParallelProcessLimit: Property = 'parallelProcessLimit';
+export const PropertyWatchTimeoutSec: Property = 'watchTimeoutSec';
+export const PropertyAllowKillProcess: Property = 'allowKillProcess';
+export const PropertyLoglevel: Property = 'loglevel';
 
 export type EnvProperty = {
-  [prop: string]: string | undefined;
+  [prop: string]: string|undefined;
 };
 
 interface TestSuiteJsonConfigurationI {
@@ -32,9 +28,8 @@ interface TestSuiteJsonConfigurationI {
 
 export class BanditTestSuiteConfiguration {
   constructor(
-    private readonly parentConfig: Configuration,
-    private readonly jsonConfig: TestSuiteJsonConfigurationI
-  ) {}
+      private readonly parentConfig: Configuration,
+      private readonly jsonConfig: TestSuiteJsonConfigurationI) {}
 
   public get name() {
     return this.jsonConfig.name;
@@ -78,7 +73,7 @@ export class Configuration {
   private propertyGetter = new Map<string, () => any>();
   private banditTestSuiteConfigs = new Array<BanditTestSuiteConfiguration>();
 
-  public baseConfigurationName: string = "banditTestExplorer";
+  public baseConfigurationName: string = 'banditTestExplorer';
 
   constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {
     this.propertyGetter.set(PropertyTestsuites, () => {
@@ -98,7 +93,7 @@ export class Configuration {
     });
 
     this.propertyGetter.set(PropertyLoglevel, () => {
-      return this.config.get<LogLevel>(PropertyLoglevel, "error");
+      return this.config.get<LogLevel>(PropertyLoglevel, 'error');
     });
 
     this.reload();
@@ -108,7 +103,7 @@ export class Configuration {
     this.initTestSuiteConfigs();
   }
 
-  public get(property: Property): any | undefined {
+  public get(property: Property): any|undefined {
     let prop = this.propertyGetter.get(property);
     if (prop) {
       return prop();
@@ -143,20 +138,15 @@ export class Configuration {
 
   public get properties(): Property[] {
     return [
-      PropertyTestsuites,
-      PropertyWatchTimeoutSec,
-      PropertyParallelProcessLimit,
-      PropertyAllowKillProcess,
-      PropertyLoglevel
+      PropertyTestsuites, PropertyWatchTimeoutSec, PropertyParallelProcessLimit,
+      PropertyAllowKillProcess, PropertyLoglevel
     ];
   }
 
   public get propertiesSoftReset(): Property[] {
     return [
-      PropertyWatchTimeoutSec,
-      PropertyParallelProcessLimit,
-      PropertyAllowKillProcess,
-      PropertyLoglevel
+      PropertyWatchTimeoutSec, PropertyParallelProcessLimit,
+      PropertyAllowKillProcess, PropertyLoglevel
     ];
   }
 
@@ -174,20 +164,18 @@ export class Configuration {
 
   private get config(): vscode.WorkspaceConfiguration {
     return vscode.workspace.getConfiguration(
-      this.baseConfigurationName,
-      this.workspaceFolder.uri
-    );
+        this.baseConfigurationName, this.workspaceFolder.uri);
   }
 
   private initTestSuiteConfigs() {
-    let conf = this.config.get<string | TestSuiteJsonConfigurationI[]>(
-      PropertyTestsuites
-    );
+    let conf = this.config.get<string|TestSuiteJsonConfigurationI[]>(
+        PropertyTestsuites);
     let banditConfig: TestSuiteJsonConfigurationI[] = [];
-    if (typeof conf === "string") {
+    if (typeof conf === 'string') {
       try {
         banditConfig = fs.readJsonSync(this.resolvePath(conf));
-      } catch (e) {}
+      } catch (e) {
+      }
     } else {
       banditConfig = conf as TestSuiteJsonConfigurationI[];
     }
@@ -210,13 +198,12 @@ export class Configuration {
     this.banditTestSuiteConfigs = [];
     for (let config of banditConfig) {
       this.banditTestSuiteConfigs.push(
-        new BanditTestSuiteConfiguration(this, config)
-      );
+          new BanditTestSuiteConfiguration(this, config));
     }
   }
 
-  private resolvePath(p: string | undefined, cwd?: string): string {
-    const resolved: string = p ? this.resolver.resolve(p) : "";
+  private resolvePath(p: string|undefined, cwd?: string): string {
+    const resolved: string = p ? this.resolver.resolve(p) : '';
     if (path.isAbsolute(resolved)) {
       return cleanPath(resolved);
     } else {
@@ -224,13 +211,13 @@ export class Configuration {
     }
   }
 
-  private resolveOptions(options: string[] | undefined): string[] {
+  private resolveOptions(options: string[]|undefined): string[] {
     if (options) {
       var args_modified = new Array<string>();
       for (let arg of options) {
         arg = this.resolver.resolve(arg);
         if (arg.trim().length > 0) {
-          if (arg.trim().indexOf(" ") >= 0 && arg.trim().indexOf('"') < 0) {
+          if (arg.trim().indexOf(' ') >= 0 && arg.trim().indexOf('"') < 0) {
             arg = `"${arg.trim()}"`;
           }
           args_modified.push(arg.trim());
@@ -242,18 +229,14 @@ export class Configuration {
     }
   }
 
-  private resolveEnv(env: EnvProperty | undefined): EnvProperty {
-    const processEnv = process.env;
+  private resolveEnv(env: EnvProperty|undefined): EnvProperty {
+    let resolvedEnv: EnvProperty = {};
     const configEnv: EnvProperty = env || {};
-    const resultEnv = { ...processEnv };
-    for (const prop in configEnv) {
-      const val = configEnv[prop];
-      if (val === undefined || val === null) {
-        delete resultEnv.prop;
-      } else {
-        resultEnv[prop] = this.resolver.resolve(String(val));
+    for (const e in configEnv) {
+      if (configEnv[e]) {
+        resolvedEnv[e] = this.resolver.resolve(String(configEnv[e]));
       }
     }
-    return resultEnv;
+    return Object.assign({}, process.env, resolvedEnv);
   }
 }

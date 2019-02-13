@@ -3,5 +3,5 @@ export interface DisposableI {
 }
 
 export function isDisposable(object: any): object is DisposableI {
-  return "dispose" in object;
+  return 'dispose' in object;
 }
