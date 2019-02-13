@@ -9,9 +9,9 @@ import {asTest, asTestGroup, BanditTestGroup, BanditTestNode} from './test';
 import * as teststatus from './teststatus';
 import {Version} from './version';
 
-export interface ParseResultI {
-  testsuite: BanditTestGroup;
-  messages: Message[];
+export class ParseResult {
+  constructor(
+      public testsuite: BanditTestGroup, public messages: Message[] = []) {}
 }
 
 /**
@@ -110,7 +110,7 @@ export class BanditSpawner {
    * ermittelt.
    * @returns  Gibt ein Promise mit dem Ergebnis der Stdout-Analyse zurück.
    */
-  public dry(): Promise<ParseResultI> {
+  public dry(): Promise<ParseResult> {
     return new Promise((resolve, reject) => {
       this.createSpawnArgumentsDryRun().then(spawn_args => {
         Spawner.instance.spawn(spawn_args)
@@ -252,12 +252,11 @@ export class BanditSpawner {
    * Parsed das Ergebnis der Testausgabe
    * @param  spawnresult  Ergebnis der Testausführung
    * @returns             Gibt das Wandlungsergebnis mit der erkannten
-   *     Teststruktur
-   *                      und den Meldungen zurück
+   *                      Teststruktur und den Meldungen zurück
    */
-  private parseResult(spawnresult: SpawnResult): ParseResultI {
+  private parseResult(spawnresult: SpawnResult): ParseResult {
     let root = new BanditTestGroup(undefined, this.config.name);
-    let result: ParseResultI = {testsuite: root, messages: []};
+    let result = new ParseResult(root);
     let messages = Array<String>();
     let isGroup = (line: string): boolean => {
       return line.trim().startsWith('describe');
@@ -420,7 +419,7 @@ export class BanditSpawner {
             if (lines[0].match(requiredLineStart)) {
               node.message =
                   lines.slice(1, lines.length).join('\n').replace(/\n$/, '');
-              Logger.instance.debug(`Fehlermeldung für Test "${
+              Logger.instance.info(`Fehlermeldung für Test "${
                   node.id}" erkannt:\n${node.message}\n`);
             }
           }

@@ -80,12 +80,17 @@ export function removeDuplicates(values: any[], prop: string) {
 }
 
 export function formatTimeDuration(millis: number): string {
-  let date = new Date(millis);
-  let h = date.getHours();
-  let m = date.getMinutes();
-  let s = date.getSeconds();
-  let ms = date.getMilliseconds();
-  return `${h}:${m}:${s},${ms}`;
+  let h = Math.floor((millis / (1000 * 60 * 60)) % 24);
+  if (h) {
+    return `${(millis / (1000 * 60 * 60 / 24)).toFixed(3)} h`;
+  } else {
+    let m = Math.floor((millis / (1000 * 60)) % 60);
+    if (m) {
+      return `${(millis / (1000 * 60 * 60)).toFixed(3)} min`;
+    } else {
+      return `${(millis / (1000 * 60)).toFixed(3)} s`;
+    }
+  }
 }
 
 export function isWindows() {

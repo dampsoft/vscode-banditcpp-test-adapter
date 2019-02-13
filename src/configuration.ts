@@ -2,7 +2,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import {cleanPath, VariableResolver} from './helper';
+import {VariableResolver} from './helper';
 import {LogLevel} from './logger';
 
 export type Property =|'testsuites'|'parallelProcessLimit'|'watchTimeoutSec'|
@@ -24,6 +24,8 @@ interface TestSuiteJsonConfigurationI {
   options?: string[];
   watches?: string[];
   env?: EnvProperty;
+  allowKillProcess?: boolean;
+  parallelProcessLimit?: number;
 }
 
 export class BanditTestSuiteConfiguration {
@@ -56,7 +58,8 @@ export class BanditTestSuiteConfiguration {
   }
 
   public get parallelProcessLimit(): number {
-    return this.parentConfig.parallelProcessLimit;
+    return this.jsonConfig.parallelProcessLimit ||
+        this.parentConfig.parallelProcessLimit;
   }
 
   public get watchTimeoutSec(): number {
@@ -64,7 +67,8 @@ export class BanditTestSuiteConfiguration {
   }
 
   public get allowKillProcess(): boolean {
-    return this.parentConfig.allowKillProcess;
+    return this.jsonConfig.allowKillProcess ||
+        this.parentConfig.allowKillProcess;
   }
 }
 
@@ -203,12 +207,17 @@ export class Configuration {
   }
 
   private resolvePath(p: string|undefined, cwd?: string): string {
-    const resolved: string = p ? this.resolver.resolve(p) : '';
-    if (path.isAbsolute(resolved)) {
-      return cleanPath(resolved);
-    } else {
-      return cleanPath(path.resolve(cwd || this.cwd, resolved));
+    if (!p) return '';
+    let resolved: string = this.resolver.resolve(p);
+    if (!path.isAbsolute(resolved)) {
+      resolved = path.resolve(cwd || this.cwd, resolved);
     }
+    if (cwd) {
+      resolved = path.join(
+          path.relative(cwd, path.dirname(resolved)), path.basename(resolved));
+    }
+    let result = path.normalize(resolved);
+    return result;
   }
 
   private resolveOptions(options: string[]|undefined): string[] {

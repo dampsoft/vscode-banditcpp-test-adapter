@@ -33,6 +33,7 @@ export class Spawner {
   public spawn(args: SpawnArguments): Promise<SpawnResult> {
     Logger.instance.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
 
+
     if (this.exists(args.id)) {
       let msg = `Ein Prozess mit id "${args.id}" exisitiert bereits.`;
       Logger.instance.error(msg);
@@ -42,8 +43,12 @@ export class Spawner {
     if (args.args) {
       cmd += ' ' + args.args.join(' ');
     }
-    let msg = `Starte Prozess mit id "${args.id}": ${cmd}`;
-    Logger.instance.info(msg);
+    let msg = `Starte Prozess mit id "${args.id}"`;
+    if (args.options) {
+      msg += ` in "${args.options.cwd}"`;
+    }
+    msg += `: ${cmd}`;
+    Logger.instance.debug(msg);
     return new Promise((resolve, reject) => {
       const command = spawn(args.cmd, args.args, args.options);
       const ret = new SpawnResult(command.pid);
