@@ -13,12 +13,13 @@ type Symbol = RegExp;
 type SymbolMap = [Symbol, SymbolResolver][];
 
 export class VariableResolver {
-  private readonly varValue: SymbolMap = [
-    [/\${workspaceDirectory}/, this.workspaceFolder.uri.fsPath],
-    [/\${workspaceFolder}/, this.workspaceFolder.uri.fsPath],
-    [/\${User}/, homedir()], [/~($|\/|\\)/, `${homedir()}$1`],
+  private readonly symbols: SymbolMap = [
+    [/\${workspaceDirectory}/g, this.workspaceFolder.uri.fsPath],
+    [/\${workspaceFolder}/g, this.workspaceFolder.uri.fsPath],
+    [/\${UserDir}/g, homedir()], [/\${HomeDir}/g, homedir()],
+    [/~(?=$|\/|\\)/g, homedir()],
     [
-      /\${env:(\w+)}/,
+      /\${env:(\w+)}/g,
       (matches: RegExpMatchArray) => {
         if (matches && matches.length > 0) {
           return process.env[matches[1]];
@@ -37,19 +38,23 @@ export class VariableResolver {
   private resolveVariables(value: any): any {
     if (typeof value === 'string') {
       let strValue = value as string;
-      for (let i = 0; i < this.varValue.length; ++i) {
-        let matches = strValue.match(this.varValue[i][0]);
-        if (matches && matches.length > 0) {
+      for (let i = 0; i < this.symbols.length; ++i) {
+        let match: RegExpMatchArray|null;
+        let replaced = '';
+        let lastAppend = 0;
+        while ((match = this.symbols[i][0].exec(strValue)) != null) {
           let replacement: string|undefined;
-          if (typeof this.varValue[i][1] === 'string') {
-            replacement = this.varValue[i][1] as string;
+          if (typeof this.symbols[i][1] === 'string') {
+            replacement = this.symbols[i][1] as string;
           } else {
-            replacement =
-                (this.varValue[i][1] as CallableSymbolResolver)(matches);
+            replacement = (this.symbols[i][1] as CallableSymbolResolver)(match);
           }
-          // Regex:
-          strValue = strValue.replace(this.varValue[i][0], replacement || '');
+          replaced +=
+              strValue.substring(lastAppend, match.index) + (replacement || '');
+          lastAppend = this.symbols[i][0].lastIndex;
         }
+        replaced += strValue.substring(lastAppend);
+        strValue = replaced;
       }
       return strValue;
     } else if (Array.isArray(value)) {

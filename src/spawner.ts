@@ -33,7 +33,6 @@ export class Spawner {
   public spawn(args: SpawnArguments): Promise<SpawnResult> {
     Logger.instance.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
 
-
     if (this.exists(args.id)) {
       let msg = `Ein Prozess mit id "${args.id}" exisitiert bereits.`;
       Logger.instance.error(msg);
