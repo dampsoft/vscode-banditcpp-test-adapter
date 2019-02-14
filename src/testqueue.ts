@@ -1,5 +1,6 @@
 import {BanditSpawner} from './bandit';
 import {BanditTestSuiteConfiguration} from './configuration';
+import {Logger} from './logger';
 import {BanditTestNode} from './test';
 
 class TestQueueEntry {
@@ -69,11 +70,18 @@ export class Testqueue {
   private start(entry: TestQueueEntry) {
     entry.running = true;
     this.notifyChanged(entry.node);
-    this.spawner.run(entry.node).then(nodes => {
-      nodes.map(this.notifyChanged, this);
-      this.finish(entry);
-      this.continue();
-    });
+    this.spawner.run(entry.node)
+        .then(nodes => {
+          nodes.map(this.notifyChanged, this);
+          this.finish(entry);
+          this.continue();
+        })
+        .catch(e => {
+          Logger.instance.error(
+              `Fehler beim Starten des Tests "${entry.node.id}"`);
+          this.finish(entry);
+          this.continue();
+        });
   }
 
   private finish(entry: TestQueueEntry) {

@@ -1,6 +1,6 @@
 export type TestStatus = 'idle'|'running'|'ok'|'failed'|'skipped';
-export const Idle: TestStatus = 'idle';
-export const Running: TestStatus = 'running';
-export const Passed: TestStatus = 'ok';
-export const Failed: TestStatus = 'failed';
-export const Skipped: TestStatus = 'skipped';
+export const TestStatusIdle: TestStatus = 'idle';
+export const TestStatusRunning: TestStatus = 'running';
+export const TestStatusPassed: TestStatus = 'ok';
+export const TestStatusFailed: TestStatus = 'failed';
+export const TestStatusSkipped: TestStatus = 'skipped';

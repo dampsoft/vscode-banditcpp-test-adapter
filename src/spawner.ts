@@ -69,6 +69,9 @@ export class Spawner {
             code}" und Signal "${signal}" beendet`;
         if (ret.isFailed()) {
           Logger.instance.error(msg);
+          if (!ret.error) {
+            ret.error = new Error(ret.stderr);
+          }
           reject(ret);
         } else {
           Logger.instance.debug(msg);

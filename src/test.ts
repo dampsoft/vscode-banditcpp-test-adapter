@@ -1,6 +1,6 @@
 import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 
-import * as teststatus from './teststatus';
+import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './teststatus';
 
 export type BanditTestNode = BanditTest|BanditTestGroup;
 
@@ -15,7 +15,7 @@ abstract class TestNode {
   // Getter
   public abstract get type(): BanditTestType;
   public abstract get label(): string;
-  public abstract get status(): teststatus.TestStatus;
+  public abstract get status(): TestStatus;
   public get id(): string {
     if (this.parent) {
       return `${this.parent.id}.${this.label}`;
@@ -25,7 +25,7 @@ abstract class TestNode {
   // API
   public abstract start(): BanditTestNode[];
   public abstract cancel(): BanditTestNode[];
-  public abstract finish(status: teststatus.TestStatus, message?: string):
+  public abstract finish(status: TestStatus, message?: string):
       BanditTestNode[];
   // Konstruktor
   constructor(public parent: BanditTestGroup|undefined) {}
@@ -65,21 +65,21 @@ export class BanditTestGroup extends TestNode {
     super(parent);
   }
 
-  get status(): teststatus.TestStatus {
-    let aggr_status: teststatus.TestStatus = teststatus.Idle;
+  get status(): TestStatus {
+    let aggr_status: TestStatus = TestStatusIdle;
     for (let node of this.children) {
       let node_status = node.status;
-      if (node_status == teststatus.Running) {
-        return teststatus.Running;
-      } else if (node_status != teststatus.Idle) {
-        if (aggr_status == teststatus.Idle) {
+      if (node_status == TestStatusRunning) {
+        return TestStatusRunning;
+      } else if (node_status != TestStatusIdle) {
+        if (aggr_status == TestStatusIdle) {
           aggr_status = node_status;
-        } else if (node_status == teststatus.Failed) {
-          aggr_status = teststatus.Failed;
+        } else if (node_status == TestStatusFailed) {
+          aggr_status = TestStatusFailed;
         } else if (
-            aggr_status == teststatus.Skipped &&
-            node_status == teststatus.Passed) {
-          aggr_status = teststatus.Passed;
+            aggr_status == TestStatusSkipped &&
+            node_status == TestStatusPassed) {
+          aggr_status = TestStatusPassed;
         }
       }
     }
@@ -173,8 +173,7 @@ export class BanditTestGroup extends TestNode {
     return nodes;
   }
 
-  public finish(status: teststatus.TestStatus, message?: string):
-      BanditTestNode[] {
+  public finish(status: TestStatus, message?: string): BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
     for (var node of this.children) {
       nodes = nodes.concat(node.finish(status));
@@ -204,7 +203,7 @@ export class BanditTestGroup extends TestNode {
  */
 export class BanditTest extends TestNode {
   public readonly type = 'test';
-  private test_status: teststatus.TestStatus = teststatus.Idle;
+  private test_status: TestStatus = TestStatusIdle;
 
   constructor(
       parent: BanditTestGroup|undefined,  //
@@ -216,21 +215,20 @@ export class BanditTest extends TestNode {
     super(parent);
   }
 
-  public get status(): teststatus.TestStatus {
+  public get status(): TestStatus {
     return this.test_status;
   }
 
   public start(): BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
-    if (this.status !== teststatus.Running) {
-      this.test_status = teststatus.Running;
+    if (this.status !== TestStatusRunning) {
+      this.test_status = TestStatusRunning;
       nodes.push(this);
     }
     return nodes;
   }
 
-  public finish(status: teststatus.TestStatus, message?: string):
-      BanditTestNode[] {
+  public finish(status: TestStatus, message?: string): BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
     if (this.status !== status) {
       this.test_status = status;
@@ -242,9 +240,9 @@ export class BanditTest extends TestNode {
 
   public cancel(): BanditTestNode[] {
     let nodes = new Array<BanditTestNode>();
-    if (this.status != teststatus.Idle) {
-      if (this.status == teststatus.Running) {
-        this.test_status = teststatus.Idle;  // Reset the node state
+    if (this.status != TestStatusIdle) {
+      if (this.status == TestStatusRunning) {
+        this.test_status = TestStatusIdle;  // Reset the node state
         nodes.push(this);
       }
     }

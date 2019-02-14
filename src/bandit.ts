@@ -6,7 +6,7 @@ import {Logger} from './logger';
 import {Message} from './message';
 import {SpawnArguments, Spawner, SpawnResult} from './spawner';
 import {asTest, asTestGroup, BanditTestGroup, BanditTestNode} from './test';
-import * as teststatus from './teststatus';
+import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusSkipped} from './teststatus';
 import {Version} from './version';
 
 export class ParseResult {
@@ -87,18 +87,18 @@ export class BanditSpawner {
                     `Fehlerhafter Return-Value beim run() Aufruf der Test-Executable ${
                         node.id}`;
                 Logger.instance.error(msg);
-                resolve(node.finish(teststatus.Failed, msg));
+                resolve(node.finish(TestStatusFailed, msg));
               } else {
                 Logger.instance.debug(
                     `Test-Executable ${node.id} erfolgreich aufgerufen`);
                 resolve(this.updateNodeFromString(node, ret));
               }
             })
-            .catch(error => {
+            .catch((error: SpawnResult) => {
               this.logError(
                   `Fehler beim run() Aufruf der Test-Executable ${node.id}`,
                   error);
-              resolve(node.finish(teststatus.Failed));
+              resolve(node.finish(TestStatusFailed));
             });
       });
     });
@@ -126,12 +126,11 @@ export class BanditSpawner {
                 resolve(this.parseResult(ret));
               }
             })
-            .catch(error => {
-              this.logError(
-                  `Fehler beim dry() Aufruf der Test-Executable ${
-                      this.config.name}`,
-                  error);
-              reject(error);
+            .catch((error: SpawnResult) => {
+              let msg = `Fehler beim dry() Aufruf der Test-Executable ${
+                  this.config.name}`;
+              this.logError(msg, error);
+              reject(error.error || new Error(msg));
             });
       });
     });
@@ -283,21 +282,21 @@ export class BanditSpawner {
     let parseTestLabel = (line: string): string => {
       return line.trim().replace(/- it (.*)\.\.\..*/i, '$1').trim();
     };
-    let parseStatus = (line: string): teststatus.TestStatus|undefined => {
+    let parseStatus = (line: string): TestStatus|undefined => {
       var matches =
           line.match(/(.*) \.\.\. (error|failure|failed|ok|skipped)/i);
       if (matches && matches.length >= 2) {
         var status = matches[2].toLowerCase();
         if (status == 'ok') {
-          return teststatus.Passed;
+          return TestStatusPassed;
         } else if (status == 'skipped') {
-          return teststatus.Skipped;
+          return TestStatusSkipped;
         } else if (
             status == 'error' || status == 'failure' || status == 'failed') {
-          return teststatus.Failed;
+          return TestStatusFailed;
         }
       }
-      return messages.length > 0 ? teststatus.Failed : teststatus.Idle;
+      return messages.length > 0 ? TestStatusFailed : TestStatusIdle;
     };
     let clearMessages = () => {
       messages = [];
@@ -307,14 +306,13 @@ export class BanditSpawner {
     };
     let error_nodes = new Array<BanditTestNode>();
     let finishNode =
-        (node: BanditTestNode|undefined,
-         status: teststatus.TestStatus|undefined) => {
+        (node: BanditTestNode|undefined, status: TestStatus|undefined) => {
           if (status && node) {
             node.message = getMessage();
             Logger.instance.debug(
                 `Status "${status}" für Test "${node.id}" erkannt`);
             let nodes = node.finish(status);
-            if (status == teststatus.Failed) {
+            if (status == TestStatusFailed) {
               error_nodes = error_nodes.concat(nodes);
             }
           }
@@ -322,7 +320,7 @@ export class BanditSpawner {
     let current_suite = root;
     let node: BanditTestNode|undefined;
     let last_indentation = 0;
-    let status: teststatus.TestStatus|undefined;
+    let status: TestStatus|undefined;
     let stdout = spawnresult.stdout.replace(/\r\n/g, '\n');
     let lines = stdout.split(/[\n]+/);
     for (let line of lines) {
@@ -452,7 +450,7 @@ export class BanditSpawner {
       } else {
         Logger.instance.warn(`In der Testausgabe konnte der Test "${
             node.id}" nicht gefunden werden`);
-        nodes = node.finish(teststatus.Skipped);
+        nodes = node.finish(TestStatusSkipped);
       }
     }
     return nodes;
