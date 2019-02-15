@@ -209,15 +209,18 @@ export class Configuration {
   private resolvePath(p: string|undefined, cwd?: string): string {
     if (!p) return '';
     let resolved: string = this.resolver.resolve(p);
-    if (!path.isAbsolute(resolved)) {
-      resolved = path.resolve(cwd || this.cwd, resolved);
+    if (fs.existsSync(resolved)) {
+      if (!path.isAbsolute(resolved)) {
+        resolved = path.resolve(cwd || this.cwd, resolved);
+      }
+      if (cwd) {
+        resolved = path.join(
+            path.relative(cwd, path.dirname(resolved)),
+            path.basename(resolved));
+      }
+      resolved = path.normalize(resolved);
     }
-    if (cwd) {
-      resolved = path.join(
-          path.relative(cwd, path.dirname(resolved)), path.basename(resolved));
-    }
-    let result = path.normalize(resolved);
-    return result;
+    return resolved;
   }
 
   private resolveOptions(options: string[]|undefined): string[] {
