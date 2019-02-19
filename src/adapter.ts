@@ -28,7 +28,6 @@ export class BanditTestAdapter implements TestAdapter {
   /**
    * Erstellt den Testadapter
    * @param workspaceFolder Arbeitsplatz-Ordner
-   * @param log Logger
    */
   constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {
     Logger.instance.info('Initialisiere den Bandit Test-Adapter');

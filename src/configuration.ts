@@ -213,11 +213,6 @@ export class Configuration {
       if (!path.isAbsolute(resolved)) {
         resolved = path.resolve(cwd || this.cwd, resolved);
       }
-      if (cwd) {
-        resolved = path.join(
-            path.relative(cwd, path.dirname(resolved)),
-            path.basename(resolved));
-      }
       resolved = path.normalize(resolved);
     }
     return resolved;
