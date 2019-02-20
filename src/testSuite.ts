@@ -1,6 +1,6 @@
 var now = require('performance-now');
 
-import {BanditSpawner} from './bandit';
+import {BanditSpawner, ParseResult} from './bandit';
 import {BanditTestSuiteConfiguration} from './configuration';
 import {DisposableI} from './disposable';
 import {escapeRegExp, formatTimeDuration} from './helper';
@@ -40,7 +40,7 @@ export class BanditTestSuite {
     }
   }
 
-  public reload(): Promise<BanditTestNode> {
+  public reload(): Promise<ParseResult> {
     return new Promise((resolve, reject) => {
       this.cancel().then(() => {
         Logger.instance.debug('Starte das Laden der Tests');
@@ -55,7 +55,7 @@ export class BanditTestSuite {
                       formatTimeDuration(duration)}`);
               this.resetWatch();
               result.messages.forEach(m => this.onMessage(m));
-              resolve(this.testsuite);
+              resolve(result);
             })
             .catch(e => {
               Logger.instance.error('Fehler beim Laden der Tests');

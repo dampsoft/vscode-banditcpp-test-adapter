@@ -6,8 +6,10 @@ import {DisposableI} from './disposable';
 import {escapeRegExp, flatten} from './helper';
 import {Logger} from './logger';
 import {Message} from './message';
+import {closeLoadingProgress, LoadingProgress, showLoadingProgress, updateLoadingProgress} from './progress/loading'
+import {closeRunningProgress, RunningProgress, showRunningProgress, updateRunningProgress} from './progress/running'
 import {asTest, asTestGroup, BanditTest, BanditTestGroup, BanditTestNode} from './test';
-import {TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning} from './teststatus';
+import {TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './teststatus';
 import {BanditTestSuite} from './testsuite';
 
 /**
@@ -64,7 +66,17 @@ export class BanditTestAdapter implements TestAdapter {
       Logger.instance.info('Lade Bandit Tests');
       this.reset();
       this.notifyLoadStart();
-      Promise.all(this.testSuites.map((t) => t.reload()))
+      let progress = new LoadingProgress(0, 0, 0, 0, this.testSuites.length);
+      this.notifyLoadProgress(progress);
+      Promise
+          .all(this.testSuites.map((t) => t.reload().then((t) => {
+            progress.steps += 1;
+            progress.tests += (t.testsuite as BanditTestGroup).tests.length;
+            progress.errors += t.messages.filter((m) => m.isError()).length;
+            progress.warnings += t.messages.filter((m) => m.isWarning()).length;
+            this.notifyLoadProgress(progress);
+            return t.testsuite;
+          })))
           .then(testinfo => {
             this.notifyLoadSuccessful(testinfo);
             resolve();
@@ -120,7 +132,7 @@ export class BanditTestAdapter implements TestAdapter {
   /**
    * Bricht alle laufenden Tests ab.
    * Wenn in der Konfiguration die Eigenschaft 'allowKillProcess' gesetzt ist,
-   * werden die laufenden Prozesse hart beeendet.
+   * werden die laufenden Prozesse hart beendet.
    */
   public cancel() {
     Promise.all(this.testSuites.map((t) => t.cancel())).catch(e => {
@@ -134,7 +146,7 @@ export class BanditTestAdapter implements TestAdapter {
   }
 
   /**
-   * Verwirft alle Memberobjekte
+   * Verwirft alle Member-Objekte
    */
   public dispose() {
     this.cancel();
@@ -166,7 +178,7 @@ export class BanditTestAdapter implements TestAdapter {
       if (message.isError()) {
         vscode.window.showErrorMessage(message.format());
       } else if (message.isWarning()) {
-        vscode.window.showWarningMessage(message.format());
+        // vscode.window.showWarningMessage(message.format());
       } else {
         vscode.window.showInformationMessage(message.format());
       }
@@ -230,6 +242,13 @@ export class BanditTestAdapter implements TestAdapter {
 
   private notifyLoadStart() {
     this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
+    showLoadingProgress(() => {
+      this.cancel();
+    });
+  }
+
+  private notifyLoadProgress(progress: LoadingProgress) {
+    updateLoadingProgress(progress);
   }
 
   private notifyLoadSuccessful(nodes: BanditTestNode[]) {
@@ -241,14 +260,19 @@ export class BanditTestAdapter implements TestAdapter {
     };
     this.testsEmitter.fire(
         <TestLoadFinishedEvent>{type: 'finished', suite: info});
+    closeLoadingProgress();
   }
 
   private notifyLoadFailed(error?: string) {
     this.testsEmitter.fire(
         <TestLoadFinishedEvent>{type: 'finished', errorMessage: error});
+    closeLoadingProgress();
   }
 
   private lastTestrunStatus = TestStatusIdle;
+
+  private runningProgress: RunningProgress|undefined;
+
   private notifyTestrunStart(nodes: BanditTestNode[]) {
     if (this.lastTestrunStatus == TestStatusIdle) {
       if (this.testSuites.some(
@@ -257,7 +281,20 @@ export class BanditTestAdapter implements TestAdapter {
       }
       this.testStatesEmitter.fire(
           <TestRunStartedEvent>{type: 'started', tests: nodes.map(n => n.id)});
+      showRunningProgress(() => {
+        this.cancel();
+      });
+      if (!this.runningProgress) {
+        this.runningProgress = new RunningProgress(0, nodes.length, 0, 0, 0);
+      } else {
+        this.runningProgress.stepsMax += nodes.length;
+      }
+      this.notifyTestrunProgress(this.runningProgress);
     }
+  }
+
+  private notifyTestrunProgress(progress: RunningProgress) {
+    updateRunningProgress(progress);
   }
 
   private notifyTestrunFinish() {
@@ -265,7 +302,9 @@ export class BanditTestAdapter implements TestAdapter {
         this.testSuites.every(
             (testsuite) => testsuite.status != TestStatusRunning)) {
       this.lastTestrunStatus = TestStatusIdle;
+      this.runningProgress = undefined;
       this.testStatesEmitter.fire(<TestRunFinishedEvent>{type: 'finished'});
+      closeRunningProgress();
     }
   }
 
@@ -276,6 +315,16 @@ export class BanditTestAdapter implements TestAdapter {
       this.testStatesEmitter.fire(this.getTestStatusEvent(test));
     } else if (group) {
       this.testStatesEmitter.fire(this.getGroupStatusEvent(group));
+    }
+    if (this.runningProgress) {
+      if (node.status == TestStatusFailed) {
+        this.runningProgress.failed += 1;
+      } else if (node.status == TestStatusPassed) {
+        this.runningProgress.success += 1;
+      } else if (node.status == TestStatusSkipped) {
+        this.runningProgress.skipped += 1;
+      }
+      this.notifyTestrunProgress(this.runningProgress);
     }
     this.notifyTestrunFinish();
   }
