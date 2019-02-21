@@ -10,9 +10,9 @@ export class LoadingProgress extends ProgressStatus {
 
 export function showLoadingProgress(cancellationHandler?: () => void) {
   ProgressBox.show<LoadingProgress>(
-      'loading', 'Loading test projects', (status: LoadingProgress) => {
-        return `${status.tests} tests, ${status.errors} errors, ${
-            status.warnings} warnings`;
+      'loading', 'Laden der Testprojekte', (status: LoadingProgress) => {
+        return `${status.tests} Tests, ${status.errors} Fehler, ${
+            status.warnings} Warnungen`;
       }, cancellationHandler);
 }
 

@@ -2,7 +2,7 @@ import {ProgressBox, ProgressStatus} from './progress';
 
 export class RunningProgress extends ProgressStatus {
   constructor(
-      steps: number, stepsMax: number, public success: number = 0,
+      steps: number, stepsMax: number, public passed: number = 0,
       public failed: number = 0, public skipped: number = 0) {
     super(steps, stepsMax);
   }
@@ -10,9 +10,9 @@ export class RunningProgress extends ProgressStatus {
 
 export function showRunningProgress(cancellationHandler?: () => void) {
   ProgressBox.show<RunningProgress>(
-      'running', 'Run tests', (status: RunningProgress) => {
-        return `${status.stepsMax} started, ${status.success} passed, ${
-            status.failed} failed, ${status.skipped} skipped`;
+      'running', 'Ausführen der Tests', (status: RunningProgress) => {
+        return `${status.stepsMax} gestartet, ${status.passed} ok, ${
+            status.failed} fehlgeschlagen, ${status.skipped} übersprungen`;
       }, cancellationHandler);
 }
 

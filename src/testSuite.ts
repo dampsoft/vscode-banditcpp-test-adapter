@@ -40,6 +40,10 @@ export class BanditTestSuite {
     }
   }
 
+  /**
+   * Startet das Neuladen der Test-Struktur.
+   * @returns Gibt ein Promise mit dem Ladeergebnis zurück
+   */
   public reload(): Promise<ParseResult> {
     return new Promise((resolve, reject) => {
       this.cancel().then(() => {
@@ -65,6 +69,11 @@ export class BanditTestSuite {
     });
   }
 
+  /**
+   * Startet einen Testlauf für ausgewählte Tests
+   * @param ids Test-Ids oder reguläre Ausdrücke zum Ermitteln der Tests
+   * @returns Gibt ein Promise mit den gestarteten Tests zurück.
+   */
   public start(ids: (string|RegExp)[]): Promise<BanditTestNode[]> {
     Logger.instance.debug('Starte einen neuen Testlauf');
     return new Promise((resolve) => {
@@ -87,6 +96,11 @@ export class BanditTestSuite {
     });
   }
 
+  /**
+   * Bricht alle laufenden Tests ab.
+   * @returns  Gibt ein Promise zurück, das erfüllt wird sobald alles
+   *     abgebrochen ist.
+   */
   public cancel(): Promise<void> {
     return new Promise(resolve => {
       Logger.instance.info('Breche alle laufenden Tests ab');
@@ -97,10 +111,16 @@ export class BanditTestSuite {
     });
   }
 
+  /**
+   * Liefert den eingestellten Namen aus der Konfiguration
+   */
   private get name() {
     return this.configuration.name;
   }
 
+  /**
+   * Liefert den Status der Testsuite
+   */
   public get status() {
     return this.testsuite.status;
   }
@@ -113,19 +133,21 @@ export class BanditTestSuite {
   private resetWatch() {
     if (this.watch) {
       this.watch.dispose();
+      this.watch = undefined;
     }
     let paths: string[] = [];
     paths.push(this.configuration.cmd);
     if (this.configuration.watches) {
-      paths.concat(this.configuration.watches);
+      this.configuration.watches.map(p => paths.push(p));
     }
     const onReady = () => {
       Logger.instance.info(
           `Beobachte Änderung an der Testumgebung ${this.name}...`);
     };
-    const onChange = () => {
-      Logger.instance.info(`Änderung an der Testumgebung ${
+    const onChange = (path: string, stats: any) => {
+      Logger.instance.info(`Änderung an an: "${path}" im Testprojekt ${
           this.name} erkannt. Führe Autorun aus.`);
+      Logger.instance.debug(`Änderung `);
       if (this.changeTimeout) {
         clearTimeout(this.changeTimeout);
         this.changeTimeout = undefined;

@@ -209,12 +209,10 @@ export class Configuration {
   private resolvePath(p: string|undefined, cwd?: string): string {
     if (!p) return '';
     let resolved: string = this.resolver.resolve(p);
-    if (fs.existsSync(resolved)) {
-      if (!path.isAbsolute(resolved)) {
-        resolved = path.resolve(cwd || this.cwd, resolved);
-      }
-      resolved = path.normalize(resolved);
+    if (!path.isAbsolute(resolved)) {
+      resolved = path.resolve(cwd || this.cwd, resolved);
     }
+    resolved = path.normalize(resolved);
     return resolved;
   }
 

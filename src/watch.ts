@@ -6,7 +6,8 @@
 var chokidar = require('chokidar');
 
 export type ReadyHandler = () => void;
-export type ChangeHandler = (path: string) => void;
+export type ChangeHandler =
+    ((path: string) => void)|((path: string, stat: any) => void);
 export type ErrorHandler = (error: Error|string) => void;
 
 export class DisposableWatcher {

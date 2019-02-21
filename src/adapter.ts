@@ -61,37 +61,48 @@ export class BanditTestAdapter implements TestAdapter {
    * Startet den Ladevorgang der Testprojekte
    * Laufende Tests werden abgebrochen
    */
+  private loadingActive = false;
   public load(): Promise<void> {
     return new Promise((resolve) => {
-      Logger.instance.info('Lade Bandit Tests');
-      this.reset();
-      this.notifyLoadStart();
-      let progress = new LoadingProgress(0, 0, 0, 0, this.testSuites.length);
-      this.notifyLoadProgress(progress);
-      Promise
-          .all(this.testSuites.map((t) => t.reload().then((t) => {
-            progress.steps += 1;
-            progress.tests += (t.testsuite as BanditTestGroup).tests.length;
-            progress.errors += t.messages.filter((m) => m.isError()).length;
-            progress.warnings += t.messages.filter((m) => m.isWarning()).length;
-            this.notifyLoadProgress(progress);
-            return t.testsuite;
-          })))
-          .then(testinfo => {
-            this.notifyLoadSuccessful(testinfo);
-            resolve();
-          })
-          .catch(e => {
-            let error: string|undefined;
-            if (e instanceof Error) {
-              Logger.instance.error(e.message);
-              error = e.message;
-            } else {
-              Logger.instance.error('Unbekannter Fehler beim Laden der Tests');
-            }
-            this.notifyLoadFailed(error);
-            resolve();
-          });
+      if (!this.loadingActive) {
+        this.loadingActive = true;
+        Logger.instance.info('Lade Bandit Tests');
+        this.reset();
+        this.notifyLoadStart();
+        let progress = new LoadingProgress(0, this.testSuites.length);
+        this.notifyLoadProgress(progress);
+        Promise
+            .all(this.testSuites.map((t) => t.reload().then((result) => {
+              progress.steps += 1;
+              progress.tests += result.testsuite.tests.length;
+              progress.errors +=
+                  result.messages.filter((m) => m.isError()).length;
+              progress.warnings +=
+                  result.messages.filter((m) => m.isWarning()).length;
+              this.notifyLoadProgress(progress);
+              return result.testsuite;
+            })))
+            .then(testinfo => {
+              this.notifyLoadSuccessful(testinfo);
+              this.loadingActive = false;
+              resolve();
+            })
+            .catch(e => {
+              let error: string|undefined;
+              if (e instanceof Error) {
+                Logger.instance.error(e.message);
+                error = e.message;
+              } else {
+                Logger.instance.error(
+                    'Unbekannter Fehler beim Laden der Tests');
+              }
+              this.notifyLoadFailed(error);
+              this.loadingActive = false;
+              resolve();
+            });
+      } else {
+        resolve();
+      }
     });
   }
 
@@ -170,20 +181,17 @@ export class BanditTestAdapter implements TestAdapter {
   private reset() {
     this.cancel();
     this.resetConfiguration();
+    this.disposeArray(this.testSuites);
     this.testSuites = [];
     let onStatusChange = (node: BanditTestNode) => {
       this.notifyStatusChanged(node);
     };
     let onMessage = (message: Message) => {
-      if (message.isError()) {
-        vscode.window.showErrorMessage(message.format());
-      } else if (message.isWarning()) {
-        // vscode.window.showWarningMessage(message.format());
-      } else {
-        vscode.window.showInformationMessage(message.format());
-      }
+      this.notify(message);
     };
-    let onSuiteChange = () => {};
+    let onSuiteChange = () => {
+      this.load();
+    };
     for (let tsconfig of this.config.testsuites) {
       let suite = new BanditTestSuite(
           tsconfig, onSuiteChange, onStatusChange, onMessage);
@@ -267,6 +275,8 @@ export class BanditTestAdapter implements TestAdapter {
     this.testsEmitter.fire(
         <TestLoadFinishedEvent>{type: 'finished', errorMessage: error});
     closeLoadingProgress();
+    this.notify(new Message(
+        'Laden der Testprojekte', `fehlgeschlagen ${error || ''}`, 'error'));
   }
 
   private lastTestrunStatus = TestStatusIdle;
@@ -279,18 +289,18 @@ export class BanditTestAdapter implements TestAdapter {
               (testsuite) => testsuite.status == TestStatusRunning)) {
         this.lastTestrunStatus = TestStatusRunning;
       }
-      this.testStatesEmitter.fire(
-          <TestRunStartedEvent>{type: 'started', tests: nodes.map(n => n.id)});
+    }
+    this.testStatesEmitter.fire(
+        <TestRunStartedEvent>{type: 'started', tests: nodes.map(n => n.id)});
+    if (!this.runningProgress) {
       showRunningProgress(() => {
         this.cancel();
       });
-      if (!this.runningProgress) {
-        this.runningProgress = new RunningProgress(0, nodes.length, 0, 0, 0);
-      } else {
-        this.runningProgress.stepsMax += nodes.length;
-      }
-      this.notifyTestrunProgress(this.runningProgress);
+      this.runningProgress = new RunningProgress(0, nodes.length);
+    } else {
+      this.runningProgress.stepsMax += nodes.length;
     }
+    this.notifyTestrunProgress(this.runningProgress);
   }
 
   private notifyTestrunProgress(progress: RunningProgress) {
@@ -308,6 +318,16 @@ export class BanditTestAdapter implements TestAdapter {
     }
   }
 
+  private notify(message: Message) {
+    if (message.isError()) {
+      vscode.window.showErrorMessage(message.format());
+    } else if (message.isWarning()) {
+      // vscode.window.showWarningMessage(message.format());
+    } else {
+      vscode.window.showInformationMessage(message.format());
+    }
+  }
+
   private notifyStatusChanged(node: BanditTestNode) {
     let test = asTest(node);
     let group = asTestGroup(node);
@@ -320,9 +340,14 @@ export class BanditTestAdapter implements TestAdapter {
       if (node.status == TestStatusFailed) {
         this.runningProgress.failed += 1;
       } else if (node.status == TestStatusPassed) {
-        this.runningProgress.success += 1;
+        this.runningProgress.passed += 1;
       } else if (node.status == TestStatusSkipped) {
         this.runningProgress.skipped += 1;
+      } else if (node.status == TestStatusIdle) {
+        this.runningProgress.skipped += 1;
+      }
+      if (node.status != TestStatusRunning && node.status != TestStatusIdle) {
+        this.runningProgress.steps += 1;
       }
       this.notifyTestrunProgress(this.runningProgress);
     }

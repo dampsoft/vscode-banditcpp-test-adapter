@@ -7,6 +7,7 @@ export class ProgressStatus {
   constructor(steps: number, stepsMax: number) {
     this.stepsIntern = steps;
     this.stepsMaxIntern = stepsMax;
+    this.updateIncrement(steps, this.stepsMax);
   }
   public get steps(): number {
     return this.stepsIntern;
@@ -20,7 +21,7 @@ export class ProgressStatus {
   }
   public set stepsMax(val: number) {
     this.updateIncrement(this.steps, val);
-    this.stepsIntern = val;
+    this.stepsMaxIntern = val;
   }
   public get increment(): number {
     return this.incrementIntern;
@@ -67,13 +68,13 @@ export class ProgressBox<T extends ProgressStatus> implements ProgressBoxI {
         (progress, token) => {
           return new Promise(resolve => {
             // Final no response timeout:
-            let createTimeout = () => {
+            let createTimeout = (time: number) => {
               return setTimeout(() => {
                 this.remove(id);
                 resolve();
-              }, 30000);
+              }, time);
             };
-            let timeout = createTimeout();
+            let timeout = createTimeout(30000);
             token.onCancellationRequested(() => {
               clearTimeout(timeout);
               if (cancellationHandler) {
@@ -82,14 +83,15 @@ export class ProgressBox<T extends ProgressStatus> implements ProgressBoxI {
               this.remove(id);
               resolve();
             });
-            progress.report({increment: 0});
+            // progress.report({increment: 0});
             let progressHandler = (increment: number, message: string) => {
               clearTimeout(timeout);
-              timeout = createTimeout();
+              timeout = createTimeout(30000);
               progress.report({increment: increment, message: message});
             };
             let closeHandler = () => {
-              resolve();
+              clearTimeout(timeout);
+              timeout = createTimeout(2000);
             };
             progresshandler.set(
                 id,
