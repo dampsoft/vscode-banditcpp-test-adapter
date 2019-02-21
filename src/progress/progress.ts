@@ -26,6 +26,9 @@ export class ProgressStatus {
   public get increment(): number {
     return this.incrementIntern;
   }
+  public get progress(): number {
+    return this.steps / this.stepsMax;
+  }
   private updateIncrement(steps: number, max: number) {
     let progressNew = steps / max;
     let progressOld = this.steps / this.stepsMax;
@@ -41,6 +44,7 @@ interface ProgressBoxI {
 var progresshandler = new Map<string, ProgressBoxI>();
 
 export class ProgressBox<T extends ProgressStatus> implements ProgressBoxI {
+  private lastProgress = 0;
   constructor(
       private readonly progressHandler:
           (increment: number, message: string) => void,
@@ -48,8 +52,11 @@ export class ProgressBox<T extends ProgressStatus> implements ProgressBoxI {
       private readonly progressFormatter: (status: T) => string) {}
 
   public progress(status: T) {
-    let message = this.progressFormatter(status);
-    this.progressHandler(100 * status.increment, message);
+    if (status.progress > this.lastProgress) {
+      this.lastProgress = status.progress;
+      let message = this.progressFormatter(status);
+      this.progressHandler(100 * status.increment, message);
+    }
   }
 
   public close() {
