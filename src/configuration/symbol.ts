@@ -1,18 +1,11 @@
 import {homedir} from 'os';
-import * as p from 'path';
 import * as vscode from 'vscode';
 
-export function escapeRegExp(text: string): string {
-  return text.replace(
-      /[.*+?^${}()|[\]\\]/g, '\\$&');  // $& means the whole matched string
-}
-
 type CallableSymbolResolver = (p: RegExpMatchArray) => string|undefined;
-type SymbolResolver = string|CallableSymbolResolver;
 type Symbol = RegExp;
-type SymbolMap = [Symbol, SymbolResolver][];
+type SymbolMap = [Symbol, string | CallableSymbolResolver][];
 
-export class VariableResolver {
+export class SymbolResolver {
   private readonly symbols: SymbolMap = [
     [/\${workspaceDirectory}/g, this.workspaceFolder.uri.fsPath],
     [/\${workspaceFolder}/g, this.workspaceFolder.uri.fsPath],
@@ -29,13 +22,9 @@ export class VariableResolver {
     ]
   ];
 
-  constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {}
+  constructor(private readonly workspaceFolder: vscode.WorkspaceFolder) {}
 
   public resolve(value: any): any {
-    return this.resolveVariables(value);
-  }
-
-  private resolveVariables(value: any): any {
     if (typeof value === 'string') {
       let strValue = value as string;
       for (let i = 0; i < this.symbols.length; ++i) {
@@ -58,46 +47,14 @@ export class VariableResolver {
       }
       return strValue;
     } else if (Array.isArray(value)) {
-      return (<any[]>value).map((v: any) => this.resolveVariables(v));
+      return (<any[]>value).map((v: any) => this.resolve(v));
     } else if (typeof value == 'object') {
       const newValue: any = {};
       for (const prop in value) {
-        newValue[prop] = this.resolveVariables(value[prop]);
+        newValue[prop] = this.resolve(value[prop]);
       }
       return newValue;
     }
     return value;
   }
-}
-
-export function cleanPath(path: string): string {
-  return p.normalize(path);
-}
-
-export function flatten<T>(array: Array<Array<T>>): Array<T> {
-  return new Array<T>().concat(...array);
-}
-
-export function removeDuplicates(values: any[], prop: string) {
-  return values.filter((obj, pos, arr) => {
-    return arr.map(mapObj => mapObj[prop]).indexOf(obj[prop]) === pos;
-  });
-}
-
-export function formatTimeDuration(millis: number): string {
-  let h = Math.floor((millis / (1000 * 60 * 60)) % 24);
-  if (h) {
-    return `${(millis / (1000 * 60 * 60 / 24)).toFixed(3)} h`;
-  } else {
-    let m = Math.floor((millis / (1000 * 60)) % 60);
-    if (m) {
-      return `${(millis / (1000 * 60 * 60)).toFixed(3)} min`;
-    } else {
-      return `${(millis / (1000 * 60)).toFixed(3)} s`;
-    }
-  }
-}
-
-export function isWindows() {
-  return /^win/.test(process.platform);
 }

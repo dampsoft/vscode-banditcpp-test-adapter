@@ -1,13 +1,14 @@
 import {SpawnSyncOptions} from 'child_process';
 
-import {BanditTestSuiteConfiguration} from './configuration';
-import {escapeRegExp, removeDuplicates} from './helper';
-import {Logger} from './logger';
-import {Message} from './message';
+import {asTest, asTestGroup, BanditTestGroup, BanditTestNode} from '../bandit/test';
+import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusSkipped} from '../bandit/teststatus';
+import {BanditTestSuiteConfiguration} from '../configuration/configuration';
+import {escapeRegExp, removeDuplicates} from '../util/helper';
+import {Logger} from '../util/logger';
+import {Message} from '../util/message';
+import {Version} from '../util/version';
+
 import {SpawnArguments, Spawner, SpawnResult} from './spawner';
-import {asTest, asTestGroup, BanditTestGroup, BanditTestNode} from './test';
-import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusSkipped} from './teststatus';
-import {Version} from './version';
 
 export class ParseResult {
   constructor(

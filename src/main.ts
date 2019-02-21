@@ -3,7 +3,7 @@ import {testExplorerExtensionId, TestHub} from 'vscode-test-adapter-api';
 import {Log, TestAdapterRegistrar} from 'vscode-test-adapter-util';
 
 import {BanditTestAdapter} from './adapter';
-import {Logger} from './logger';
+import {Logger} from './util/logger';
 
 export async function activate(context: vscode.ExtensionContext) {
   const workspaceFolder = (vscode.workspace.workspaceFolders || [])[0];

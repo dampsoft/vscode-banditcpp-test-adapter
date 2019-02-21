@@ -1,7 +1,7 @@
 import * as cp from 'child_process';
 const {spawn} = require('child_process');
 
-import {Logger} from './logger';
+import {Logger} from '../util/logger';
 
 export class SpawnResult {
   constructor(

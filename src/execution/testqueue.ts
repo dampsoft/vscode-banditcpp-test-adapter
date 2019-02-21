@@ -1,13 +1,14 @@
+import {BanditTestNode} from '../bandit/test';
+import {BanditTestSuiteConfiguration} from '../configuration/configuration';
+import {Logger} from '../util/logger';
+
 import {BanditSpawner} from './bandit';
-import {BanditTestSuiteConfiguration} from './configuration';
-import {Logger} from './logger';
-import {BanditTestNode} from './test';
 
 class TestQueueEntry {
   constructor(public node: BanditTestNode, public running: boolean = false) {}
 }
 
-export class Testqueue {
+export class TestQueue {
   private queue = new Map<string, TestQueueEntry>();
 
   constructor(

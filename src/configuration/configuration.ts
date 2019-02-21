@@ -2,8 +2,9 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import {VariableResolver} from './helper';
-import {LogLevel} from './logger';
+import {LogLevel} from '../util/logger';
+
+import {SymbolResolver} from './symbol';
 
 export type Property =|'testsuites'|'parallelProcessLimit'|'watchTimeoutSec'|
     'allowKillProcess'|'loglevel';
@@ -73,7 +74,7 @@ export class BanditTestSuiteConfiguration {
 }
 
 export class Configuration {
-  private resolver = new VariableResolver(this.workspaceFolder);
+  private symbolResolver = new SymbolResolver(this.workspaceFolder);
   private propertyGetter = new Map<string, () => any>();
   private banditTestSuiteConfigs = new Array<BanditTestSuiteConfiguration>();
 
@@ -208,7 +209,7 @@ export class Configuration {
 
   private resolvePath(p: string|undefined, cwd?: string): string {
     if (!p) return '';
-    let resolved: string = this.resolver.resolve(p);
+    let resolved: string = this.symbolResolver.resolve(p);
     if (!path.isAbsolute(resolved)) {
       resolved = path.resolve(cwd || this.cwd, resolved);
     }
@@ -220,7 +221,7 @@ export class Configuration {
     if (options) {
       var args_modified = new Array<string>();
       for (let arg of options) {
-        arg = this.resolver.resolve(arg);
+        arg = this.symbolResolver.resolve(arg);
         if (arg.trim().length > 0) {
           if (arg.trim().indexOf(' ') >= 0 && arg.trim().indexOf('"') < 0) {
             arg = `"${arg.trim()}"`;
@@ -239,7 +240,7 @@ export class Configuration {
     const configEnv: EnvProperty = env || {};
     for (const e in configEnv) {
       if (configEnv[e]) {
-        resolvedEnv[e] = this.resolver.resolve(String(configEnv[e]));
+        resolvedEnv[e] = this.symbolResolver.resolve(String(configEnv[e]));
       }
     }
     return Object.assign({}, process.env, resolvedEnv);

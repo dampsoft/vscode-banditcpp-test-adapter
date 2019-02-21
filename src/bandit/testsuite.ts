@@ -1,14 +1,14 @@
 var now = require('performance-now');
 
-import {BanditSpawner, ParseResult} from './bandit';
-import {BanditTestSuiteConfiguration} from './configuration';
-import {DisposableI} from './disposable';
-import {escapeRegExp, formatTimeDuration} from './helper';
-import {Logger} from './logger';
-import {Message} from './message';
+import {BanditSpawner, ParseResult} from '../execution/bandit';
+import {BanditTestSuiteConfiguration} from '../configuration/configuration';
+import {DisposableI} from '../util/disposable';
+import {escapeRegExp, formatTimeDuration} from '../util/helper';
+import {Logger} from '../util/logger';
+import {Message} from '../util/message';
 import {BanditTestGroup, BanditTestNode} from './test';
-import {DisposableWatcher} from './watch';
-import {Testqueue} from './testqueue';
+import {DisposableWatcher} from '../util/watch';
+import {TestQueue} from '../execution/testqueue';
 
 export type NotifyTestsuiteChangeHandler = () => void;
 export type NotifyStatusHandler = (node: BanditTestNode) => void;
@@ -23,7 +23,7 @@ export class BanditTestSuite {
   private changeTimeout: NodeJS.Timer|undefined;
   private testsuite = new BanditTestGroup(undefined, this.name);
   private spawner = new BanditSpawner(this.configuration);
-  private queue = new Testqueue(this.configuration, this.spawner, node => {
+  private queue = new TestQueue(this.configuration, this.spawner, node => {
     this.onStatusChange(node);
   });
 

@@ -1,16 +1,16 @@
 import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 
-import {Configuration, Property} from './configuration';
-import {DisposableI} from './disposable';
-import {escapeRegExp, flatten} from './helper';
-import {Logger} from './logger';
-import {Message} from './message';
+import {asTest, asTestGroup, BanditTest, BanditTestGroup, BanditTestNode} from './bandit/test';
+import {TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './bandit/teststatus';
+import {BanditTestSuite} from './bandit/testsuite';
+import {Configuration, Property} from './configuration/configuration';
 import {closeLoadingProgress, LoadingProgress, showLoadingProgress, updateLoadingProgress} from './progress/loading'
 import {closeRunningProgress, RunningProgress, showRunningProgress, updateRunningProgress} from './progress/running'
-import {asTest, asTestGroup, BanditTest, BanditTestGroup, BanditTestNode} from './test';
-import {TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './teststatus';
-import {BanditTestSuite} from './testsuite';
+import {DisposableI} from './util/disposable';
+import {escapeRegExp, flatten} from './util/helper';
+import {Logger} from './util/logger';
+import {Message} from './util/message';
 
 /**
  * Test-Adapterklasse für Bandittests
@@ -76,9 +76,9 @@ export class BanditTestAdapter implements TestAdapter {
               progress.steps += 1;
               progress.tests += result.testsuite.tests.length;
               progress.errors +=
-                  result.messages.filter((m) => m.isError()).length;
+                  result.messages.filter((m: Message) => m.isError()).length;
               progress.warnings +=
-                  result.messages.filter((m) => m.isWarning()).length;
+                  result.messages.filter((m: Message) => m.isWarning()).length;
               this.notifyLoadProgress(progress);
               return result.testsuite;
             })))
