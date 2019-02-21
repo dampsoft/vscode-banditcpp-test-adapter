@@ -52,11 +52,11 @@ export class ProgressBox<T extends ProgressStatus> implements ProgressBoxI {
       private readonly progressFormatter: (status: T) => string) {}
 
   public progress(status: T) {
-    if (status.progress > this.lastProgress) {
-      this.lastProgress = status.progress;
-      let message = this.progressFormatter(status);
-      this.progressHandler(100 * status.increment, message);
-    }
+    let increment =
+        (status.progress > this.lastProgress) ? status.increment : 0;
+    this.lastProgress = status.progress;
+    let message = this.progressFormatter(status);
+    this.progressHandler(100 * increment, message);
   }
 
   public close() {
