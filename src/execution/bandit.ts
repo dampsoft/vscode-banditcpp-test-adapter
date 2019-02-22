@@ -1,28 +1,30 @@
 import {SpawnSyncOptions} from 'child_process';
 
-import {asTest, asTestGroup, BanditTestGroup, BanditTestNode} from '../bandit/test';
-import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusSkipped} from '../bandit/teststatus';
-import {BanditTestSuiteConfiguration} from '../configuration/configuration';
+import {TestSuiteConfiguration} from '../configuration/configuration';
+import {asTest, asTestGroup, TestGroup, TestNodeI} from '../project/test';
+import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusSkipped} from '../project/teststatus';
 import {escapeRegExp, removeDuplicates} from '../util/helper';
 import {Logger} from '../util/logger';
 import {Message} from '../util/message';
 import {Version} from '../util/version';
 
 import {SpawnArguments, Spawner, SpawnResult} from './spawner';
+import {ParseResult, TestSpawnerI} from './testspawner';
 
-export class ParseResult {
-  constructor(
-      public testsuite: BanditTestGroup, public messages: Message[] = []) {}
-}
+/**
+ * TODOS:
+ * * Sobald eine doppelte Gruppe erkannt wird, müssen alle folgenden
+ * * Knoten mit einer höheren Einrückung ignoriert werden
+ */
 
 /**
  * Spezieller Wrapper der Spawner-Klasse für Aufrufe an das Bandit-Framework.
  */
-export class BanditSpawner {
+export class BanditSpawner implements TestSpawnerI {
   private readonly banditVersionFallback = new Version(3, 0, 0);
   private banditVersionDetected: Version|undefined;
 
-  constructor(private readonly config: BanditTestSuiteConfiguration) {}
+  constructor(private readonly config: TestSuiteConfiguration) {}
 
   /**
    * Ermittelt die Banditversion anhand eines Aufrufs der Testexecutable mit
@@ -73,39 +75,6 @@ export class BanditSpawner {
   }
 
   /**
-   * Führt den Test für einen Testknoten aus.
-   * @param  node  Knoten für den der Test ausgeführt werden soll
-   * @returns      Gibt ein Promise mit allen betroffenen Testknoten nach der
-   *               Ausführung zurück.
-   */
-  public run(node: BanditTestNode): Promise<BanditTestNode[]> {
-    return new Promise(resolve => {
-      this.createSpawnArgumentsTestRun(node).then(spawn_args => {
-        Spawner.instance.spawn(spawn_args)
-            .then((ret: SpawnResult) => {
-              if (!ret.cancelled && ret.status < 0) {
-                let msg =
-                    `Fehlerhafter Return-Value beim run() Aufruf der Test-Executable ${
-                        node.id}`;
-                Logger.instance.error(msg);
-                resolve(node.finish(TestStatusFailed, msg));
-              } else {
-                Logger.instance.debug(
-                    `Test-Executable ${node.id} erfolgreich aufgerufen`);
-                resolve(this.updateNodeFromString(node, ret));
-              }
-            })
-            .catch((error: SpawnResult) => {
-              this.logError(
-                  `Fehler beim run() Aufruf der Test-Executable ${node.id}`,
-                  error);
-              resolve(node.finish(TestStatusFailed));
-            });
-      });
-    });
-  }
-
-  /**
    * Startet einen Probelauf ohne tatsächliche Testausführung. Auf Basis der
    * Ausgabe werden alle vorhandenen Tests und deren hierarchischer Zusammenhang
    * ermittelt.
@@ -132,6 +101,39 @@ export class BanditSpawner {
                   this.config.name}`;
               this.logError(msg, error);
               reject(error.error || new Error(msg));
+            });
+      });
+    });
+  }
+
+  /**
+   * Führt den Test für einen Testknoten aus.
+   * @param  node  Knoten für den der Test ausgeführt werden soll
+   * @returns      Gibt ein Promise mit allen betroffenen Testknoten nach der
+   *               Ausführung zurück.
+   */
+  public run(node: TestNodeI): Promise<TestNodeI[]> {
+    return new Promise(resolve => {
+      this.createSpawnArgumentsTestRun(node).then(spawn_args => {
+        Spawner.instance.spawn(spawn_args)
+            .then((ret: SpawnResult) => {
+              if (!ret.cancelled && ret.status < 0) {
+                let msg =
+                    `Fehlerhafter Return-Value beim run() Aufruf der Test-Executable ${
+                        node.id}`;
+                Logger.instance.error(msg);
+                resolve(node.finish(TestStatusFailed, msg));
+              } else {
+                Logger.instance.debug(
+                    `Test-Executable ${node.id} erfolgreich aufgerufen`);
+                resolve(this.updateNodeFromString(node, ret));
+              }
+            })
+            .catch((error: SpawnResult) => {
+              this.logError(
+                  `Fehler beim run() Aufruf der Test-Executable ${node.id}`,
+                  error);
+              resolve(node.finish(TestStatusFailed));
             });
       });
     });
@@ -222,7 +224,7 @@ export class BanditSpawner {
   /**
    * Erzeugt die speziellen Parameter für Testlauf eines Testknotens
    */
-  private createSpawnArgumentsTestRun(node: BanditTestNode):
+  private createSpawnArgumentsTestRun(node: TestNodeI):
       Promise<SpawnArguments> {
     return this.createDefaultExecutionArguments().then(execArguments => {
       // Finde den längstmöglichen Teilstring zwischen Unicode-Zeichen und
@@ -251,12 +253,12 @@ export class BanditSpawner {
 
   /**
    * Parsed das Ergebnis der Testausgabe
-   * @param  spawnresult  Ergebnis der Testausführung
+   * @param  spawnResult  Ergebnis der Testausführung
    * @returns             Gibt das Wandlungsergebnis mit der erkannten
    *                      Teststruktur und den Meldungen zurück
    */
-  private parseResult(spawnresult: SpawnResult): ParseResult {
-    let root = new BanditTestGroup(undefined, this.config.name);
+  private parseResult(spawnResult: SpawnResult): ParseResult {
+    let root = new TestGroup(undefined, this.config.name);
     let result = new ParseResult(root);
     let messages = Array<String>();
     let isGroup = (line: string): boolean => {
@@ -306,9 +308,9 @@ export class BanditSpawner {
     let getMessage = (): string => {
       return messages.join('\n');
     };
-    let error_nodes = new Array<BanditTestNode>();
+    let error_nodes = new Array<TestNodeI>();
     let finishNode =
-        (node: BanditTestNode|undefined, status: TestStatus|undefined) => {
+        (node: TestNodeI|undefined, status: TestStatus|undefined) => {
           if (status && node) {
             node.message = getMessage();
             Logger.instance.debug(
@@ -320,15 +322,16 @@ export class BanditSpawner {
           }
         };
     let current_suite = root;
-    let node: BanditTestNode|undefined;
+    let node: TestNodeI|undefined;
     let last_indentation = 0;
-    let status: TestStatus|undefined;
-    let stdout = spawnresult.stdout.replace(/\r\n/g, '\n');
+    let stdout = spawnResult.stdout.replace(/\r\n/g, '\n');
     let lines = stdout.split(/[\n]+/);
     for (let line of lines) {
       if (line.length) {
         let indentation = line.search(/\S/);
-        if (isGroup(line) || isTest(line)) {
+        let lineIsTest = isTest(line);
+        let lineIsGroup = isGroup(line);
+        if (lineIsGroup || lineIsTest) {
           // Einrückung berücksichtigen:
           let indentation_diff = last_indentation - indentation;
           while (indentation_diff > 0) {
@@ -343,7 +346,7 @@ export class BanditSpawner {
             indentation_diff -= 1;
           }
           // Node hinzufügen:
-          if (isGroup(line)) {
+          if (lineIsGroup) {
             if (node) {
               node.message = getMessage();
             }
@@ -357,13 +360,13 @@ export class BanditSpawner {
               Logger.instance.debug(`Neue Gruppe erkannt: "${node.id}"`);
             } else {
               let msg = `Eine Gruppe mit dem Label "${
-                  newLabel}" exisitiert bereits in der Gruppe "${
+                  newLabel}" existiert bereits in der Gruppe "${
                   current_suite.id}"`;
               Logger.instance.warn(msg);
               result.messages.push(Message.warn('Mehrdeutige Testgruppe', msg));
               node = current_suite = existingGroup;
             }
-          } else if (isTest(line)) {
+          } else if (lineIsTest) {
             if (node) {
               node.message = getMessage();
             }
@@ -382,7 +385,7 @@ export class BanditSpawner {
                 Logger.instance.debug(`Neuen Test erkannt: "${node.id}"`);
               } else {
                 let msg = `Ein Test mit dem Label "${
-                    newLabel}" exisitiert bereits in der Gruppe "${
+                    newLabel}" existiert bereits in der Gruppe "${
                     current_suite.id}"`;
                 Logger.instance.warn(msg);
                 result.messages.push(Message.warn('Mehrdeutiger Test', msg));
@@ -394,8 +397,10 @@ export class BanditSpawner {
           messages.push(line);
         }
         // Ergebnis verarbeiten:
-        status = parseStatus(line);
-        finishNode(node, status);
+        if (node && !lineIsGroup) {
+          let status = parseStatus(line);
+          finishNode(node, status);
+        }
         last_indentation = indentation;
         node = undefined;
       }
@@ -403,7 +408,7 @@ export class BanditSpawner {
     // Nachfolgende Fehlermeldungen verarbeiten:
     let block = getFailureBlock(stdout);
     if (block) {
-      let nodes: BanditTestNode[] = removeDuplicates(error_nodes, 'id');
+      let nodes: TestNodeI[] = removeDuplicates(error_nodes, 'id');
       let blocks = block.trim().split(/\n{3,}/g);
       for (let error of blocks) {
         let lines = error.split(/[\n]+/);
@@ -437,9 +442,8 @@ export class BanditSpawner {
    * @param  ret   Ausgabe des Testlaufs
    * @returns      Gibt alle aktualisierten Testknoten zurück.
    */
-  private updateNodeFromString(node: BanditTestNode, ret: SpawnResult):
-      BanditTestNode[] {
-    let nodes = new Array<BanditTestNode>();
+  private updateNodeFromString(node: TestNodeI, ret: SpawnResult): TestNodeI[] {
+    let nodes = new Array<TestNodeI>();
     if (ret.cancelled) {
       nodes = node.cancel();
     } else {

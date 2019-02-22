@@ -5,7 +5,48 @@ type CallableSymbolResolver = (p: RegExpMatchArray) => string|undefined;
 type Symbol = RegExp;
 type SymbolMap = [Symbol, string | CallableSymbolResolver][];
 
-export class SymbolResolver {
+
+export interface SymbolResolverI {
+  resolve(value: any): any;
+}
+
+export function resolve(value: any, resolvers: SymbolResolverI[]): any {
+  return resolvers.reduce((resolved, r) => {
+    return r.resolve(resolved);
+  }, value);
+}
+
+/**
+ * Basis-Klasse für Klassen zur Symbolauflösungen
+ */
+abstract class BaseSymbolResolver implements SymbolResolverI {
+  public resolve(value: any): any {
+    if (typeof value === 'string') {
+      return this.resolveString(value);
+    } else if (Array.isArray(value)) {
+      return (<any[]>value).map((v: any) => this.resolve(v));
+    } else if (typeof value == 'object') {
+      const newValue: any = {};
+      for (const prop in value) {
+        newValue[prop] = this.resolve(value[prop]);
+      }
+      return newValue;
+    }
+    return value;
+  }
+
+  protected abstract resolveString(value: string): string;
+}
+
+/**
+ * Klasse zum Auflösen von Symbolen auf Basis konstanter Werte und des
+ * VC-Arbeitsverzeichnisses
+ */
+export class SymbolResolver extends BaseSymbolResolver {
+  constructor(private readonly workspaceFolder: vscode.WorkspaceFolder) {
+    super();
+  }
+
   private readonly symbols: SymbolMap = [
     [/\${workspaceDirectory}/g, this.workspaceFolder.uri.fsPath],
     [/\${workspaceFolder}/g, this.workspaceFolder.uri.fsPath],
@@ -22,38 +63,24 @@ export class SymbolResolver {
     ]
   ];
 
-  constructor(private readonly workspaceFolder: vscode.WorkspaceFolder) {}
-
-  public resolve(value: any): any {
-    if (typeof value === 'string') {
-      let strValue = value as string;
-      for (let i = 0; i < this.symbols.length; ++i) {
-        let match: RegExpMatchArray|null;
-        let replaced = '';
-        let lastAppend = 0;
-        while ((match = this.symbols[i][0].exec(strValue)) != null) {
-          let replacement: string|undefined;
-          if (typeof this.symbols[i][1] === 'string') {
-            replacement = this.symbols[i][1] as string;
-          } else {
-            replacement = (this.symbols[i][1] as CallableSymbolResolver)(match);
-          }
-          replaced +=
-              strValue.substring(lastAppend, match.index) + (replacement || '');
-          lastAppend = this.symbols[i][0].lastIndex;
+  protected resolveString(value: string): string {
+    for (let i = 0; i < this.symbols.length; ++i) {
+      let match: RegExpMatchArray|null;
+      let replaced = '';
+      let lastAppend = 0;
+      while ((match = this.symbols[i][0].exec(value)) != null) {
+        let replacement: string|undefined;
+        if (typeof this.symbols[i][1] === 'string') {
+          replacement = this.symbols[i][1] as string;
+        } else {
+          replacement = (this.symbols[i][1] as CallableSymbolResolver)(match);
         }
-        replaced += strValue.substring(lastAppend);
-        strValue = replaced;
+        replaced +=
+            value.substring(lastAppend, match.index) + (replacement || '');
+        lastAppend = this.symbols[i][0].lastIndex;
       }
-      return strValue;
-    } else if (Array.isArray(value)) {
-      return (<any[]>value).map((v: any) => this.resolve(v));
-    } else if (typeof value == 'object') {
-      const newValue: any = {};
-      for (const prop in value) {
-        newValue[prop] = this.resolve(value[prop]);
-      }
-      return newValue;
+      replaced += value.substring(lastAppend);
+      value = replaced;
     }
     return value;
   }

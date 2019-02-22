@@ -1,18 +1,19 @@
 var now = require('performance-now');
 
-import {BanditSpawner, ParseResult} from '../execution/bandit';
-import {BanditTestSuiteConfiguration} from '../configuration/configuration';
+import {BanditSpawner} from '../execution/bandit';
+import {ParseResult} from '../execution/testspawner';
+import {TestSuiteConfiguration} from '../configuration/configuration';
 import {DisposableI} from '../util/disposable';
 import {escapeRegExp, formatTimeDuration} from '../util/helper';
 import {Logger} from '../util/logger';
 import {Message} from '../util/message';
-import {BanditTestGroup, BanditTestNode} from './test';
+import {TestGroup, TestNodeI} from './test';
 import {DisposableWatcher} from '../util/watch';
 import {TestQueue} from '../execution/testqueue';
 
 export type NotifyTestsuiteChangeHandler = () => void;
-export type NotifyStatusHandler = (node: BanditTestNode) => void;
-export type NotifyStartHandler = (nodes: BanditTestNode[]) => void;
+export type NotifyStatusHandler = (node: TestNodeI) => void;
+export type NotifyStartHandler = (nodes: TestNodeI[]) => void;
 export type NotifyMessageHandler = (e: Message) => void;
 
 /**
@@ -21,14 +22,14 @@ export type NotifyMessageHandler = (e: Message) => void;
 export class BanditTestSuite {
   private watch: DisposableI|undefined;
   private changeTimeout: NodeJS.Timer|undefined;
-  private testsuite = new BanditTestGroup(undefined, this.name);
+  private testsuite = new TestGroup(undefined, this.name);
   private spawner = new BanditSpawner(this.configuration);
   private queue = new TestQueue(this.configuration, this.spawner, node => {
     this.onStatusChange(node);
   });
 
   constructor(
-      public readonly configuration: BanditTestSuiteConfiguration,   //
+      public readonly configuration: TestSuiteConfiguration,         //
       private readonly onSuiteChange: NotifyTestsuiteChangeHandler,  //
       private readonly onStatusChange: NotifyStatusHandler,          //
       private readonly onMessage: NotifyMessageHandler) {}
@@ -74,16 +75,16 @@ export class BanditTestSuite {
    * @param ids Test-Ids oder reguläre Ausdrücke zum Ermitteln der Tests
    * @returns Gibt ein Promise mit den gestarteten Tests zurück.
    */
-  public start(ids: (string|RegExp)[]): Promise<BanditTestNode[]> {
+  public start(ids: (string|RegExp)[]): Promise<TestNodeI[]> {
     Logger.instance.debug('Starte einen neuen Testlauf');
     return new Promise((resolve) => {
-      let nodes = new Array<BanditTestNode>();
+      let nodes = new Array<TestNodeI>();
       let unique_ids = new Set<string|RegExp>(ids);
       for (let id of unique_ids) {
         let r = typeof id === 'string' ? new RegExp(escapeRegExp(id)) : id;
         nodes = nodes.concat(this.testsuite.findAll(r));
       }
-      let startedNodes = new Map<string, BanditTestNode>();
+      let startedNodes = new Map<string, TestNodeI>();
       nodes.forEach((n) => {
         n.start().forEach((n) => {
           startedNodes.set(n.id, n);
@@ -138,7 +139,7 @@ export class BanditTestSuite {
     let paths: string[] = [];
     paths.push(this.configuration.cmd);
     if (this.configuration.watches) {
-      this.configuration.watches.map(p => paths.push(p));
+      this.configuration.watches.map((p: string) => paths.push(p));
     }
     const onReady = () => {
       Logger.instance.info(

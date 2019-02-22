@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 
-import {asTest, asTestGroup, BanditTest, BanditTestGroup, BanditTestNode} from './bandit/test';
-import {TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './bandit/teststatus';
-import {BanditTestSuite} from './bandit/testsuite';
 import {Configuration, Property} from './configuration/configuration';
 import {closeLoadingProgress, LoadingProgress, showLoadingProgress, updateLoadingProgress} from './progress/loading'
 import {closeRunningProgress, RunningProgress, showRunningProgress, updateRunningProgress} from './progress/running'
+import {asTest, asTestGroup, Test, TestGroup, TestNodeI} from './project/test';
+import {TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './project/teststatus';
+import {BanditTestSuite} from './project/testsuite';
 import {DisposableI} from './util/disposable';
 import {escapeRegExp, flatten} from './util/helper';
 import {Logger} from './util/logger';
@@ -24,7 +24,8 @@ export class BanditTestAdapter implements TestAdapter {
                               TestSuiteEvent|TestEvent>();
   private readonly reloadEmitter = new vscode.EventEmitter<void>();
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
-  private config = new Configuration(this.workspaceFolder);
+  private config =
+      new Configuration('banditTestExplorer', this.workspaceFolder);
   private testSuites: BanditTestSuite[] = [];
 
   /**
@@ -183,7 +184,7 @@ export class BanditTestAdapter implements TestAdapter {
     this.resetConfiguration();
     this.disposeArray(this.testSuites);
     this.testSuites = [];
-    let onStatusChange = (node: BanditTestNode) => {
+    let onStatusChange = (node: TestNodeI) => {
       this.notifyStatusChanged(node);
     };
     let onMessage = (message: Message) => {
@@ -259,7 +260,7 @@ export class BanditTestAdapter implements TestAdapter {
     updateLoadingProgress(progress);
   }
 
-  private notifyLoadSuccessful(nodes: BanditTestNode[]) {
+  private notifyLoadSuccessful(nodes: TestNodeI[]) {
     let info: TestSuiteInfo = {
       id: 'root',
       label: 'root',
@@ -283,7 +284,7 @@ export class BanditTestAdapter implements TestAdapter {
 
   private runningProgress: RunningProgress|undefined;
 
-  private notifyTestrunStart(nodes: BanditTestNode[]) {
+  private notifyTestrunStart(nodes: TestNodeI[]) {
     if (this.lastTestrunStatus == TestStatusIdle) {
       if (this.testSuites.some(
               (testsuite) => testsuite.status == TestStatusRunning)) {
@@ -328,7 +329,7 @@ export class BanditTestAdapter implements TestAdapter {
     }
   }
 
-  private notifyStatusChanged(node: BanditTestNode) {
+  private notifyStatusChanged(node: TestNodeI) {
     let test = asTest(node);
     let group = asTestGroup(node);
     if (test) {
@@ -354,7 +355,7 @@ export class BanditTestAdapter implements TestAdapter {
     this.notifyTestrunFinish();
   }
 
-  private getTestStatusEvent(test: BanditTest): TestEvent {
+  private getTestStatusEvent(test: Test): TestEvent {
     let status;
     if (test.status == TestStatusRunning) {
       status = 'running';
@@ -373,7 +374,7 @@ export class BanditTestAdapter implements TestAdapter {
     } as TestEvent;
   }
 
-  private getGroupStatusEvent(group: BanditTestGroup): TestSuiteEvent {
+  private getGroupStatusEvent(group: TestGroup): TestSuiteEvent {
     let status;
     if (group.status == TestStatusRunning) {
       status = 'running';

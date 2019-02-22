@@ -1,22 +1,22 @@
-import {BanditTestNode} from '../bandit/test';
-import {BanditTestSuiteConfiguration} from '../configuration/configuration';
+import {TestSuiteConfiguration} from '../configuration/configuration';
+import {TestNodeI} from '../project/test';
 import {Logger} from '../util/logger';
 
-import {BanditSpawner} from './bandit';
+import {TestSpawnerI} from './testspawner';
 
 class TestQueueEntry {
-  constructor(public node: BanditTestNode, public running: boolean = false) {}
+  constructor(public node: TestNodeI, public running: boolean = false) {}
 }
 
 export class TestQueue {
   private queue = new Map<string, TestQueueEntry>();
 
   constructor(
-      private readonly config: BanditTestSuiteConfiguration,
-      private readonly spawner: BanditSpawner,
-      private readonly notifyChanged: (node: BanditTestNode) => void) {}
+      private readonly config: TestSuiteConfiguration,
+      private readonly spawner: TestSpawnerI,
+      private readonly notifyChanged: (node: TestNodeI) => void) {}
 
-  public push(nodes: BanditTestNode[]) {
+  public push(nodes: TestNodeI[]) {
     nodes.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     for (let node of nodes) {
       if (!this.nodeAlreadyExists(node)) {
@@ -26,7 +26,7 @@ export class TestQueue {
     this.continue();
   }
 
-  private nodeAlreadyExists(node: BanditTestNode) {
+  private nodeAlreadyExists(node: TestNodeI) {
     return this.queue.has(node.id);
   }
 

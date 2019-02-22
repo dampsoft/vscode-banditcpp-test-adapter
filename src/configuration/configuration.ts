@@ -29,7 +29,7 @@ interface TestSuiteJsonConfigurationI {
   parallelProcessLimit?: number;
 }
 
-export class BanditTestSuiteConfiguration {
+export class TestSuiteConfiguration {
   constructor(
       private readonly parentConfig: Configuration,
       private readonly jsonConfig: TestSuiteJsonConfigurationI) {}
@@ -76,13 +76,13 @@ export class BanditTestSuiteConfiguration {
 export class Configuration {
   private symbolResolver = new SymbolResolver(this.workspaceFolder);
   private propertyGetter = new Map<string, () => any>();
-  private banditTestSuiteConfigs = new Array<BanditTestSuiteConfiguration>();
+  private testSuiteConfigs = new Array<TestSuiteConfiguration>();
 
-  public baseConfigurationName: string = 'banditTestExplorer';
-
-  constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {
+  constructor(
+      public readonly baseConfigurationName: string,
+      public readonly workspaceFolder: vscode.WorkspaceFolder) {
     this.propertyGetter.set(PropertyTestsuites, () => {
-      return this.banditTestSuiteConfigs;
+      return this.testSuiteConfigs;
     });
 
     this.propertyGetter.set(PropertyParallelProcessLimit, () => {
@@ -117,7 +117,7 @@ export class Configuration {
     }
   }
 
-  public get testsuites(): BanditTestSuiteConfiguration[] {
+  public get testsuites(): TestSuiteConfiguration[] {
     return this.get(PropertyTestsuites);
   }
 
@@ -175,17 +175,17 @@ export class Configuration {
   private initTestSuiteConfigs() {
     let conf = this.config.get<string|TestSuiteJsonConfigurationI[]>(
         PropertyTestsuites);
-    let banditConfig: TestSuiteJsonConfigurationI[] = [];
+    let jsonConfig: TestSuiteJsonConfigurationI[] = [];
     if (typeof conf === 'string') {
       try {
-        banditConfig = fs.readJsonSync(this.resolvePath(conf));
+        jsonConfig = fs.readJsonSync(this.resolvePath(conf));
       } catch (e) {
       }
     } else {
-      banditConfig = conf as TestSuiteJsonConfigurationI[];
+      jsonConfig = conf as TestSuiteJsonConfigurationI[];
     }
     // Resolve variables and paths:
-    for (let testsuite of banditConfig) {
+    for (let testsuite of jsonConfig) {
       if (testsuite.cwd) {
         testsuite.cwd = this.resolvePath(testsuite.cwd);
       }
@@ -200,10 +200,9 @@ export class Configuration {
       }
       testsuite.watches = watches;
     }
-    this.banditTestSuiteConfigs = [];
-    for (let config of banditConfig) {
-      this.banditTestSuiteConfigs.push(
-          new BanditTestSuiteConfiguration(this, config));
+    this.testSuiteConfigs = [];
+    for (let config of jsonConfig) {
+      this.testSuiteConfigs.push(new TestSuiteConfiguration(this, config));
     }
   }
 

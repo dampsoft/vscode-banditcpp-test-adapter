@@ -2,18 +2,31 @@ import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 
 import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './teststatus';
 
-export type BanditTestNode = BanditTest|BanditTestGroup;
+export type TestNodeType = 'test'|'suite';
+export const TestNodeTypeTest: TestNodeType = 'test';
+export const TestNodeTypeSuite: TestNodeType = 'suite';
 
-export type BanditTestType = 'test'|'suite';
-export const Test: BanditTestType = 'test';
-export const Suite: BanditTestType = 'suite';
+export interface TestNodeI {
+  readonly type: TestNodeType;
+  readonly label: string;
+  readonly status: TestStatus;
+  readonly id: string
+  start(): TestNodeI[];
+  cancel(): TestNodeI[];
+  finish(status: TestStatus, message?: string): TestNodeI[];
+  readonly parents: Array<TestGroup>;
+  getTestInfo(): TestSuiteInfo|TestInfo;
+  readonly displayTitle: string;
+  parent?: TestGroup;
+  message?: string;
+}
 
 /**
  * Basis Test-Knoten
  */
-abstract class TestNode {
+abstract class TestNode implements TestNodeI {
   // Getter
-  public abstract get type(): BanditTestType;
+  public abstract get type(): TestNodeType;
   public abstract get label(): string;
   public abstract get status(): TestStatus;
   public get id(): string {
@@ -23,14 +36,13 @@ abstract class TestNode {
     return this.label;
   }
   // API
-  public abstract start(): BanditTestNode[];
-  public abstract cancel(): BanditTestNode[];
-  public abstract finish(status: TestStatus, message?: string):
-      BanditTestNode[];
+  public abstract start(): TestNodeI[];
+  public abstract cancel(): TestNodeI[];
+  public abstract finish(status: TestStatus, message?: string): TestNodeI[];
   // Konstruktor
-  constructor(public parent: BanditTestGroup|undefined) {}
-  public get parents(): Array<BanditTestGroup> {
-    let parents = new Array<BanditTestGroup>();
+  constructor(public parent: TestGroup|undefined) {}
+  public get parents(): Array<TestGroup> {
+    let parents = new Array<TestGroup>();
     let p = this.parent;
     while (p) {
       parents.push(p);
@@ -52,15 +64,15 @@ abstract class TestNode {
 /**
  * Testgroup-Klasse
  */
-export class BanditTestGroup extends TestNode {
-  public children = new Array<BanditTestNode>();
-  public readonly type = Suite;
+export class TestGroup extends TestNode {
+  public children = new Array<TestNodeI>();
+  public readonly type = TestNodeTypeSuite;
 
   constructor(
-      parent: BanditTestGroup|undefined,  //
-      public label: string,               //
-      public file?: string,               //
-      public line?: number,               //
+      parent: TestGroup|undefined,  //
+      public label: string,         //
+      public file?: string,         //
+      public line?: number,         //
       public message?: string) {
     super(parent);
   }
@@ -86,8 +98,8 @@ export class BanditTestGroup extends TestNode {
     return aggr_status;
   }
 
-  public get tests(): Array<BanditTest> {
-    let test_children = new Array<BanditTest>();
+  public get tests(): Array<Test> {
+    let test_children = new Array<Test>();
     for (let child of this.children) {
       let test = asTest(child);
       let group = asTestGroup(child);
@@ -100,7 +112,7 @@ export class BanditTestGroup extends TestNode {
     return test_children;
   }
 
-  public add(node: BanditTestNode): BanditTest|BanditTestGroup {
+  public add(node: TestNodeI): TestNodeI {
     this.children.push(node);
     this.children.sort(
         (a, b) => a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
@@ -109,20 +121,20 @@ export class BanditTestGroup extends TestNode {
   }
 
   public addTest(name: string, file?: string, line?: number, skipped?: boolean):
-      BanditTest {
-    var test = new BanditTest(this, name, file, line, skipped);
+      Test {
+    var test = new Test(this, name, file, line, skipped);
     this.add(test);
     return test;
   }
 
-  public addSuite(name: string, file?: string, line?: number): BanditTestGroup {
-    var suite = new BanditTestGroup(this, name, file, line);
+  public addSuite(name: string, file?: string, line?: number): TestGroup {
+    var suite = new TestGroup(this, name, file, line);
     this.add(suite);
     return suite;
   }
 
-  public findAll(id: string|RegExp): Array<BanditTestNode> {
-    var matches = new Array<BanditTestNode>();
+  public findAll(id: string|RegExp): Array<TestNodeI> {
+    var matches = new Array<TestNodeI>();
     for (var child of this.children) {
       if (typeof id === 'string' ? child.id === id : child.id.match(id)) {
         matches.push(child);
@@ -136,13 +148,13 @@ export class BanditTestGroup extends TestNode {
     return matches;
   }
 
-  public find(id: string|RegExp): BanditTestNode|undefined {
+  public find(id: string|RegExp): TestNodeI|undefined {
     var matches = this.findAll(id);
     return matches ? matches[0] : undefined;
   }
 
-  public findAllByLabel(label: string|RegExp): Array<BanditTestNode> {
-    var matches = new Array<BanditTestNode>();
+  public findAllByLabel(label: string|RegExp): Array<TestNodeI> {
+    var matches = new Array<TestNodeI>();
     for (var child of this.children) {
       if (typeof label === 'string' ? child.label === label :
                                       child.label.match(label)) {
@@ -152,29 +164,29 @@ export class BanditTestGroup extends TestNode {
     return matches;
   }
 
-  public findByLabel(label: string|RegExp): BanditTestNode|undefined {
+  public findByLabel(label: string|RegExp): TestNodeI|undefined {
     var matches = this.findAllByLabel(label);
     return matches ? matches[0] : undefined;
   }
 
-  public start(): BanditTestNode[] {
-    let nodes = new Array<BanditTestNode>();
+  public start(): TestNodeI[] {
+    let nodes = new Array<TestNodeI>();
     for (var node of this.children) {
       nodes = nodes.concat(node.start());
     }
     return nodes;
   }
 
-  public cancel(): BanditTestNode[] {
-    let nodes = new Array<BanditTestNode>();
+  public cancel(): TestNodeI[] {
+    let nodes = new Array<TestNodeI>();
     for (var node of this.children) {
       nodes = nodes.concat(node.cancel());
     }
     return nodes;
   }
 
-  public finish(status: TestStatus, message?: string): BanditTestNode[] {
-    let nodes = new Array<BanditTestNode>();
+  public finish(status: TestStatus, message?: string): TestNodeI[] {
+    let nodes = new Array<TestNodeI>();
     for (var node of this.children) {
       nodes = nodes.concat(node.finish(status));
     }
@@ -201,16 +213,16 @@ export class BanditTestGroup extends TestNode {
 /**
  * Test Klasse
  */
-export class BanditTest extends TestNode {
+export class Test extends TestNode {
   public readonly type = 'test';
   private test_status: TestStatus = TestStatusIdle;
 
   constructor(
-      parent: BanditTestGroup|undefined,  //
-      public label: string,               //
-      public file?: string,               //
-      public line?: number,               //
-      public skipped?: boolean,           //
+      parent: TestGroup|undefined,  //
+      public label: string,         //
+      public file?: string,         //
+      public line?: number,         //
+      public skipped?: boolean,     //
       public message?: string) {
     super(parent);
   }
@@ -219,8 +231,8 @@ export class BanditTest extends TestNode {
     return this.test_status;
   }
 
-  public start(): BanditTestNode[] {
-    let nodes = new Array<BanditTestNode>();
+  public start(): TestNode[] {
+    let nodes = new Array<TestNode>();
     if (this.status !== TestStatusRunning) {
       this.test_status = TestStatusRunning;
       nodes.push(this);
@@ -228,8 +240,8 @@ export class BanditTest extends TestNode {
     return nodes;
   }
 
-  public finish(status: TestStatus, message?: string): BanditTestNode[] {
-    let nodes = new Array<BanditTestNode>();
+  public finish(status: TestStatus, message?: string): TestNode[] {
+    let nodes = new Array<TestNode>();
     if (this.status !== status) {
       this.test_status = status;
       this.message = message;
@@ -238,8 +250,8 @@ export class BanditTest extends TestNode {
     return nodes;
   }
 
-  public cancel(): BanditTestNode[] {
-    let nodes = new Array<BanditTestNode>();
+  public cancel(): TestNode[] {
+    let nodes = new Array<TestNode>();
     if (this.status != TestStatusIdle) {
       if (this.status == TestStatusRunning) {
         this.test_status = TestStatusIdle;  // Reset the node state
@@ -261,11 +273,10 @@ export class BanditTest extends TestNode {
   }
 }
 
-export function asTest(node: any): BanditTest|undefined {
-  return node instanceof BanditTest ? (node as BanditTest) : undefined;
+export function asTest(node: any): Test|undefined {
+  return node instanceof Test ? (node as Test) : undefined;
 }
 
-export function asTestGroup(node: any): BanditTestGroup|undefined {
-  return node instanceof BanditTestGroup ? (node as BanditTestGroup) :
-                                           undefined;
+export function asTestGroup(node: any): TestGroup|undefined {
+  return node instanceof TestGroup ? (node as TestGroup) : undefined;
 }
