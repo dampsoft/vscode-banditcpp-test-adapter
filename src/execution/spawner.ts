@@ -34,7 +34,7 @@ export class Spawner {
     Logger.instance.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
 
     if (this.exists(args.id)) {
-      let msg = `Ein Prozess mit id "${args.id}" exisitiert bereits.`;
+      let msg = `Ein Prozess mit id "${args.id}" existiert bereits.`;
       Logger.instance.error(msg);
       throw new Error(msg);
     }

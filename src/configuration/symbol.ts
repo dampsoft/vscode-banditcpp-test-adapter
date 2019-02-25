@@ -6,10 +6,19 @@ type Symbol = RegExp;
 type SymbolMap = [Symbol, string | CallableSymbolResolver][];
 
 
+/**
+ * Interface für einen SymbolResolver
+ */
 export interface SymbolResolverI {
   resolve(value: any): any;
 }
 
+/**
+ * Löst einen Wert mit Hilfe mehrerer SymbolResolver auf.
+ * @param value      aufzulösender Wert
+ * @param resolvers  Array von SymbolResolver-Instanzen
+ * @returns          Gibt den aufgelösten Wert zurück
+ */
 export function resolve(value: any, resolvers: SymbolResolverI[]): any {
   return resolvers.reduce((resolved, r) => {
     return r.resolve(resolved);

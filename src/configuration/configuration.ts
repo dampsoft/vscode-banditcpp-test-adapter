@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 
 import {LogLevel} from '../util/logger';
 
+import {EnvProperty, mergeEnv} from './environment';
 import {SymbolResolver} from './symbol';
 
 export type Property =|'testsuites'|'parallelProcessLimit'|'watchTimeoutSec'|
@@ -13,10 +14,6 @@ export const PropertyParallelProcessLimit: Property = 'parallelProcessLimit';
 export const PropertyWatchTimeoutSec: Property = 'watchTimeoutSec';
 export const PropertyAllowKillProcess: Property = 'allowKillProcess';
 export const PropertyLoglevel: Property = 'loglevel';
-
-export type EnvProperty = {
-  [prop: string]: string|undefined;
-};
 
 interface TestSuiteJsonConfigurationI {
   name: string;
@@ -32,7 +29,20 @@ interface TestSuiteJsonConfigurationI {
 export class TestSuiteConfiguration {
   constructor(
       private readonly parentConfig: Configuration,
-      private readonly jsonConfig: TestSuiteJsonConfigurationI) {}
+      private readonly jsonConfig: TestSuiteJsonConfigurationI) {
+    if (jsonConfig.cwd) {
+      jsonConfig.cwd = this.parentConfig.resolvePath(jsonConfig.cwd);
+    }
+    jsonConfig.cmd =
+        this.parentConfig.resolvePath(jsonConfig.cmd, jsonConfig.cwd);
+    let watches = new Array<string>();
+    if (jsonConfig.watches) {
+      for (let watch of jsonConfig.watches) {
+        watches.push(this.parentConfig.resolvePath(watch, jsonConfig.cwd));
+      }
+    }
+    jsonConfig.watches = watches;
+  }
 
   public get name() {
     return this.jsonConfig.name;
@@ -51,11 +61,11 @@ export class TestSuiteConfiguration {
   }
 
   public get watches() {
-    return this.jsonConfig.watches;
+    return this.parentConfig.resolveOptions(this.jsonConfig.options);
   }
 
   public get env() {
-    return this.jsonConfig.env;
+    return this.parentConfig.resolveEnv(this.jsonConfig.env);
   }
 
   public get parallelProcessLimit(): number {
@@ -184,29 +194,11 @@ export class Configuration {
     } else {
       jsonConfig = conf as TestSuiteJsonConfigurationI[];
     }
-    // Resolve variables and paths:
-    for (let testsuite of jsonConfig) {
-      if (testsuite.cwd) {
-        testsuite.cwd = this.resolvePath(testsuite.cwd);
-      }
-      testsuite.cmd = this.resolvePath(testsuite.cmd, testsuite.cwd);
-      testsuite.env = this.resolveEnv(testsuite.env);
-      testsuite.options = this.resolveOptions(testsuite.options);
-      let watches = new Array<string>();
-      if (testsuite.watches) {
-        for (let watch of testsuite.watches) {
-          watches.push(this.resolvePath(watch, testsuite.cwd));
-        }
-      }
-      testsuite.watches = watches;
-    }
-    this.testSuiteConfigs = [];
-    for (let config of jsonConfig) {
-      this.testSuiteConfigs.push(new TestSuiteConfiguration(this, config));
-    }
+    this.testSuiteConfigs =
+        jsonConfig.map((config) => new TestSuiteConfiguration(this, config));
   }
 
-  private resolvePath(p: string|undefined, cwd?: string): string {
+  public resolvePath(p: string|undefined, cwd?: string): string {
     if (!p) return '';
     let resolved: string = this.symbolResolver.resolve(p);
     if (!path.isAbsolute(resolved)) {
@@ -216,7 +208,7 @@ export class Configuration {
     return resolved;
   }
 
-  private resolveOptions(options: string[]|undefined): string[] {
+  public resolveOptions(options: string[]|undefined): string[] {
     if (options) {
       var args_modified = new Array<string>();
       for (let arg of options) {
@@ -234,7 +226,7 @@ export class Configuration {
     }
   }
 
-  private resolveEnv(env: EnvProperty|undefined): EnvProperty {
+  public resolveEnv(env: EnvProperty|undefined): EnvProperty {
     let resolvedEnv: EnvProperty = {};
     const configEnv: EnvProperty = env || {};
     for (const e in configEnv) {
@@ -242,6 +234,6 @@ export class Configuration {
         resolvedEnv[e] = this.symbolResolver.resolve(String(configEnv[e]));
       }
     }
-    return Object.assign({}, process.env, resolvedEnv);
+    return mergeEnv(process.env, resolvedEnv);
   }
 }

@@ -1,3 +1,4 @@
+import {EnvProperty} from '../configuration/environment';
 import {TestGroup, TestNodeI} from '../project/test';
 import {Message} from '../util/message';
 
@@ -7,6 +8,6 @@ export class ParseResult {
 
 export interface TestSpawnerI {
   dry(): Promise<ParseResult>;
-  run(node: TestNodeI): Promise<TestNodeI[]>;
+  run(node: TestNodeI, spawnEnv?: EnvProperty): Promise<TestNodeI[]>;
   stop(): void;
 }

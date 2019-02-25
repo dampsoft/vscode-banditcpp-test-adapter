@@ -5,7 +5,9 @@ import {Logger} from '../util/logger';
 import {TestSpawnerI} from './testspawner';
 
 class TestQueueEntry {
-  constructor(public node: TestNodeI, public running: boolean = false) {}
+  constructor(
+      public node: TestNodeI, public slot?: number,
+      public running: boolean = false) {}
 }
 
 export class TestQueue {
@@ -63,15 +65,23 @@ export class TestQueue {
     let pending = this.getPendingEntries();
     for (let entry of pending) {
       if (block <= 0) break;
-      this.start(entry);
-      block -= 1;
+      let slot = this.getFreeSlot();
+      if (slot != undefined) {
+        this.start(entry, slot);
+        block -= 1;
+      } else {
+        Logger.instance.error(
+            `Fehler beim Fortsetzen der Tests: Kein Slot frei obwohl Platz sein sollte...`);
+      }
     }
   }
 
-  private start(entry: TestQueueEntry) {
+  private start(entry: TestQueueEntry, slot: number) {
     entry.running = true;
+    entry.slot = slot;
     this.notifyChanged(entry.node);
-    this.spawner.run(entry.node)
+    let spawnEnv = {'bandit_process': `${slot}`};
+    this.spawner.run(entry.node, spawnEnv)
         .then(nodes => {
           nodes.map(this.notifyChanged, this);
           this.finish(entry);
@@ -83,6 +93,18 @@ export class TestQueue {
           this.finish(entry);
           this.continue();
         });
+  }
+
+  private getFreeSlot(): number|undefined {
+    let freeSlots = new Set<number>(
+        Array.from(Array(this.config.parallelProcessLimit).keys()));
+    let usedSlots = this.getRunningEntries().map(e => e.slot);
+    usedSlots.forEach((slot) => {
+      if (slot != undefined) {
+        freeSlots.delete(slot);
+      }
+    });
+    return freeSlots.size > 0 ? Math.min(...freeSlots) : undefined;
   }
 
   private finish(entry: TestQueueEntry) {

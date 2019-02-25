@@ -1,6 +1,7 @@
 import {SpawnSyncOptions} from 'child_process';
 
 import {TestSuiteConfiguration} from '../configuration/configuration';
+import {EnvProperty, mergeEnv} from '../configuration/environment';
 import {asTest, asTestGroup, TestGroup, TestNodeI} from '../project/test';
 import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusSkipped} from '../project/teststatus';
 import {escapeRegExp, removeDuplicates} from '../util/helper';
@@ -10,12 +11,6 @@ import {Version} from '../util/version';
 
 import {SpawnArguments, Spawner, SpawnResult} from './spawner';
 import {ParseResult, TestSpawnerI} from './testspawner';
-
-/**
- * TODOS:
- * * Sobald eine doppelte Gruppe erkannt wird, müssen alle folgenden
- * * Knoten mit einer höheren Einrückung ignoriert werden
- */
 
 /**
  * Spezieller Wrapper der Spawner-Klasse für Aufrufe an das Bandit-Framework.
@@ -108,13 +103,14 @@ export class BanditSpawner implements TestSpawnerI {
 
   /**
    * Führt den Test für einen Testknoten aus.
-   * @param  node  Knoten für den der Test ausgeführt werden soll
-   * @returns      Gibt ein Promise mit allen betroffenen Testknoten nach der
-   *               Ausführung zurück.
+   * @param  node      Knoten für den der Test ausgeführt werden soll
+   * @param  spawnEnv  Optionale Spawn-Env-Variablen für den gestarteten Prozess
+   * @returns          Gibt ein Promise mit allen betroffenen Testknoten nach
+   *                   der Ausführung zurück.
    */
-  public run(node: TestNodeI): Promise<TestNodeI[]> {
+  public run(node: TestNodeI, spawnEnv?: EnvProperty): Promise<TestNodeI[]> {
     return new Promise(resolve => {
-      this.createSpawnArgumentsTestRun(node).then(spawn_args => {
+      this.createSpawnArgumentsTestRun(node, spawnEnv).then(spawn_args => {
         Spawner.instance.spawn(spawn_args)
             .then((ret: SpawnResult) => {
               if (!ret.cancelled && ret.status < 0) {
@@ -153,10 +149,12 @@ export class BanditSpawner implements TestSpawnerI {
   /**
    * Erzeugt die Optionen für den Aufruf der Testexecutable
    */
-  private createSpawnOptions(): SpawnSyncOptions {
+  private createSpawnOptions(spawnEnv?: EnvProperty): SpawnSyncOptions {
     return {
       cwd: this.config.cwd,
-      env: this.config.env,
+      env: (this.config.env || spawnEnv) ?
+          mergeEnv(this.config.env || {}, spawnEnv || {}) :
+          undefined,
       shell: true,
       windowsVerbatimArguments: true,
       encoding: 'utf8',
@@ -224,7 +222,7 @@ export class BanditSpawner implements TestSpawnerI {
   /**
    * Erzeugt die speziellen Parameter für Testlauf eines Testknotens
    */
-  private createSpawnArgumentsTestRun(node: TestNodeI):
+  private createSpawnArgumentsTestRun(node: TestNodeI, spawnEnv?: EnvProperty):
       Promise<SpawnArguments> {
     return this.createDefaultExecutionArguments().then(execArguments => {
       // Finde den längstmöglichen Teilstring zwischen Unicode-Zeichen und
@@ -241,7 +239,7 @@ export class BanditSpawner implements TestSpawnerI {
       if (this.config.options) {
         execArguments.push(...this.config.options);
       }
-      let exec_options = this.createSpawnOptions();
+      let exec_options = this.createSpawnOptions(spawnEnv);
       return {
         id: node.id,
         cmd: this.config.cmd,
@@ -422,8 +420,8 @@ export class BanditSpawner implements TestSpawnerI {
             });
             let requiredLineStart = `^${labels.reverse().join('[ ]+')}:.*`;
             if (lines[0].match(requiredLineStart)) {
-              node.message =
-                  lines.slice(1, lines.length).join('\n').replace(/\n$/, '');
+              node.message = `${node.displayTitle}:\n\n${
+                  lines.slice(1, lines.length).join('\n').replace(/\n$/, '')}`;
               Logger.instance.info(`Fehlermeldung für Test "${
                   node.id}" erkannt:\n${node.message}\n`);
             }
