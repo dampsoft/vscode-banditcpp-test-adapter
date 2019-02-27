@@ -21,7 +21,7 @@ Run your Bandit-C++ tests using the
 <!-- prettier-ignore -->
 | Property | Description |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `banditTestExplorer.testsuites` | The configuration of your bandit tests. Either a configuration object or a path to the JSON configuration file. (relative to the workspace folder or absolute path) A detailed structure follows in the next table. |
+| `banditTestExplorer.testsuites` | The configuration of your bandit tests. <br>Either a configuration object or a path to the JSON configuration file. <br>(relative to the workspace folder or absolute path) A detailed structure follows in the next table. |
 | `banditTestExplorer.parallelProcessLimit` | The limit of parallel processes started during a test run. |
 | `banditTestExplorer.watchTimeoutSec` | A timeout in seconds that helps to prevent the auto run when watched files are compiled often. |
 | `banditTestExplorer.allowKillProcess` | Allows to hard kill running processes when a test run is cancelled or aborted. |
@@ -41,6 +41,14 @@ The JSON configuration to define tests. It contains multiple definitions that ar
 | `parallelProcessLimit` | Optional: The limit of parallel processes started during a test run.                              |
 | `allowKillProcess`     | Optional: Allows to hard kill running processes when a test run is cancelled or aborted.          |
 
+All configuration elements can be modified with configuration symbols:
+
+| Symbol              | Description                                                                                                                                                                             | Example                                        |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| \${workspaceFolder} | The current working directory                                                                                                                                                           | `"cwd": "\${workspaceFolder}"`                 |
+| \${env:NAME}        | Uses an environment variable present to visual studio code                                                                                                                              | `"env": { "PATH": "${env:PATH}:My/Path" }`     |
+| \${run:Slot}        | The zero-based slot number of the spawned process, with: <br>`0 <= ${run:Slot} < parallelProcessLimit`. <br>Useful for connection strings when using parallelized tests with databases. | `"options": [ "-database", "db_${run:Slot}" ]` |
+
 ### Example:
 
 ```json
@@ -49,10 +57,14 @@ The JSON configuration to define tests. It contains multiple definitions that ar
   "cmd": "test-my-app.exe",
   "cwd": "${workspaceFolder}/build/bin/Debug",
   "env": {
-    "Path": "${workspaceFolder}/build/bin/Debug/apps/my-app"
+    "Path": "${env:Path}:/additional/path"
   },
+  "options": [
+    "-connection",
+    "Server=myServerAddress;Database=myDataBase${run:Slot}"
+  ],
   "watches": ["apps/my-app/my-app.dll"],
-  "parallelProcessLimit": 1
+  "parallelProcessLimit": 10
 }
 ```
 
@@ -106,11 +118,9 @@ and use it like:
 
 ## What's next?
 
-- Error and diagnostic messages should be displayed in a single summary instead of separate info boxes
-- Progress box when running tests
 - Hide test groups or projects inside the tree if they are empty?
 - Enable/disable configured projects
-- Add platform specific settings per project
+- Add platform specific project settings
 - Filtering the tree
 - Enable Debugging (Set Breakpoint inside it or describe and start debugging session)
 
