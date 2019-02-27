@@ -114,6 +114,18 @@ and use it like:
 - Filtering the tree
 - Enable Debugging (Set Breakpoint inside it or describe and start debugging session)
 
-## Contribution
+## Acknowledgements
+
+This extension based on the [Example Test Adapter](https://github.com/hbenl/vscode-example-test-adapter).
 
 Bandit icon made by [Freepik]("https://www.freepik.com/") from [www.flaticon.com](https://www.flaticon.com/) is licensed by [CC 3.0 BY](http://creativecommons.org/licenses/by/3.0/)
+
+## Contributors
+
+[Matthias Füg](https://github.com/MFueg)
+
+Feel free to contribute...
+
+## License
+
+MIT

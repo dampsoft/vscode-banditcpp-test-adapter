@@ -17,9 +17,9 @@ export class ParseResult {
  */
 export interface TestSpawnerI {
   readonly version: Version;
-  dry(runtimeResolver?: SymbolResolverI[]): Promise<ParseResult>;
+  dry(runtimeResolvers?: SymbolResolverI[]): Promise<ParseResult>;
   run(node: TestNodeI,
-      runtimeResolver?: SymbolResolverI[]): Promise<TestNodeI[]>;
+      runtimeResolvers?: SymbolResolverI[]): Promise<TestNodeI[]>;
   stop(): void;
 }
 
@@ -37,9 +37,9 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
 
   protected abstract createSpawnArgumentsVersion(): SpawnArguments;
   protected abstract createSpawnArgumentsDryRun(
-      runtimeResolver?: SymbolResolverI[]): SpawnArguments;
+      runtimeResolvers?: SymbolResolverI[]): SpawnArguments;
   protected abstract createSpawnArgumentsTestRun(
-      node: TestNodeI, runtimeResolver?: SymbolResolverI[]): SpawnArguments;
+      node: TestNodeI, runtimeResolvers?: SymbolResolverI[]): SpawnArguments;
   protected abstract parseSpawnResult(spawnResult: SpawnResult): ParseResult;
 
   /**
@@ -90,12 +90,12 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
    * Startet einen Probelauf ohne tatsächliche Testausführung. Auf Basis der
    * Ausgabe werden alle vorhandenen Tests und deren hierarchischer Zusammenhang
    * ermittelt.
-   * @param runtimeResolver  Optionales Array zusätzlicher Symbol-Resolver
+   * @param runtimeResolvers  Optionales Array zusätzlicher Symbol-Resolver
    * @returns  Gibt ein Promise mit dem Ergebnis der Stdout-Analyse zurück.
    */
-  public dry(runtimeResolver?: SymbolResolverI[]): Promise<ParseResult> {
+  public dry(runtimeResolvers?: SymbolResolverI[]): Promise<ParseResult> {
     return new Promise((resolve, reject) => {
-      let spawnArgs = this.createSpawnArgumentsDryRun(runtimeResolver);
+      let spawnArgs = this.createSpawnArgumentsDryRun(runtimeResolvers);
       Spawner.instance.spawn(spawnArgs)
           .then((ret: SpawnResult) => {
             if (ret.status < 0) {
@@ -121,14 +121,14 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
   /**
    * Führt den Test für einen Testknoten aus.
    * @param  node      Knoten für den der Test ausgeführt werden soll
-   * @param runtimeResolver  Optionales Array zusätzlicher Symbol-Resolver
+   * @param runtimeResolvers  Optionales Array zusätzlicher Symbol-Resolver
    * @returns          Gibt ein Promise mit allen betroffenen Testknoten nach
    *                   der Ausführung zurück.
    */
-  public run(node: TestNodeI, runtimeResolver?: SymbolResolverI[]):
+  public run(node: TestNodeI, runtimeResolvers?: SymbolResolverI[]):
       Promise<TestNodeI[]> {
     return new Promise(resolve => {
-      let spawnArgs = this.createSpawnArgumentsTestRun(node, runtimeResolver);
+      let spawnArgs = this.createSpawnArgumentsTestRun(node, runtimeResolvers);
       Spawner.instance.spawn(spawnArgs)
           .then((ret: SpawnResult) => {
             if (!ret.cancelled && ret.status < 0) {

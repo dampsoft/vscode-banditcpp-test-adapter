@@ -65,7 +65,7 @@ export class BanditSpawner extends TestSpawnerBase {
   /**
    * Erzeugt die speziellen Parameter für den Probelauf
    */
-  protected createSpawnArgumentsDryRun(runtimeResolver?: SymbolResolverI[]):
+  protected createSpawnArgumentsDryRun(runtimeResolvers?: SymbolResolverI[]):
       SpawnArguments {
     let execArguments = this.createDefaultExecutionArguments();
     execArguments.push('--dry-run');
@@ -77,9 +77,9 @@ export class BanditSpawner extends TestSpawnerBase {
     let execOptions = this.createSpawnOptions();
     return {
       id: `${this.config.name}-dry-run`,
-      cmd: resolveSymbols(this.config.cmd, runtimeResolver || []),
-      args: resolveSymbols(execArguments, runtimeResolver || []),
-      options: resolveSymbols(execOptions, runtimeResolver || [])
+      cmd: resolveSymbols(this.config.cmd, runtimeResolvers || []),
+      args: resolveSymbols(execArguments, runtimeResolvers || []),
+      options: resolveSymbols(execOptions, runtimeResolvers || [])
     };
   }
 
@@ -87,7 +87,7 @@ export class BanditSpawner extends TestSpawnerBase {
    * Erzeugt die speziellen Parameter für Testlauf eines Testknotens
    */
   protected createSpawnArgumentsTestRun(
-      node: TestNodeI, runtimeResolver?: SymbolResolverI[]): SpawnArguments {
+      node: TestNodeI, runtimeResolvers?: SymbolResolverI[]): SpawnArguments {
     let execArguments = this.createDefaultExecutionArguments();
     // Finde den längstmöglichen Teilstring zwischen Unicode-Zeichen und
     // verwende ihn als Testlauf-Filter:
@@ -106,9 +106,9 @@ export class BanditSpawner extends TestSpawnerBase {
     let execOptions = this.createSpawnOptions();
     return {
       id: node.id,
-      cmd: resolveSymbols(this.config.cmd, runtimeResolver || []),
-      args: resolveSymbols(execArguments, runtimeResolver || []),
-      options: resolveSymbols(execOptions, runtimeResolver || [])
+      cmd: resolveSymbols(this.config.cmd, runtimeResolvers || []),
+      args: resolveSymbols(execArguments, runtimeResolvers || []),
+      options: resolveSymbols(execOptions, runtimeResolvers || [])
     };
   }
 
