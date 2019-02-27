@@ -1,7 +1,6 @@
 var now = require('performance-now');
 
-import {BanditSpawner} from '../execution/bandit';
-import {ParseResult} from '../execution/testspawner';
+import {ParseResult, TestSpawnerI} from '../execution/testspawner';
 import {TestSuiteConfiguration} from '../configuration/configuration';
 import {DisposableI} from '../util/disposable';
 import {escapeRegExp, formatTimeDuration} from '../util/helper';
@@ -9,7 +8,7 @@ import {Logger} from '../util/logger';
 import {Message} from '../util/message';
 import {TestGroup, TestNodeI} from './test';
 import {DisposableWatcher} from '../util/watch';
-import {TestQueue} from '../execution/testqueue';
+import {TestQueue, SlotSymbolResolver} from '../execution/testqueue';
 
 export type NotifyTestsuiteChangeHandler = () => void;
 export type NotifyStatusHandler = (node: TestNodeI) => void;
@@ -17,21 +16,21 @@ export type NotifyStartHandler = (nodes: TestNodeI[]) => void;
 export type NotifyMessageHandler = (e: Message) => void;
 
 /**
- * Implementierung der Testsuite für Bandit
+ * Implementierung einer Testsuite
  */
-export class BanditTestSuite {
+export class TestSuite implements DisposableI {
   private watch: DisposableI|undefined;
   private changeTimeout: NodeJS.Timer|undefined;
   private testsuite = new TestGroup(undefined, this.name);
-  private spawner = new BanditSpawner(this.configuration);
   private queue = new TestQueue(this.configuration, this.spawner, node => {
     this.onStatusChange(node);
   });
 
   constructor(
-      public readonly configuration: TestSuiteConfiguration,         //
-      private readonly onSuiteChange: NotifyTestsuiteChangeHandler,  //
-      private readonly onStatusChange: NotifyStatusHandler,          //
+      public readonly configuration: TestSuiteConfiguration,
+      private readonly spawner: TestSpawnerI,
+      private readonly onSuiteChange: NotifyTestsuiteChangeHandler,
+      private readonly onStatusChange: NotifyStatusHandler,
       private readonly onMessage: NotifyMessageHandler) {}
 
   public dispose() {
@@ -50,7 +49,7 @@ export class BanditTestSuite {
       this.cancel().then(() => {
         Logger.instance.debug('Starte das Laden der Tests');
         let startTime = now();
-        this.spawner.dry()
+        this.spawner.dry([new SlotSymbolResolver(0)])
             .then(result => {
               const duration = now() - startTime;
               result.testsuite.label = this.name;

@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 
+import {BanditSpawner} from './banditcpp/bandit';
 import {Configuration, Property} from './configuration/configuration';
 import {closeLoadingProgress, LoadingProgress, showLoadingProgress, updateLoadingProgress} from './progress/loading'
 import {closeRunningProgress, RunningProgress, showRunningProgress, updateRunningProgress} from './progress/running'
 import {asTest, asTestGroup, Test, TestGroup, TestNodeI} from './project/test';
 import {TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './project/teststatus';
-import {BanditTestSuite} from './project/testsuite';
+import {TestSuite} from './project/testsuite';
 import {DisposableI} from './util/disposable';
 import {escapeRegExp, flatten} from './util/helper';
 import {Logger} from './util/logger';
@@ -26,7 +27,7 @@ export class BanditTestAdapter implements TestAdapter {
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
   private config =
       new Configuration('banditTestExplorer', this.workspaceFolder);
-  private testSuites: BanditTestSuite[] = [];
+  private testSuites: TestSuite[] = [];
 
   /**
    * Erstellt den Testadapter
@@ -194,8 +195,11 @@ export class BanditTestAdapter implements TestAdapter {
       this.load();
     };
     for (let tsconfig of this.config.testsuites) {
-      let suite = new BanditTestSuite(
-          tsconfig, onSuiteChange, onStatusChange, onMessage);
+      let spawner =
+          new BanditSpawner(tsconfig);  // Später: Spawner über Factory anhand
+                                        // der tsconfig.framework Eigenschaft
+      let suite = new TestSuite(
+          tsconfig, spawner, onSuiteChange, onStatusChange, onMessage);
       this.testSuites.push(suite);
     }
   }

@@ -1,4 +1,7 @@
+import {Mutex} from 'async-mutex';
+
 import {TestSuiteConfiguration} from '../configuration/configuration';
+import {BaseSymbolResolver} from '../configuration/symbol';
 import {TestNodeI} from '../project/test';
 import {Logger} from '../util/logger';
 
@@ -12,6 +15,7 @@ class TestQueueEntry {
 
 export class TestQueue {
   private queue = new Map<string, TestQueueEntry>();
+  private queueMutex = new Mutex();
 
   constructor(
       private readonly config: TestSuiteConfiguration,
@@ -20,12 +24,15 @@ export class TestQueue {
 
   public push(nodes: TestNodeI[]) {
     nodes.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-    for (let node of nodes) {
-      if (!this.nodeAlreadyExists(node)) {
-        this.queue.set(node.id, new TestQueueEntry(node));
-      }
-    }
-    this.continue();
+    this.queueMutex.acquire().then((release) => {
+      nodes.forEach(node => {
+        if (!this.nodeAlreadyExists(node)) {
+          this.queue.set(node.id, new TestQueueEntry(node));
+        }
+      });
+      release();
+      this.continue();
+    });
   }
 
   private nodeAlreadyExists(node: TestNodeI) {
@@ -33,13 +40,8 @@ export class TestQueue {
   }
 
   private getEntries(running: boolean): TestQueueEntry[] {
-    let entries = new Array<TestQueueEntry>();
-    for (let [, entry] of this.queue.entries()) {
-      if (entry.running == running) {
-        entries.push(entry);
-      }
-    }
-    return entries;
+    return Array.from(this.queue.values())
+        .filter(entry => entry.running == running);
   }
 
   private getRunningEntries(): TestQueueEntry[] {
@@ -64,38 +66,31 @@ export class TestQueue {
     if (block <= 0) return;
     let pending = this.getPendingEntries();
     for (let entry of pending) {
-      if (block <= 0) break;
-      let slot = this.getFreeSlot();
-      if (slot != undefined) {
-        this.start(entry, slot);
-        block -= 1;
-      } else {
-        Logger.instance.error(
-            `Fehler beim Fortsetzen der Tests: Kein Slot frei obwohl Platz sein sollte...`);
-      }
+      if (block-- <= 0) break;
+      this.start(entry);
     }
   }
 
-  private start(entry: TestQueueEntry, slot: number) {
-    entry.running = true;
-    entry.slot = slot;
-    this.notifyChanged(entry.node);
-    let spawnEnv = {'bandit_process': `${slot}`};
-    this.spawner.run(entry.node, spawnEnv)
-        .then(nodes => {
-          nodes.map(this.notifyChanged, this);
-          this.finish(entry);
-          this.continue();
-        })
-        .catch(e => {
-          Logger.instance.error(
-              `Fehler beim Starten des Tests "${entry.node.id}"`);
-          this.finish(entry);
-          this.continue();
-        });
+  private start(entry: TestQueueEntry) {
+    this.queueMutex.acquire().then((release) => {
+      entry.running = true;
+      entry.slot = this.getNextSlot();
+      release();
+      this.notifyChanged(entry.node);
+      this.spawner.run(entry.node, [new SlotSymbolResolver(entry.slot || 0)])
+          .then(nodes => {
+            nodes.map(this.notifyChanged, this);
+            this.finish(entry);
+          })
+          .catch(e => {
+            Logger.instance.error(
+                `Fehler beim Starten des Tests "${entry.node.id}"`);
+            this.finish(entry);
+          });
+    });
   }
 
-  private getFreeSlot(): number|undefined {
+  private getNextSlot(): number|undefined {
     let freeSlots = new Set<number>(
         Array.from(Array(this.config.parallelProcessLimit).keys()));
     let usedSlots = this.getRunningEntries().map(e => e.slot);
@@ -108,11 +103,27 @@ export class TestQueue {
   }
 
   private finish(entry: TestQueueEntry) {
-    this.queue.delete(entry.node.id);
+    this.queueMutex.acquire().then((release) => {
+      this.queue.delete(entry.node.id);
+      this.continue();
+      release();
+    });
   }
 
   public stop() {
-    this.spawner.stop();
-    this.queue.clear();
+    this.queueMutex.acquire().then((release) => {
+      this.spawner.stop();
+      this.queue.clear();
+      release();
+    });
+  }
+}
+
+export class SlotSymbolResolver extends BaseSymbolResolver {
+  constructor(public slot: number) {
+    super();
+    this.registerSymbol(/\${run:Slot}/g, () => {
+      return `${this.slot}`;
+    });
   }
 }

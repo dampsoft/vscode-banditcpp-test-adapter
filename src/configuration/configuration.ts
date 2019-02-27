@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import {LogLevel} from '../util/logger';
 
 import {EnvProperty, mergeEnv} from './environment';
-import {SymbolResolver} from './symbol';
+import {resolveSymbols, SymbolResolverI, WorkspaceSymbolResolver} from './symbol';
 
 export type Property =|'testsuites'|'parallelProcessLimit'|'watchTimeoutSec'|
     'allowKillProcess'|'loglevel';
@@ -57,11 +57,12 @@ export class TestSuiteConfiguration {
   }
 
   public get options() {
-    return this.jsonConfig.options;
+    return resolveSymbols(
+        this.jsonConfig.options, [this.parentConfig.symbolResolver]);
   }
 
   public get watches() {
-    return this.parentConfig.resolveOptions(this.jsonConfig.options);
+    return this.jsonConfig.watches;
   }
 
   public get env() {
@@ -84,13 +85,15 @@ export class TestSuiteConfiguration {
 }
 
 export class Configuration {
-  private symbolResolver = new SymbolResolver(this.workspaceFolder);
   private propertyGetter = new Map<string, () => any>();
   private testSuiteConfigs = new Array<TestSuiteConfiguration>();
+  public readonly symbolResolver: SymbolResolverI;
 
   constructor(
       public readonly baseConfigurationName: string,
       public readonly workspaceFolder: vscode.WorkspaceFolder) {
+    this.symbolResolver = new WorkspaceSymbolResolver(this.workspaceFolder);
+
     this.propertyGetter.set(PropertyTestsuites, () => {
       return this.testSuiteConfigs;
     });
