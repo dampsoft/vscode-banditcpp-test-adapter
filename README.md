@@ -137,4 +137,4 @@ Feel free to contribute...
 
 ## License
 
-MIT
+[MIT](https://github.com/dampsoft/vscode-banditcpp-test-adapter/blob/master/LICENSE)
