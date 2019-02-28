@@ -120,10 +120,10 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
 
   /**
    * Führt den Test für einen Testknoten aus.
-   * @param  node      Knoten für den der Test ausgeführt werden soll
+   * @param  node             Knoten für den der Test ausgeführt werden soll
    * @param runtimeResolvers  Optionales Array zusätzlicher Symbol-Resolver
-   * @returns          Gibt ein Promise mit allen betroffenen Testknoten nach
-   *                   der Ausführung zurück.
+   * @returns                 Gibt ein Promise mit allen betroffenen Testknoten
+   *                          nach der Ausführung zurück.
    */
   public run(node: TestNodeI, runtimeResolvers?: SymbolResolverI[]):
       Promise<TestNodeI[]> {
@@ -180,8 +180,7 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
     let nodes = new Array<TestNodeI>();
     let resultNode = ret.testsuite.find(node.id);
     if (resultNode) {
-      Logger.instance.debug(
-          `Status "${resultNode.status}" für Test "${node.id}" erkannt`);
+      Logger.instance.debug(`Test "${node.id}": ${resultNode.status}`);
       nodes = node.finish(resultNode.status, resultNode.message);
     } else {
       Logger.instance.warn(`In der Testausgabe konnte der Test "${

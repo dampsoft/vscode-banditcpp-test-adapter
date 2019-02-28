@@ -115,6 +115,9 @@ export class BanditTestAdapter implements TestAdapter {
   public run(tests: (string|RegExp)[]): Promise<void> {
     return new Promise((resolve, reject) => {
       Logger.instance.info(`Starte Bandit Tests ${JSON.stringify(tests)}`);
+      if (tests.length == 1 && tests[0] === 'root') {
+        tests = [/.*/];
+      }
       Promise.all(this.testSuites.map((t) => t.start(tests)))
           .then((nodes) => {
             this.notifyTestrunStart(flatten(nodes));
@@ -326,11 +329,11 @@ export class BanditTestAdapter implements TestAdapter {
   private notify(message: Message) {
     if (message.isError()) {
       vscode.window.showErrorMessage(message.format());
-    } else if (message.isWarning()) {
-      // vscode.window.showWarningMessage(message.format());
-    } else {
+    } else if (message.isInfo()) {
       vscode.window.showInformationMessage(message.format());
     }
+    Logger.instance.log(
+        `${message.title}: ${message.description}`, message.type);
   }
 
   private notifyStatusChanged(node: TestNodeI) {

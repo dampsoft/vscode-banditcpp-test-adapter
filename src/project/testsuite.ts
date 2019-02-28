@@ -58,7 +58,7 @@ export class TestSuite implements DisposableI {
                   `Laden der Tests erfolgreich beendet. Benötigte Zeit: ${
                       formatTimeDuration(duration)}`);
               this.resetWatch();
-              result.messages.forEach(m => this.onMessage(m));
+              result.messages.forEach(this.onMessage);
               resolve(result);
             })
             .catch(e => {

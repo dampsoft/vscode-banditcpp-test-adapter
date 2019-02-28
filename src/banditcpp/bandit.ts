@@ -19,7 +19,7 @@ const uuid = require('uuid/v4');
  */
 export class BanditSpawner extends TestSpawnerBase {
   constructor(config: TestSuiteConfiguration) {
-    super(config, /bandit version (\d+\.\d+\.\d+)/i, new Version(3, 0, 0));
+    super(config, /bandit version (\d+\.\d+\.\d+)/i, new Version(0, 0, 0));
   }
 
   /**
@@ -174,8 +174,6 @@ export class BanditSpawner extends TestSpawnerBase {
         (node: TestNodeI|undefined, status: TestStatus|undefined) => {
           if (status && node) {
             node.message = getMessage();
-            Logger.instance.debug(
-                `Status "${status}" für Test "${node.id}" erkannt`);
             let nodes = node.finish(status);
             if (status == TestStatusFailed) {
               error_nodes = error_nodes.concat(nodes);
@@ -218,12 +216,12 @@ export class BanditSpawner extends TestSpawnerBase {
                 asTestGroup(current_suite.findByLabel(newLabel));
             if (!existingGroup) {
               node = current_suite = current_suite.addSuite(newLabel);
-              Logger.instance.debug(`Neue Gruppe erkannt: "${node.id}"`);
+              result.messages.push(
+                  Message.debug('Neue Gruppe', `"${node.id}"`));
             } else {
               let msg = `Eine Gruppe mit dem Label "${
                   newLabel}" existiert bereits in der Gruppe "${
                   current_suite.id}"`;
-              Logger.instance.warn(msg);
               result.messages.push(Message.warn('Mehrdeutige Testgruppe', msg));
               node = current_suite = existingGroup;
             }
@@ -237,18 +235,17 @@ export class BanditSpawner extends TestSpawnerBase {
             if (invalidLabel) {
               let msg = `Ein Test fehlerhaftem leeren Namen wurde in Gruppe "${
                   current_suite.id}" gefunden. Test wird ignoriert.`;
-              Logger.instance.warn(msg);
               result.messages.push(Message.warn('Ungültiger Test', msg));
             } else {
               let existingTest = asTest(current_suite.findByLabel(newLabel));
               if (!existingTest) {
                 node = current_suite.addTest(newLabel);
-                Logger.instance.debug(`Neuen Test erkannt: "${node.id}"`);
+                result.messages.push(
+                    Message.debug('Neuer Test', `"${node.id}"`));
               } else {
                 let msg = `Ein Test mit dem Label "${
                     newLabel}" existiert bereits in der Gruppe "${
                     current_suite.id}"`;
-                Logger.instance.warn(msg);
                 result.messages.push(Message.warn('Mehrdeutiger Test', msg));
                 node = existingTest;
               }
@@ -285,8 +282,8 @@ export class BanditSpawner extends TestSpawnerBase {
             if (lines[0].match(requiredLineStart)) {
               node.message = `${node.displayTitle}:\n\n${
                   lines.slice(1, lines.length).join('\n').replace(/\n$/, '')}`;
-              Logger.instance.info(`Fehlermeldung für Test "${
-                  node.id}" erkannt:\n${node.message}\n`);
+              result.messages.push(Message.info(
+                  'Fehlermeldung für Test erkannt', `${node.message}`));
             }
           }
         }
