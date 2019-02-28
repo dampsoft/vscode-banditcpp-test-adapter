@@ -7,10 +7,10 @@
   "publisher": "mf",
   "version": "1.1.0",
   "license": "MIT",
-  "homepage": "https://github.com/hbenl/vscode-example-test-adapter",
+  "homepage": "https://github.com/dampsoft/vscode-banditcpp-test-adapter",
   "repository": {
     "type": "git",
-    "url": "https://github.com/hbenl/vscode-example-test-adapter.git"
+    "url": "https://github.com/dampsoft/vscode-banditcpp-test-adapter"
   },
   "bugs": {
     "email": "matthias.fueg@dampsoft.de"
