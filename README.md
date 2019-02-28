@@ -9,24 +9,23 @@ Run your Bandit-C++ tests using the
 - Shows a failed test's log when the test is selected in the explorer
 - Tests or groups of tests can be marked with auto run. They will be triggered automatically after test files have changed.
 
-## Getting started
+## Requirements
 
-- Install the extension and restart VS Code
-- Configure your test executables in VS Code's settings (see below)
-- Open the Test Explorer
-- Run your tests using the Run icons in the Test Explorer (Debugging is not supported yet)
+You only need to configure your test executables in VS Code's settings (see below)
 
 ## Configuration
 
-<!-- prettier-ignore -->
-| Property | Description |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `banditTestExplorer.testsuites` | The configuration of your bandit tests. <br>Either a configuration object or a path to the JSON configuration file. <br>(relative to the workspace folder or absolute path) A detailed structure follows in the next table. |
-| `banditTestExplorer.parallelProcessLimit` | The limit of parallel processes started during a test run. |
-| `banditTestExplorer.watchTimeoutSec` | A timeout in seconds that helps to prevent the auto run when watched files are compiled often. |
-| `banditTestExplorer.allowKillProcess` | Allows to hard kill running processes when a test run is cancelled or aborted. |
-| `banditTestExplorer.logpanel` | Enables the output of diagnostic logs to the integrated output panel. |
-| `banditTestExplorer.logfile` | Enables the output of diagnostic logs to the specified file if provided. |
+Next to global settings the configuration contains test projects. A test project is a single executable containing tests.
+
+| Property                                  | Description                                                                                                                                                                                                                                   |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `banditTestExplorer.testsuites`           | The configuration of your bandit test projects. <br>Either a single configuration object or a path to the JSON configuration file (relative to the workspace folder or absolute path). <br>_A detailed structure follows in the table below._ |
+| `banditTestExplorer.parallelProcessLimit` | The limit of parallel processes started during a test run.                                                                                                                                                                                    |
+| `banditTestExplorer.watchTimeoutSec`      | A timeout in seconds that helps to prevent the auto run when watched files are compiled often.                                                                                                                                                |
+| `banditTestExplorer.allowKillProcess`     | Allows to hard kill running processes when a test run is cancelled or aborted.                                                                                                                                                                |
+| `banditTestExplorer.logpanel`             | Enables the output of diagnostic logs to the integrated output panel.                                                                                                                                                                         |
+| `banditTestExplorer.logfile`              | Enables the output of diagnostic logs to the specified file if provided.                                                                                                                                                                      |
+| `banditTestExplorer.loglevel`             | The logging level used to filter notifications. All notifications of the same or higher level will be logged. <br>Supported values are: `debug`, `info`, `warning`, `error`                                                                   |
 
 The JSON configuration to define tests. It contains multiple definitions that are structured as followed:
 
@@ -43,16 +42,16 @@ The JSON configuration to define tests. It contains multiple definitions that ar
 
 All configuration elements can be modified with configuration symbols:
 
-| Symbol              | Description                                                                                                                                                                             | Example                                        |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| \${workspaceFolder} | The current working directory                                                                                                                                                           | `"cwd": "\${workspaceFolder}"`                 |
-| \${env:NAME}        | Uses an environment variable present to visual studio code                                                                                                                              | `"env": { "PATH": "${env:PATH}:My/Path" }`     |
-| \${run:Slot}        | The zero-based slot number of the spawned process, with: <br>`0 <= ${run:Slot} < parallelProcessLimit`. <br>Useful for connection strings when using parallelized tests with databases. | `"options": [ "-database", "db_${run:Slot}" ]` |
+| Symbol              | Description                                                                                                                                                                                       | Example                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| \${workspaceFolder} | The current working directory                                                                                                                                                                     | `"cwd": "\${workspaceFolder}"`                 |
+| \${env:NAME}        | Uses an environment variable present to visual studio code                                                                                                                                        | `"env": { "PATH": "${env:PATH}:My/Path" }`     |
+| \${processNumber}   | The zero-based index of the spawned process, in the range of: <br>`0 <= ${processNumber} < parallelProcessLimit`. <br>Useful for connection strings when using parallelized tests with databases. | `"options": [ "-database", "db_${run:Slot}" ]` |
 
 ### Example:
 
 ```json
-{
+"banditTestExplorer.testsuites": {
   "name": "my-app",
   "cmd": "test-my-app.exe",
   "cwd": "${workspaceFolder}/build/bin/Debug",
@@ -64,8 +63,9 @@ All configuration elements can be modified with configuration symbols:
     "Server=myServerAddress;Database=myDataBase${run:Slot}"
   ],
   "watches": ["apps/my-app/my-app.dll"],
-  "parallelProcessLimit": 10
-}
+  "parallelProcessLimit": 10 // Overwrite the global settings for this project
+},
+"banditTestExplorer.parallelProcessLimit": 1
 ```
 
 ## Commands
@@ -118,7 +118,6 @@ and use it like:
 
 ## What's next?
 
-- Hide test groups or projects inside the tree if they are empty?
 - Enable/disable configured projects
 - Add platform specific project settings
 - Filtering the tree
