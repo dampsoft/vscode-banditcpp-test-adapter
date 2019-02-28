@@ -42,11 +42,11 @@ The JSON configuration to define tests. It contains multiple definitions that ar
 
 All configuration elements can be modified with configuration symbols:
 
-| Symbol              | Description                                                                                                                                                                                       | Example                                        |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
-| \${workspaceFolder} | The current working directory                                                                                                                                                                     | `"cwd": "\${workspaceFolder}"`                 |
-| \${env:NAME}        | Uses an environment variable present to visual studio code                                                                                                                                        | `"env": { "PATH": "${env:PATH}:My/Path" }`     |
-| \${processNumber}   | The zero-based index of the spawned process, in the range of: <br>`0 <= ${processNumber} < parallelProcessLimit`. <br>Useful for connection strings when using parallelized tests with databases. | `"options": [ "-database", "db_${run:Slot}" ]` |
+| Symbol              | Description                                                                                                                                                                                       | Example                                             |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| \${workspaceFolder} | The current working directory                                                                                                                                                                     | `"cwd": "\${workspaceFolder}"`                      |
+| \${env:NAME}        | Uses an environment variable present to visual studio code                                                                                                                                        | `"env": { "PATH": "${env:PATH}:My/Path" }`          |
+| \${processNumber}   | The zero-based index of the spawned process, in the range of: <br>`0 <= ${processNumber} < parallelProcessLimit`. <br>Useful for connection strings when using parallelized tests with databases. | `"options": [ "-database", "db_${processNumber}" ]` |
 
 ### Example:
 
@@ -60,7 +60,7 @@ All configuration elements can be modified with configuration symbols:
   },
   "options": [
     "-connection",
-    "Server=myServerAddress;Database=myDataBase${run:Slot}"
+    "Server=myServerAddress;Database=myDataBase${processNumber}"
   ],
   "watches": ["apps/my-app/my-app.dll"],
   "parallelProcessLimit": 10 // Overwrite the global settings for this project

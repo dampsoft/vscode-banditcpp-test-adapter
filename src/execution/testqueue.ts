@@ -122,7 +122,7 @@ export class TestQueue {
 export class SlotSymbolResolver extends BaseSymbolResolver {
   constructor(public slot: number) {
     super();
-    this.registerSymbol(/\${run:Slot}/g, () => {
+    this.registerSymbol(/\${processNumber}/g, () => {
       return `${this.slot}`;
     });
   }
