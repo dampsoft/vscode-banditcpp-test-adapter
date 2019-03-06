@@ -275,10 +275,11 @@ export class BanditSpawner extends TestSpawnerBase {
             let labels = [node.label];
             node.parents.forEach(parent => {
               if (parent.parent) {
-                labels.push(escapeRegExp(parent.label));
+                labels.push(parent.label);
               }
             });
-            let requiredLineStart = `^${labels.reverse().join('[ ]+')}:.*`;
+            labels = labels.map(escapeRegExp).reverse();
+            let requiredLineStart = `^${labels.join('[ ]+')}:.*`;
             if (lines[0].match(requiredLineStart)) {
               node.message = `${node.displayTitle}:\n\n${
                   lines.slice(1, lines.length).join('\n').replace(/\n$/, '')}`;
