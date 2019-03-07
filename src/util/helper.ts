@@ -1,4 +1,5 @@
 import * as p from 'path';
+import {getOptional, Optional} from './optional';
 
 export function escapeRegExp(text: string): string {
   return text.replace(
@@ -35,4 +36,20 @@ export function formatTimeDuration(millis: number): string {
 
 export function isWindows() {
   return /^win/.test(process.platform);
+}
+
+export function switchOs<T>(
+    linux: any, osx: any, windows: any, property?: string): Optional<T> {
+  switch (process.platform) {
+    case 'linux': {
+      return (property) ? getOptional<T>(linux, property) : linux;
+    }
+    case 'win32': {
+      return (property) ? getOptional<T>(windows, property) : windows;
+    }
+    case 'darwin': {
+      return (property) ? getOptional<T>(osx, property) : osx;
+    }
+  }
+  return undefined;
 }
