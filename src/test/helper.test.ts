@@ -1,7 +1,7 @@
 // The module 'assert' provides assertion methods from node
 import * as assert from 'assert';
 
-import {escapeRegExp, flatten, formatTimeDuration, removeDuplicates, switchOs} from '../util/helper';
+import {escapeRegExp, flatten, formatTimeDuration, isLinux, isOsx, isWindows, removeDuplicates, switchOs} from '../util/helper';
 
 suite('Helper Tests', function() {
   test('escapeRegExp', function() {
@@ -61,6 +61,30 @@ suite('Helper Tests', function() {
     this.afterEach(function() {
       // restore original process.platform
       Object.defineProperty(process, 'platform', this.originalPlatform);
+    });
+
+    test('os detection windows', function() {
+      Object.defineProperty(process, 'platform', {value: 'win32'});
+      assert.equal(process.platform, 'win32');
+      assert.equal(isWindows(), true);
+      assert.equal(isOsx(), false);
+      assert.equal(isLinux(), false);
+    });
+
+    test('os detection osx', function() {
+      Object.defineProperty(process, 'platform', {value: 'darwin'});
+      assert.equal(process.platform, 'darwin');
+      assert.equal(isWindows(), false);
+      assert.equal(isOsx(), true);
+      assert.equal(isLinux(), false);
+    });
+
+    test('os detection linux', function() {
+      Object.defineProperty(process, 'platform', {value: 'linux'});
+      assert.equal(process.platform, 'linux');
+      assert.equal(isWindows(), false);
+      assert.equal(isOsx(), false);
+      assert.equal(isLinux(), true);
     });
 
     test('switchOs windows', function() {
