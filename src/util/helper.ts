@@ -21,35 +21,60 @@ export function removeDuplicates(values: any[], prop: string) {
 }
 
 export function formatTimeDuration(millis: number): string {
-  let h = Math.floor((millis / (1000 * 60 * 60)) % 24);
-  if (h) {
-    return `${(millis / (1000 * 60 * 60 / 24)).toFixed(3)} h`;
+  let h = millis / (1000 * 60 * 60);
+  if (Math.floor(h)) {
+    return `${(h).toFixed(3)} h`;
   } else {
-    let m = Math.floor((millis / (1000 * 60)) % 60);
-    if (m) {
-      return `${(millis / (1000 * 60 * 60)).toFixed(3)} min`;
+    let m = millis / (1000 * 60);
+    if (Math.floor(m)) {
+      return `${(m).toFixed(3)} min`;
     } else {
-      return `${(millis / (1000 * 60)).toFixed(3)} s`;
+      return `${(millis / 1000).toFixed(3)} s`;
     }
   }
 }
 
+/**
+ * Prüft, ob die Plattform Windows ist.
+ */
 export function isWindows() {
   return /^win/.test(process.platform);
 }
 
+/**
+ * Prüft, ob die Plattform Linux ist.
+ */
+export function isLinux() {
+  return /^linux/.test(process.platform);
+}
+
+/**
+ * Prüft, ob die Plattform OSX ist.
+ */
+export function isOsx() {
+  return /^darwin/.test(process.platform);
+}
+
+export type OsSetting = {
+  linux?: any,
+  osx?: any,
+  windows?: any
+};
+
+/**
+ * Funktion zum Ermitteln plattformabhängiger Einstellungen.
+ * @param setting  Objekt mit optionalen Plattform-Einstellwerten
+ * @param property Optionaler Name der Eigenschaft, die gelesen werden soll:
+ *                 Wenn kein Wert übergeben wird, wird das ganze
+ *                 Einstellungs-Objekt der Plattform zurückgegeben
+ * @returns        Gefundener Einstellwert oder undefined
+ */
 export function switchOs<T>(
-    linux: any, osx: any, windows: any, property?: string): Optional<T> {
-  switch (process.platform) {
-    case 'linux': {
-      return (property) ? getOptional<T>(linux, property) : linux;
-    }
-    case 'win32': {
-      return (property) ? getOptional<T>(windows, property) : windows;
-    }
-    case 'darwin': {
-      return (property) ? getOptional<T>(osx, property) : osx;
-    }
-  }
-  return undefined;
+    setting: OsSetting, property?: string): Optional<T> {
+  let osSetting =                             //
+      isLinux() ? setting.linux :             //
+      isWindows() ? setting.windows :         //
+          isOsx() ? setting.osx : undefined;  //
+
+  return property ? getOptional<T>(osSetting, property) : osSetting;
 }

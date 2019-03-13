@@ -3,7 +3,7 @@ var now = require('performance-now');
 import {ParseResult, TestSpawnerI} from '../execution/testspawner';
 import {TestSuiteConfiguration} from '../configuration/configuration';
 import {DisposableI} from '../util/disposable';
-import {escapeRegExp, formatTimeDuration} from '../util/helper';
+import {formatTimeDuration} from '../util/helper';
 import {Logger} from '../util/logger';
 import {Message} from '../util/message';
 import {TestGroup, TestNodeI} from './test';
@@ -77,20 +77,17 @@ export class TestSuite implements DisposableI {
   public start(ids: (string|RegExp)[]): Promise<TestNodeI[]> {
     Logger.instance.debug('Starte einen neuen Testlauf');
     return new Promise((resolve) => {
-      let nodes = new Array<TestNodeI>();
-      let unique_ids = new Set<string|RegExp>(ids);
-      for (let id of unique_ids) {
-        let r = typeof id === 'string' ? new RegExp(escapeRegExp(id)) : id;
-        nodes = nodes.concat(this.testsuite.findAll(r));
-      }
-      let startedNodes = new Map<string, TestNodeI>();
-      nodes.forEach((n) => {
-        n.start().forEach((n) => {
-          startedNodes.set(n.id, n);
+      let startingNodes = new Map<string, TestNodeI>();
+      let uniqueIds = new Set<string|RegExp>(ids);
+      Array.from(uniqueIds).forEach(id => {
+        this.testsuite.findAll(id).forEach(n => {
+          n.start().forEach(c => {
+            startingNodes.set(c.id, c);
+          });
         });
       });
-      Logger.instance.debug(`${startedNodes.size} Tests werden gestartet`);
-      nodes = Array.from(startedNodes.values());
+      Logger.instance.debug(`${startingNodes.size} Tests werden gestartet`);
+      let nodes = Array.from(startingNodes.values());
       this.queue.push(nodes);
       resolve(nodes);
     });

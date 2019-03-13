@@ -86,9 +86,7 @@ export class TestSuiteConfiguration {
   }
 
   private resolveCwd() {
-    let cwd = switchOs<string>(
-        this.jsonConfig.linux, this.jsonConfig.osx, this.jsonConfig.windows,
-        'cwd');
+    let cwd = switchOs<string>(this.jsonConfig, 'cwd');
     cwd = cwd || this.jsonConfig.cwd;
     if (cwd) {
       this.jsonConfig.cwd = this.parentConfig.resolvePath(cwd);
@@ -96,24 +94,18 @@ export class TestSuiteConfiguration {
   }
 
   private resolveCmd() {
-    let cmd = switchOs<string>(
-        this.jsonConfig.linux, this.jsonConfig.osx, this.jsonConfig.windows,
-        'cmd');
+    let cmd = switchOs<string>(this.jsonConfig, 'cmd');
     this.jsonConfig.cmd = this.parentConfig.resolvePath(
         cmd || this.jsonConfig.cmd, this.jsonConfig.cwd);
   }
 
   private resolveEnv() {
-    let env = switchOs<EnvProperty>(
-        this.jsonConfig.linux, this.jsonConfig.osx, this.jsonConfig.windows,
-        'env');
+    let env = switchOs<EnvProperty>(this.jsonConfig, 'env');
     return this.parentConfig.resolveEnv(env || this.jsonConfig.env);
   }
 
   private resolveWatches() {
-    let watches = switchOs<string[]>(
-        this.jsonConfig.linux, this.jsonConfig.osx, this.jsonConfig.windows,
-        'watches');
+    let watches = switchOs<string[]>(this.jsonConfig, 'watches');
     watches = watches || this.jsonConfig.watches;
     if (watches) {
       this.jsonConfig.watches = watches.map(
@@ -124,25 +116,21 @@ export class TestSuiteConfiguration {
   }
 
   private resolveOptions() {
-    let options = switchOs<string[]>(
-        this.jsonConfig.linux, this.jsonConfig.osx, this.jsonConfig.windows,
-        'options');
+    let options = switchOs<string[]>(this.jsonConfig, 'options');
     return resolveSymbols(
         options || this.jsonConfig.options, [this.parentConfig.symbolResolver]);
   }
 
   private resolveParallelProcessLimit() {
-    let parallelProcessLimit = switchOs<number>(
-        this.jsonConfig.linux, this.jsonConfig.osx, this.jsonConfig.windows,
-        'parallelProcessLimit');
+    let parallelProcessLimit =
+        switchOs<number>(this.jsonConfig, 'parallelProcessLimit');
     return parallelProcessLimit || this.jsonConfig.parallelProcessLimit ||
         this.parentConfig.parallelProcessLimit;
   }
 
   private resolveAllowKillProcess() {
-    let allowKillProcess = switchOs<boolean>(
-        this.jsonConfig.linux, this.jsonConfig.osx, this.jsonConfig.windows,
-        'allowKillProcess');
+    let allowKillProcess =
+        switchOs<boolean>(this.jsonConfig, 'allowKillProcess');
     return allowKillProcess || this.jsonConfig.allowKillProcess ||
         this.parentConfig.allowKillProcess;
   }
