@@ -135,13 +135,17 @@ export class TestGroup extends TestNode {
 
   public findAll(id: string|RegExp): Array<TestNodeI> {
     var matches = new Array<TestNodeI>();
-    for (var child of this.children) {
-      if (typeof id === 'string' ? child.id === id : child.id.match(id)) {
-        matches.push(child);
-      } else {
-        let group = asTestGroup(child);
-        if (group) {
-          matches = matches.concat(group.findAll(id));
+    if (typeof id === 'string' ? this.id === id : this.id.match(id)) {
+      matches = this.tests;
+    } else {
+      for (var child of this.children) {
+        if (typeof id === 'string' ? child.id === id : child.id.match(id)) {
+          matches.push(child);
+        } else {
+          let group = asTestGroup(child);
+          if (group) {
+            matches = matches.concat(group.findAll(id));
+          }
         }
       }
     }
