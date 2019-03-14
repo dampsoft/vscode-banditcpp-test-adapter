@@ -91,7 +91,7 @@ export class BanditSpawner extends TestSpawnerBase {
     let execArguments = this.createDefaultExecutionArguments();
     // Finde den längstmöglichen Teilstring zwischen Unicode-Zeichen und
     // verwende ihn als Testlauf-Filter:
-    let label_matches = node.label.match(/[^\u00A1-\uFFFF]+/gi);
+    let label_matches = node.label.match(/[^\u00A1-\uFFFF\"]+/gi);
     if (label_matches) {
       var label_filter = label_matches.reduce((a, b) => {
         return a.length > b.length ? a : b;
