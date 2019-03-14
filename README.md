@@ -29,16 +29,19 @@ Next to global settings the configuration contains test projects. A test project
 
 The JSON configuration to define tests. It contains multiple definitions that are structured as followed:
 
-| Property               | Description                                                                                       |
-| ---------------------- | ------------------------------------------------------------------------------------------------- |
-| `name`                 | The Name of the test project (Will be displayed as the top level node in the Test Explorer tree). |
-| `cmd`                  | The location of your bandit test executable (relative to the workspace folder).                   |
-| `options`              | Optional: Arguments passed to the test executable when running the tests.                         |
-| `cwd`                  | Optional: A working directory where bandit-cpp is run (relative to the workspace folder).         |
-| `watches`              | Optional: Files that will be watched. Changes to those will cause an auto run.                    |
-| `env`                  | Optional: Environment variables to be set when running the tests.                                 |
-| `parallelProcessLimit` | Optional: The limit of parallel processes started during a test run.                              |
-| `allowKillProcess`     | Optional: Allows to hard kill running processes when a test run is cancelled or aborted.          |
+| Property               | Description                                                                                                                                                                                                   |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                 | The Name of the test project (Will be displayed as the top level node in the Test Explorer tree).                                                                                                             |
+| `cmd`                  | The location of your bandit test executable (relative to the workspace folder).                                                                                                                               |
+| `options`              | Optional: Arguments passed to the test executable when running the tests.                                                                                                                                     |
+| `cwd`                  | Optional: A working directory where bandit-cpp is run (relative to the workspace folder).                                                                                                                     |
+| `watches`              | Optional: Files that will be watched. Changes to those will cause an auto run.                                                                                                                                |
+| `env`                  | Optional: Environment variables to be set when running the tests.                                                                                                                                             |
+| `parallelProcessLimit` | Optional: The limit of parallel processes started during a test run.                                                                                                                                          |
+| `allowKillProcess`     | Optional: Allows to hard kill running processes when a test run is cancelled or aborted.                                                                                                                      |
+| `linux`                | Optional: A linux specific configuration object that may have `cmd`,`options`, `cwd`, `watches`, `env`, `parallelProcessLimit` and `allowKillProcess` to override the equivalent value from the test suite.   |
+| `osx`                  | Optional: A MacOS specific configuration object that may have `cmd`,`options`, `cwd`, `watches`, `env`, `parallelProcessLimit` and `allowKillProcess` to override the equivalent value from the test suite.   |
+| `windows`              | Optional: A windows specific configuration object that may have `cmd`,`options`, `cwd`, `watches`, `env`, `parallelProcessLimit` and `allowKillProcess` to override the equivalent value from the test suite. |
 
 All configuration elements can be modified with configuration symbols:
 
@@ -53,16 +56,33 @@ All configuration elements can be modified with configuration symbols:
 ```json
 "banditTestExplorer.testsuites": {
   "name": "my-app",
-  "cmd": "test-my-app.exe",
-  "cwd": "${workspaceFolder}/build/bin/Debug",
-  "env": {
-    "Path": "${env:Path}:/additional/path"
-  },
   "options": [
     "-connection",
     "Server=myServerAddress;Database=myDataBase${processNumber}"
   ],
-  "watches": ["apps/my-app/my-app.dll"],
+  "cwd": "${workspaceFolder}/build/bin",
+  "windows": {
+    "cmd": "test-my-app.exe",
+    "cwd": "${workspaceFolder}/build/bin/Debug",
+    "env": {
+      "Path": "${env:Path}:/additional/path"
+    },
+    "watches": ["apps/my-app/my-app.dll"]
+  },
+  "linux": {
+    "cmd": "test-my-app",
+    "env": {
+      "Path": "${env:Path}:/additional/path"
+    },
+    "watches": ["apps/my-app/libapp-my-app.so"]
+  },
+  "osx": {
+    "cmd": "test-my-app",
+    "env": {
+      "Path": "${env:Path}:/additional/path"
+    },
+    "watches": ["apps/my-app/libapp-my-app.dylib"]
+  },
   "parallelProcessLimit": 10
 },
 "banditTestExplorer.parallelProcessLimit": 1
@@ -119,7 +139,6 @@ and use it like:
 ## What's next?
 
 - Enable/disable configured projects
-- Add platform specific project settings
 - Filtering the tree
 - Enable Debugging (Set Breakpoint inside it or describe and start debugging session)
 
