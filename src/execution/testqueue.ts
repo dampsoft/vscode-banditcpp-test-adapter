@@ -1,24 +1,39 @@
 import {Mutex} from 'async-mutex';
-
-import {TestSuiteConfiguration} from '../configuration/configuration';
 import {BaseSymbolResolver} from '../configuration/symbol';
 import {TestNodeI} from '../project/test';
 import {Logger} from '../util/logger';
-
 import {TestSpawnerI} from './testspawner';
 
-class TestQueueEntry {
-  constructor(
-      public node: TestNodeI, public slot?: number,
-      public running: boolean = false) {}
+/**
+ * Dynamischer Symbol-Resolver für den aktuellen Prozess-Index
+ * ${processNumber}
+ */
+export class SlotSymbolResolver extends BaseSymbolResolver {
+  constructor(public slot: number) {
+    super();
+    this.registerSymbol(/\${processNumber}/g, () => {
+      return `${this.slot}`;
+    });
+  }
 }
 
+/**
+ * Konfiguration für die Test-Queue
+ */
+export interface TestQueueConfigurationI {
+  readonly parallelProcessLimit: number;
+}
+
+/**
+ * Test-Queue zum abarbeiten von Tests unter der Bedingung, dass eine maximale
+ * Zahl paralleler Prozesse nicht überschritten werden darf.
+ */
 export class TestQueue {
   private queue = new Map<string, TestQueueEntry>();
   private queueMutex = new Mutex();
 
   constructor(
-      private readonly config: TestSuiteConfiguration,
+      private readonly config: TestQueueConfigurationI,
       private readonly spawner: TestSpawnerI,
       private readonly notifyChanged: (node: TestNodeI) => void) {}
 
@@ -119,11 +134,11 @@ export class TestQueue {
   }
 }
 
-export class SlotSymbolResolver extends BaseSymbolResolver {
-  constructor(public slot: number) {
-    super();
-    this.registerSymbol(/\${processNumber}/g, () => {
-      return `${this.slot}`;
-    });
-  }
+/**
+ * Interne Hilfsklasse mit Zusatzinformationen zu einem Test-Knoten
+ */
+class TestQueueEntry {
+  constructor(
+      public node: TestNodeI, public slot?: number,
+      public running: boolean = false) {}
 }
