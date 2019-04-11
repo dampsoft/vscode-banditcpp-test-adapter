@@ -55,6 +55,7 @@
     "vscode": "^1.1.21"
   },
   "engines": {
+    "node": "^10.15",
     "vscode": "^1.23.0"
   },
   "extensionDependencies": [
