@@ -1,5 +1,4 @@
 import * as cp from 'child_process';
-const {spawn} = require('child_process');
 
 import {Logger} from '../util/logger';
 
@@ -49,7 +48,7 @@ export class Spawner {
     msg += `: ${cmd}`;
     Logger.instance.debug(msg);
     return new Promise((resolve, reject) => {
-      const command = spawn(args.cmd, args.args, args.options);
+      const command = cp.spawn(args.cmd, args.args, args.options);
       const ret = new SpawnResult(command.pid);
       command.stdout.on('data', (data: any) => {
         ret.stdout += data;

@@ -67,14 +67,19 @@ export type OsSetting = {
  * @param property Optionaler Name der Eigenschaft, die gelesen werden soll:
  *                 Wenn kein Wert übergeben wird, wird das ganze
  *                 Einstellungs-Objekt der Plattform zurückgegeben
+ * @param fallback Fallback für den Fall einer fehlenden Konfiguration
  * @returns        Gefundener Einstellwert oder undefined
  */
 export function switchOs<T>(
-    setting: OsSetting, property?: string): Optional<T> {
+    setting: OsSetting, property?: string, fallback?: T): Optional<T> {
   let osSetting =                             //
       isLinux() ? setting.linux :             //
       isWindows() ? setting.windows :         //
           isOsx() ? setting.osx : undefined;  //
-
-  return property ? getOptional<T>(osSetting, property) : osSetting;
+  if (property) {
+    return getOptional<T>(osSetting, property, fallback)
+  } else {
+    let result: Optional<T> = osSetting != undefined ? osSetting : fallback;
+    return result;
+  }
 }

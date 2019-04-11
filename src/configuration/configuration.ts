@@ -41,6 +41,8 @@ interface TestSuiteJsonConfigurationI {
 }
 
 export class TestSuiteConfiguration {
+  private isValid: boolean = true;
+
   constructor(
       private readonly parentConfig: Configuration,
       private readonly jsonConfig: TestSuiteJsonConfigurationI) {
@@ -85,6 +87,10 @@ export class TestSuiteConfiguration {
     return this.resolveAllowKillProcess();
   }
 
+  public get valid(): boolean {
+    return this.isValid;
+  }
+
   private resolveCwd() {
     let cwd = switchOs<string>(this.jsonConfig, 'cwd');
     cwd = cwd || this.jsonConfig.cwd;
@@ -95,13 +101,22 @@ export class TestSuiteConfiguration {
 
   private resolveCmd() {
     let cmd = switchOs<string>(this.jsonConfig, 'cmd');
-    this.jsonConfig.cmd = this.parentConfig.resolvePath(
-        cmd || this.jsonConfig.cmd, this.jsonConfig.cwd);
+    cmd = cmd || this.jsonConfig.cmd;
+    if (cmd) {
+      this.jsonConfig.cmd =
+          this.parentConfig.resolvePath(cmd, this.jsonConfig.cwd);
+    } else {
+      this.isValid = false;
+    }
   }
 
   private resolveEnv() {
     let env = switchOs<EnvProperty>(this.jsonConfig, 'env');
-    return this.parentConfig.resolveEnv(env || this.jsonConfig.env);
+    env = env || this.jsonConfig.env;
+    if (env) {
+      env = this.parentConfig.resolveEnv(env);
+    }
+    return env;
   }
 
   private resolveWatches() {
@@ -109,7 +124,7 @@ export class TestSuiteConfiguration {
     watches = watches || this.jsonConfig.watches;
     if (watches) {
       this.jsonConfig.watches = watches.map(
-          w => this.parentConfig.resolvePath(w, this.jsonConfig.cwd))
+          w => this.parentConfig.resolvePath(w, this.jsonConfig.cwd));
     } else {
       this.jsonConfig.watches = [];
     }
@@ -250,7 +265,8 @@ export class Configuration {
       jsonConfig = conf as TestSuiteJsonConfigurationI[];
     }
     this.testSuiteConfigs =
-        jsonConfig.map((config) => new TestSuiteConfiguration(this, config));
+        jsonConfig.map((config) => new TestSuiteConfiguration(this, config))
+            .filter(c => c.valid);
   }
 
   public resolvePath(p: string|undefined, cwd?: string): string {
