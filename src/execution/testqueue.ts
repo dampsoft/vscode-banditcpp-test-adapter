@@ -40,12 +40,15 @@ export class TestQueue {
   public push(nodes: TestNodeI[]) {
     nodes.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     this.queueMutex.acquire().then((release) => {
-      nodes.forEach(node => {
-        if (!this.nodeAlreadyExists(node)) {
-          this.queue.set(node.id, new TestQueueEntry(node));
-        }
-      });
-      release();
+      try {
+        nodes.forEach(node => {
+          if (!this.nodeAlreadyExists(node)) {
+            this.queue.set(node.id, new TestQueueEntry(node));
+          }
+        });
+      } finally {
+        release();
+      }
       this.continue();
     });
   }
@@ -88,9 +91,12 @@ export class TestQueue {
 
   private start(entry: TestQueueEntry) {
     this.queueMutex.acquire().then((release) => {
-      entry.running = true;
-      entry.slot = this.getNextSlot();
-      release();
+      try {
+        entry.running = true;
+        entry.slot = this.getNextSlot();
+      } finally {
+        release();
+      }
       this.notifyChanged(entry.node);
       this.spawner.run(entry.node, [new SlotSymbolResolver(entry.slot || 0)])
           .then(nodes => {
@@ -119,17 +125,23 @@ export class TestQueue {
 
   private finish(entry: TestQueueEntry) {
     this.queueMutex.acquire().then((release) => {
-      this.queue.delete(entry.node.id);
+      try {
+        this.queue.delete(entry.node.id);
+      } finally {
+        release();
+      }
       this.continue();
-      release();
     });
   }
 
   public stop() {
     this.queueMutex.acquire().then((release) => {
-      this.spawner.stop();
-      this.queue.clear();
-      release();
+      try {
+        this.spawner.stop();
+        this.queue.clear();
+      } finally {
+        release();
+      }
     });
   }
 }
