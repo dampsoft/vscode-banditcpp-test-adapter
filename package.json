@@ -4,7 +4,7 @@
   "description": "Run your Bandit tests in the Sidebar of Visual Studio Code",
   "icon": "img/testexplorer-banditcpp.png",
   "author": "Matthias Füg <matthias.fueg@dampsoft.de>",
-  "publisher": "mf",
+  "publisher": "dampsoft",
   "version": "1.2.0",
   "license": "MIT",
   "homepage": "https://github.com/dampsoft/vscode-banditcpp-test-adapter/blob/master/README.md",
