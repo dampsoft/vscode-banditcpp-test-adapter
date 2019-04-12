@@ -55,7 +55,7 @@ export class BanditSpawner extends TestSpawnerBase {
    */
   protected createSpawnArgumentsVersion(): SpawnArguments {
     return {
-      id: this.config.name,
+      id: uuid(),
       cmd: this.config.cmd,
       args: ['--version'],
       options: this.createSpawnOptions()
@@ -69,14 +69,13 @@ export class BanditSpawner extends TestSpawnerBase {
       SpawnArguments {
     let execArguments = this.createDefaultExecutionArguments();
     execArguments.push('--dry-run');
-    execArguments.push(
-        `"--only=${uuid()}${uuid()}${uuid()}"`);  // Ein extrem seltener String
+    execArguments.push(`"--only=${uuid()}"`);  // Ein extrem seltener String
     if (this.config.options) {
       execArguments.push(...this.config.options);
     }
     let execOptions = this.createSpawnOptions();
     return {
-      id: `${this.config.name}-dry-run`,
+      id: uuid(),
       cmd: resolveSymbols(this.config.cmd, runtimeResolvers || []),
       args: resolveSymbols(execArguments, runtimeResolvers || []),
       options: resolveSymbols(execOptions, runtimeResolvers || [])
@@ -105,7 +104,7 @@ export class BanditSpawner extends TestSpawnerBase {
     }
     let execOptions = this.createSpawnOptions();
     return {
-      id: node.id,
+      id: uuid(),
       cmd: resolveSymbols(this.config.cmd, runtimeResolvers || []),
       args: resolveSymbols(execArguments, runtimeResolvers || []),
       options: resolveSymbols(execOptions, runtimeResolvers || [])

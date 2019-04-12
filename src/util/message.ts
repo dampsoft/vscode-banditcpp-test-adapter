@@ -1,3 +1,6 @@
+import * as vscode from 'vscode';
+import {Logger} from '../util/logger';
+
 type MessageType = 'debug'|'info'|'error'|'warning';
 const Debug: MessageType = 'debug';
 const Info: MessageType = 'info';
@@ -43,5 +46,36 @@ export class Message {
 
   static error(title: string, description: string) {
     return new Message(title, description, Error);
+  }
+
+  static notify(message: Message, forceLog: boolean = false) {
+    if (message.isError()) {
+      vscode.window.showErrorMessage(message.format());
+    } else if (message.isWarning()) {
+      vscode.window.showWarningMessage(message.format());
+    } else if (message.isInfo()) {
+      vscode.window.showInformationMessage(message.format());
+    } else {
+      forceLog = true;
+    }
+
+    if (forceLog)
+      Logger.instance.log(
+          `${message.title}: ${message.description}`, message.type);
+  }
+}
+
+
+export type NotifyMessageHandler = (e: Message, forceLog: boolean) => void;
+
+export class CanNotifyMessages {
+  constructor(protected notificationHandler?: NotifyMessageHandler) {}
+
+  protected notify(message: Message, forceLog: boolean = false) {
+    if (this.notificationHandler) {
+      this.notificationHandler(message, forceLog);
+    } else {
+      Message.notify(message);
+    }
   }
 }

@@ -5,7 +5,7 @@ import {TestSuiteConfiguration} from '../configuration/configuration';
 import {DisposableI} from '../util/disposable';
 import {formatTimeDuration} from '../util/helper';
 import {Logger} from '../util/logger';
-import {Message} from '../util/message';
+import {CanNotifyMessages, NotifyMessageHandler} from '../util/message';
 import {TestGroup, TestNodeI} from './test';
 import {DisposableWatcher} from '../util/watch';
 import {TestQueue, SlotSymbolResolver} from '../execution/testqueue';
@@ -13,12 +13,11 @@ import {TestQueue, SlotSymbolResolver} from '../execution/testqueue';
 export type NotifyTestsuiteChangeHandler = () => void;
 export type NotifyStatusHandler = (node: TestNodeI) => void;
 export type NotifyStartHandler = (nodes: TestNodeI[]) => void;
-export type NotifyMessageHandler = (e: Message) => void;
 
 /**
  * Implementierung einer Testsuite
  */
-export class TestSuite implements DisposableI {
+export class TestSuite extends CanNotifyMessages implements DisposableI {
   private watch: DisposableI|undefined;
   private changeTimeout: NodeJS.Timer|undefined;
   private testsuite = new TestGroup(undefined, this.name);
@@ -31,7 +30,9 @@ export class TestSuite implements DisposableI {
       private readonly spawner: TestSpawnerI,
       private readonly onSuiteChange: NotifyTestsuiteChangeHandler,
       private readonly onStatusChange: NotifyStatusHandler,
-      private readonly onMessage: NotifyMessageHandler) {}
+      notificationHandler: NotifyMessageHandler) {
+    super(notificationHandler);
+  }
 
   public dispose() {
     if (this.watch) {
@@ -58,7 +59,7 @@ export class TestSuite implements DisposableI {
                   `Laden der Tests erfolgreich beendet. Benötigte Zeit: ${
                       formatTimeDuration(duration)}`);
               this.resetWatch();
-              result.messages.forEach(this.onMessage);
+              result.messages.forEach(m => this.notify(m, false));
               resolve(result);
             })
             .catch(e => {

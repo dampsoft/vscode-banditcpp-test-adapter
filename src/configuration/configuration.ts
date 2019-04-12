@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 
 import {switchOs} from '../util/helper';
 import {LogLevel} from '../util/logger';
+import {CanNotifyMessages, Message, NotifyMessageHandler} from '../util/message';
 
 import {EnvProperty, mergeEnv} from './environment';
 import {resolveSymbols, SymbolResolverI, WorkspaceSymbolResolver} from './symbol';
@@ -151,14 +152,17 @@ export class TestSuiteConfiguration {
   }
 }
 
-export class Configuration {
+export class Configuration extends CanNotifyMessages {
   private propertyGetter = new Map<string, () => any>();
   private testSuiteConfigs = new Array<TestSuiteConfiguration>();
   public readonly symbolResolver: SymbolResolverI;
 
   constructor(
       public readonly baseConfigurationName: string,
-      public readonly workspaceFolder: vscode.WorkspaceFolder) {
+      public readonly workspaceFolder: vscode.WorkspaceFolder,
+      notificationHandler?: NotifyMessageHandler) {
+    super(notificationHandler);
+
     this.symbolResolver = new WorkspaceSymbolResolver(this.workspaceFolder);
 
     this.propertyGetter.set(PropertyTestsuites, () => {
@@ -264,9 +268,24 @@ export class Configuration {
     } else {
       jsonConfig = conf as TestSuiteJsonConfigurationI[];
     }
-    this.testSuiteConfigs =
-        jsonConfig.map((config) => new TestSuiteConfiguration(this, config))
-            .filter(c => c.valid);
+    this.testSuiteConfigs = [];
+    let configNames = new Set<string>();
+    for (let config of jsonConfig) {
+      let tsConfig = new TestSuiteConfiguration(this, config);
+      if (configNames.has(tsConfig.name)) {
+        this.notify(Message.warn(
+            'Fehlerhafte Konfiguration',
+            `Ein Testprojekt mit der id "${tsConfig.name}" existiert bereits`));
+      } else if (!tsConfig.valid) {
+        this.notify(Message.warn(
+            'Fehlerhafte Konfiguration',
+            `Die Einstellungen des Testprojekts mit der id "${
+                tsConfig.name}" ist unvollständig`));
+      } else {
+        configNames.add(tsConfig.name);
+        this.testSuiteConfigs.push(tsConfig);
+      }
+    }
   }
 
   public resolvePath(p: string|undefined, cwd?: string): string {

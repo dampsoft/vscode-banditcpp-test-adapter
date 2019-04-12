@@ -192,7 +192,13 @@ export class BanditTestAdapter implements TestAdapter {
       this.notifyStatusChanged(node);
     };
     let onMessage = (message: Message) => {
-      this.notify(message);
+      // Override the default Message.notify behavior:
+      if (message.isWarning()) {
+        Logger.instance.log(
+            `${message.title}: ${message.description}`, message.type);
+      } else {
+        Message.notify(message);
+      }
     };
     let onSuiteChange = () => {
       this.load();
@@ -283,8 +289,10 @@ export class BanditTestAdapter implements TestAdapter {
     this.testsEmitter.fire(
         <TestLoadFinishedEvent>{type: 'finished', errorMessage: error});
     closeLoadingProgress();
-    this.notify(new Message(
-        'Laden der Testprojekte', `fehlgeschlagen ${error || ''}`, 'error'));
+    Message.notify(
+        new Message(
+            'Laden der Testprojekte', `fehlgeschlagen ${error || ''}`, 'error'),
+        true);
   }
 
   private lastTestrunStatus = TestStatusIdle;
@@ -324,16 +332,6 @@ export class BanditTestAdapter implements TestAdapter {
       this.testStatesEmitter.fire(<TestRunFinishedEvent>{type: 'finished'});
       closeRunningProgress();
     }
-  }
-
-  private notify(message: Message) {
-    if (message.isError()) {
-      vscode.window.showErrorMessage(message.format());
-    } else if (message.isInfo()) {
-      vscode.window.showInformationMessage(message.format());
-    }
-    Logger.instance.log(
-        `${message.title}: ${message.description}`, message.type);
   }
 
   private notifyStatusChanged(node: TestNodeI) {
