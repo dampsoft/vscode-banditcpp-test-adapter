@@ -1,6 +1,8 @@
 import * as cp from 'child_process';
 
-import {Logger} from '../util/logger';
+import {Message} from '../util/message';
+
+import {Messages} from './messages';
 
 export class SpawnResult {
   constructor(
@@ -30,32 +32,27 @@ export class Spawner {
   private spawnedProcesses = new Map<string, SpawnTokenI>();
 
   public spawn(args: SpawnArguments): Promise<SpawnResult> {
-    Logger.instance.info(`Neue Anfrage zur Prozessausführung ${args.id}`);
-
+    Message.log(Messages.getSpawnerProcessRequest(args.id));
     if (this.exists(args.id)) {
-      let msg = `Ein Prozess mit id "${args.id}" existiert bereits.`;
-      Logger.instance.error(msg);
-      throw new Error(msg);
+      let msg = Messages.getSpawnerProcessIdAlreadyExists(args.id);
+      Message.log(msg);
+      throw new Error(msg.format());
     }
-    let cmd = args.cmd;
-    if (args.args) {
-      cmd += ' ' + args.args.join(' ');
-    }
-    let msg = `Starte Prozess mit id "${args.id}"`;
-    if (args.options) {
-      msg += ` in "${args.options.cwd}"`;
-    }
-    msg += `: ${cmd}`;
-    Logger.instance.debug(msg);
+    Message.log(Messages.getSpawnerProcessStart(
+        args.id, args.cmd + (args.args ? ' ' + args.args.join(' ') : '')));
     return new Promise((resolve, reject) => {
-      const command = cp.spawn(args.cmd, args.args, args.options);
+      const command = cp.spawn(args.cmd, args.args || [], args.options || {});
       const ret = new SpawnResult(command.pid);
-      command.stdout.on('data', (data: any) => {
-        ret.stdout += data;
-      });
-      command.stderr.on('data', (data: any) => {
-        ret.stderr += data;
-      });
+      if (command.stdout) {
+        command.stdout.on('data', (data: any) => {
+          ret.stdout += data;
+        });
+      }
+      if (command.stderr) {
+        command.stderr.on('data', (data: any) => {
+          ret.stderr += data;
+        });
+      }
       command.on('error', (err: Error) => {
         ret.error = err;
       });
@@ -63,24 +60,24 @@ export class Spawner {
         ret.status = code;
         ret.signal = signal;
         this.remove(args.id);
-        let msg = `Prozessausführung "${args.id}" mit Code "${
-            code}" und Signal "${signal}" beendet`;
         if (ret.isFailed()) {
-          Logger.instance.error(msg);
+          Message.log(
+              Messages.getSpawnerProcessFinishedInvalid(args.id, signal, code));
           if (!ret.error) {
             ret.error = new Error(ret.stderr);
           }
           reject(ret);
         } else {
-          Logger.instance.debug(msg);
+          Message.log(
+              Messages.getSpawnerProcessFinishedValid(args.id, signal, code));
           resolve(ret);
         }
       });
       let token = <SpawnTokenI>{
         cancel: () => {
           try {
-            command.stdin.end();
-            command.stdout.pause();
+            if (command.stdin) command.stdin.end();
+            if (command.stdout) command.stdout.pause();
             command.kill();
           } catch (e) {
           }

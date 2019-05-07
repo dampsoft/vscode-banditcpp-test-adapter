@@ -1,3 +1,4 @@
+import {Messages} from './messages';
 import {ProgressBox, ProgressStatus} from './progress';
 
 export class RunningProgress extends ProgressStatus {
@@ -10,9 +11,10 @@ export class RunningProgress extends ProgressStatus {
 
 export function showRunningProgress(cancellationHandler?: () => void) {
   ProgressBox.show<RunningProgress>(
-      'running', 'Ausführen der Tests', (status: RunningProgress) => {
-        return `${status.stepsMax} gestartet, ${status.passed} ok, ${
-            status.failed} fehlgeschlagen, ${status.skipped} übersprungen`;
+      'running',
+      Messages.getRunningStatusTitle(), (status: RunningProgress) => {
+        return Messages.getRunningStatusProgress(
+            status.stepsMax, status.passed, status.failed, status.skipped);
       }, cancellationHandler);
 }
 

@@ -3,12 +3,11 @@ var now = require('performance-now');
 import {ParseResult, TestSpawnerI} from '../execution/testspawner';
 import {TestSuiteConfiguration} from '../configuration/configuration';
 import {DisposableI} from '../util/disposable';
-import {formatTimeDuration} from '../util/helper';
-import {Logger} from '../util/logger';
-import {CanNotifyMessages, NotifyMessageHandler} from '../util/message';
+import {CanNotifyMessages, NotifyMessageHandler, Message} from '../util/message';
 import {TestGroup, TestNodeI} from './test';
 import {DisposableWatcher} from '../util/watch';
 import {TestQueue, SlotSymbolResolver} from '../execution/testqueue';
+import {Messages} from './messages';
 
 export type NotifyTestsuiteChangeHandler = () => void;
 export type NotifyStatusHandler = (node: TestNodeI) => void;
@@ -48,22 +47,23 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
   public reload(): Promise<ParseResult> {
     return new Promise((resolve, reject) => {
       this.cancel().then(() => {
-        Logger.instance.debug('Starte das Laden der Tests');
+        Message.log(Messages.getTestsuiteReloadStart(this.name));
         let startTime = now();
         this.spawner.dry([new SlotSymbolResolver(0)])
             .then(result => {
               const duration = now() - startTime;
               result.testsuite.label = this.name;
               this.testsuite = result.testsuite;
-              Logger.instance.debug(
-                  `Laden der Tests erfolgreich beendet. Benötigte Zeit: ${
-                      formatTimeDuration(duration)}`);
+              Message.log(Messages.getTestsuiteReloadFinishedValid(
+                  this.name, duration));
               this.resetWatch();
               result.messages.forEach(m => this.notify(m, false));
               resolve(result);
             })
             .catch(e => {
-              Logger.instance.error('Fehler beim Laden der Tests');
+              const duration = now() - startTime;
+              Message.log(Messages.getTestsuiteReloadFinishedInvalid(
+                  this.name, duration));
               reject(e);
             });
       });
@@ -76,7 +76,6 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
    * @returns Gibt ein Promise mit den gestarteten Tests zurück.
    */
   public start(ids: (string|RegExp)[]): Promise<TestNodeI[]> {
-    Logger.instance.debug('Starte einen neuen Testlauf');
     return new Promise((resolve) => {
       let startingNodes = new Map<string, TestNodeI>();
       let uniqueIds = new Set<string|RegExp>(ids);
@@ -87,7 +86,7 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
           });
         });
       });
-      Logger.instance.debug(`${startingNodes.size} Tests werden gestartet`);
+      Message.log(Messages.getTestsuiteRunStart(this.name, startingNodes.size));
       let nodes = Array.from(startingNodes.values());
       this.queue.push(nodes);
       resolve(nodes);
@@ -101,7 +100,7 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
    */
   public cancel(): Promise<void> {
     return new Promise(resolve => {
-      Logger.instance.info('Breche alle laufenden Tests ab');
+      Message.log(Messages.getTestsuiteRunCancel(this.name));
       this.testsuite.cancel().map(this.onStatusChange, this);
       this.queue.stop();
       this.spawner.stop();
@@ -139,13 +138,10 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
       this.configuration.watches.map((p: string) => paths.push(p));
     }
     const onReady = () => {
-      Logger.instance.info(
-          `Beobachte Änderung an der Testumgebung ${this.name}...`);
+      Message.log(Messages.getTestsuiteWatchReady(this.name));
     };
     const onChange = (path: string, stats: any) => {
-      Logger.instance.info(`Änderung an an: "${path}" im Testprojekt ${
-          this.name} erkannt. Führe Autorun aus.`);
-      Logger.instance.debug(`Änderung `);
+      Message.log(Messages.getTestsuiteWatchTrigger(this.name, path));
       if (this.changeTimeout) {
         clearTimeout(this.changeTimeout);
         this.changeTimeout = undefined;
@@ -155,8 +151,7 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
       }, this.configuration.watchTimeoutSec * 1000);
     };
     const onError = () => {
-      Logger.instance.error(`Beim Beobachten der Testumgebung ${
-          this.name} ist ein Fehler aufgetreten.`);
+      Message.log(Messages.getTestsuiteWatchError(this.name));
     };
     this.watch = new DisposableWatcher(paths, onReady, onChange, onError);
   }

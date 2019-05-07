@@ -1,51 +1,66 @@
 import * as vscode from 'vscode';
+
 import {Logger} from '../util/logger';
 
 type MessageType = 'debug'|'info'|'error'|'warning';
-const Debug: MessageType = 'debug';
-const Info: MessageType = 'info';
-const Error: MessageType = 'error';
-const Warning: MessageType = 'warning';
+const MessageTypeDebug: MessageType = 'debug';
+const MessageTypeInfo: MessageType = 'info';
+const MessageTypeError: MessageType = 'error';
+const MessageTypeWarning: MessageType = 'warning';
 
 export class Message {
   constructor(
       public readonly title: string, public readonly description: string,
-      public readonly type: MessageType) {}
+      public readonly details?: string,
+      public readonly type: MessageType = MessageTypeInfo) {}
 
   public isDebug() {
-    return this.type == Info;
+    return this.type == MessageTypeInfo;
   }
 
   public isInfo() {
-    return this.type == Info;
+    return this.type == MessageTypeInfo;
   }
 
   public isWarning() {
-    return this.type == Warning;
+    return this.type == MessageTypeWarning;
   }
 
   public isError() {
-    return this.type == Error;
+    return this.type == MessageTypeError;
   }
 
   public format(): string {
     return `${this.title}: \n${this.description}`;
   }
 
-  static debug(title: string, description: string) {
-    return new Message(title, description, Debug);
+  static debug(title: string, description: string, details?: string) {
+    return new Message(title, description, details, MessageTypeDebug);
   }
 
-  static info(title: string, description: string) {
-    return new Message(title, description, Info);
+  static info(title: string, description: string, details?: string) {
+    return new Message(title, description, details, MessageTypeInfo);
   }
 
-  static warn(title: string, description: string) {
-    return new Message(title, description, Warning);
+  static warn(title: string, description: string, details?: string) {
+    return new Message(title, description, details, MessageTypeWarning);
   }
 
-  static error(title: string, description: string) {
-    return new Message(title, description, Error);
+  static error(title: string, description: string, details?: string) {
+    return new Message(title, description, details, MessageTypeError);
+  }
+
+  static fromException(title: string, description: string, error: any) {
+    let details: string|undefined = '';
+    if (typeof error === 'string') {
+      if (error.length > 0) details += `\n${error}`;
+    } else if (error instanceof Error) {
+      details += `\n${error.name} - "${error.message}"`;
+      if (error.stack) details += `Stacktrace:\n${error.stack}`;
+    } else {
+      details = undefined;
+    }
+    return Message.error(title, description, details);
   }
 
   static notify(message: Message, forceLog: boolean = false) {
@@ -59,11 +74,18 @@ export class Message {
       forceLog = true;
     }
 
-    if (forceLog)
-      Logger.instance.log(
-          `${message.title}: ${message.description}`, message.type);
+    if (forceLog) Message.log(message);
+  }
+
+  static log(message: Message) {
+    let msg = `${message.title}: ${message.description}`;
+    if (message.details) {
+      msg += `\n${message.details}`;
+    }
+    Logger.instance.log(msg, message.type);
   }
 }
+
 
 
 export type NotifyMessageHandler = (e: Message, forceLog: boolean) => void;
@@ -75,7 +97,7 @@ export class CanNotifyMessages {
     if (this.notificationHandler) {
       this.notificationHandler(message, forceLog);
     } else {
-      Message.notify(message);
+      Message.notify(message, forceLog);
     }
   }
 }

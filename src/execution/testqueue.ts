@@ -1,7 +1,10 @@
 import {Mutex} from 'async-mutex';
+
 import {BaseSymbolResolver} from '../configuration/symbol';
 import {TestNodeI} from '../project/test';
-import {Logger} from '../util/logger';
+import {Message} from '../util/message';
+
+import {Messages} from './messages';
 import {TestSpawnerI} from './testspawner';
 
 /**
@@ -103,9 +106,8 @@ export class TestQueue {
             nodes.map(this.notifyChanged, this);
             this.finish(entry);
           })
-          .catch(e => {
-            Logger.instance.error(
-                `Fehler beim Starten des Tests "${entry.node.id}"`);
+          .catch(() => {
+            Message.notify(Messages.getTestQueueExecutionError(entry.node.id));
             this.finish(entry);
           });
     });

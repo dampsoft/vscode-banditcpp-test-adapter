@@ -4,9 +4,10 @@ import * as vscode from 'vscode';
 
 import {switchOs} from '../util/helper';
 import {LogLevel} from '../util/logger';
-import {CanNotifyMessages, Message, NotifyMessageHandler} from '../util/message';
+import {CanNotifyMessages, NotifyMessageHandler} from '../util/message';
 
 import {EnvProperty, mergeEnv} from './environment';
+import {Messages} from './messages';
 import {resolveSymbols, SymbolResolverI, WorkspaceSymbolResolver} from './symbol';
 
 export type Property =|'testsuites'|'parallelProcessLimit'|'watchTimeoutSec'|
@@ -273,14 +274,9 @@ export class Configuration extends CanNotifyMessages {
     for (let config of jsonConfig) {
       let tsConfig = new TestSuiteConfiguration(this, config);
       if (configNames.has(tsConfig.name)) {
-        this.notify(Message.warn(
-            'Fehlerhafte Konfiguration',
-            `Ein Testprojekt mit der id "${tsConfig.name}" existiert bereits`));
+        this.notify(Messages.getTestsuiteIdAmbiguous(tsConfig.name));
       } else if (!tsConfig.valid) {
-        this.notify(Message.warn(
-            'Fehlerhafte Konfiguration',
-            `Die Einstellungen des Testprojekts mit der id "${
-                tsConfig.name}" ist unvollständig`));
+        this.notify(Messages.getTestsuiteConfigInvalid(tsConfig.name));
       } else {
         configNames.add(tsConfig.name);
         this.testSuiteConfigs.push(tsConfig);

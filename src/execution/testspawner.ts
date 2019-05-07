@@ -2,10 +2,10 @@ import {TestSuiteConfiguration} from '../configuration/configuration';
 import {SymbolResolverI} from '../configuration/symbol';
 import {TestGroup, TestNodeI} from '../project/test';
 import {TestStatusFailed, TestStatusSkipped} from '../project/teststatus';
-import {Logger} from '../util/logger';
 import {Message} from '../util/message';
 import {Version} from '../util/version';
 
+import {Messages} from './messages';
 import {SpawnArguments, Spawner, SpawnResult} from './spawner';
 
 export class ParseResult {
@@ -55,8 +55,8 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
    */
   public initVersion() {
     if (!this.detectedVersion) {
-      Logger.instance.debug(
-          'Ermittle die aktuelle Version des Test-Frameworks...');
+      Message.log(
+          Messages.getTestSpawnerDetectFrameworkVersionStart(this.config.name));
       let spawnArgs = this.createSpawnArgumentsVersion();
       Spawner.instance.spawn(spawnArgs)
           .then((ret: SpawnResult) => {
@@ -70,18 +70,18 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
           .then(v => {
             this.detectedVersion = v ? v : this.fallbackVersion;
             if (v) {
-              Logger.instance.debug(`Die Version des Test-Frameworks für ${
-                  this.config.name} wurde erfolgreich erkannt: ${v}`);
+              Message.log(
+                  Messages.getTestSpawnerDetectFrameworkVersionFinishedValid(
+                      this.config.name, v.toString()));
             } else {
-              Logger.instance.warn(`Die Version des Test-Frameworks für ${
-                  this.config
-                      .name} konnte nicht erkannt werden. Verwende aktuellste: ${
-                  v}`);
+              Message.log(
+                  Messages.getTestSpawnerDetectFrameworkVersionFinishedInvalid(
+                      this.config.name, this.detectedVersion.toString()));
             }
           })
           .catch(error => {
-            this.logError(
-                'Fehler beim Ermitteln der Version des Test-Frameworks', error);
+            Message.log(Messages.getTestSpawnerDetectFrameworkVersionError(
+                this.config.name, error));
           });
     }
   }
@@ -99,21 +99,20 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
       Spawner.instance.spawn(spawnArgs)
           .then((ret: SpawnResult) => {
             if (ret.status < 0) {
-              Logger.instance.error(
-                  `Fehlerhafter Return-Value beim dry() Aufruf der Test-Executable ${
-                      this.config.name}`);
+              Message.log(Messages.getTestSpawnerDryRunFinishedInvalid(
+                  this.config.name));
               reject(ret.error);
             } else {
-              Logger.instance.debug(
-                  `Test-Executable ${this.config.name} erfolgreich aufgerufen`);
+              Message.log(
+                  Messages.getTestSpawnerDryRunFinishedValid(this.config.name));
               resolve(this.parseSpawnResult(ret));
             }
           })
           .catch((error: SpawnResult) => {
-            let msg = `Fehler beim dry() Aufruf der Test-Executable ${
-                this.config.name}`;
-            this.logError(msg, error);
-            reject(error.error || new Error(msg));
+            let msg = Messages.getTestSpawnerDryRunError(
+                this.config.name, error.error);
+            Message.log(msg);
+            reject(error.error || new Error(msg.format()));
           });
     });
   }
@@ -132,14 +131,11 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
       Spawner.instance.spawn(spawnArgs)
           .then((ret: SpawnResult) => {
             if (!ret.cancelled && ret.status < 0) {
-              let msg =
-                  `Fehlerhafter Return-Value beim run() Aufruf der Test-Executable ${
-                      node.id}`;
-              Logger.instance.error(msg);
-              resolve(node.finish(TestStatusFailed, msg));
+              let msg = Messages.getTestSpawnerTestRunFinishedInvalid(node.id);
+              Message.log(msg);
+              resolve(node.finish(TestStatusFailed, msg.format()));
             } else {
-              Logger.instance.debug(
-                  `Test-Executable ${node.id} erfolgreich aufgerufen`);
+              Message.log(Messages.getTestSpawnerTestRunFinishedValid(node.id));
               if (ret.cancelled) {
                 resolve(node.cancel());
               } else {
@@ -148,10 +144,10 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
             }
           })
           .catch((error: SpawnResult) => {
-            this.logError(
-                `Fehler beim run() Aufruf der Test-Executable ${node.id}`,
-                error);
-            resolve(node.finish(TestStatusFailed));
+            let msg =
+                Messages.getTestSpawnerTestRunError(this.config.name, error);
+            Message.log(msg);
+            resolve(node.finish(TestStatusFailed, msg.format()));
           });
     });
   }
@@ -161,12 +157,12 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
    * `allowKillProcess` aktiviert ist, werden laufende Prozesse hart beendet.
    */
   public stop() {
-    Logger.instance.info('Beende alle laufenden Prozesse');
+    Message.notify(Messages.getTestSpawnerStopRunningProcesses(
+        this.config.name, this.config.allowKillProcess));
     if (this.config.allowKillProcess) {
       Spawner.instance.killAll();
     }
   }
-
 
   /**
    * Aktualisiert einen Testknoten auf Basis des Ausgabestrings.
@@ -180,31 +176,13 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
     let nodes = new Array<TestNodeI>();
     let resultNode = ret.testsuite.find(node.id);
     if (resultNode) {
-      Logger.instance.debug(`Test "${node.id}": ${resultNode.status}`);
+      Message.log(Messages.getTestSpawnerTestResultUpdateValid(
+          node.id, resultNode.status));
       nodes = node.finish(resultNode.status, resultNode.message);
     } else {
-      Logger.instance.warn(`In der Testausgabe konnte der Test "${
-          node.id}" nicht gefunden werden`);
+      Message.log(Messages.getTestSpawnerTestResultUpdateInvalid(node.id));
       nodes = node.finish(TestStatusSkipped);
     }
     return nodes;
-  }
-
-  /**
-   * Loggt ein Fehlerobjekt
-   * @param message Nachricht, die dem Fehler vorangestellt werden soll
-   * @param error   Fehlerobjekt
-   */
-  protected logError(message: string, error: any) {
-    let msg = message;
-    if (typeof error === 'string') {
-      if (error.length > 0) msg += `\n${error}`;
-    } else if (error instanceof Error) {
-      msg += `\n${error.name} - "${error.message}"`;
-      if (error.stack) msg += `Stacktrace:\n${error.stack}`;
-    } else if (error instanceof SpawnResult) {
-      if (error.stderr.length) msg += `\n${error.stderr}`;
-    }
-    Logger.instance.error(msg);
   }
 }

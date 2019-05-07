@@ -1,3 +1,4 @@
+import {Messages} from './messages';
 import {ProgressBox, ProgressStatus} from './progress';
 
 export class LoadingProgress extends ProgressStatus {
@@ -10,9 +11,10 @@ export class LoadingProgress extends ProgressStatus {
 
 export function showLoadingProgress(cancellationHandler?: () => void) {
   ProgressBox.show<LoadingProgress>(
-      'loading', 'Laden der Testprojekte', (status: LoadingProgress) => {
-        return `${status.tests} Tests, ${status.errors} Fehler, ${
-            status.warnings} Warnungen`;
+      'loading',
+      Messages.getLoadingStatusTitle(), (status: LoadingProgress) => {
+        return Messages.getLoadingStatusProgress(
+            status.tests, status.errors, status.warnings);
       }, cancellationHandler);
 }
 

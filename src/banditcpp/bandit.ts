@@ -8,8 +8,10 @@ import {asTest, asTestGroup, TestGroup, TestNodeI} from '../project/test';
 import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusSkipped} from '../project/teststatus';
 import {escapeRegExp, removeDuplicates} from '../util/helper';
 import {Logger} from '../util/logger';
-import {Message} from '../util/message';
 import {Version} from '../util/version';
+
+import {Messages} from './messages';
+
 
 const uuid = require('uuid/v4');
 
@@ -30,9 +32,7 @@ export class BanditSpawner extends TestSpawnerBase {
       cwd: this.config.cwd,
       env: this.config.env,
       shell: true,
-      windowsVerbatimArguments: true,
-      encoding: 'utf8',
-      windowsHide: true
+      encoding: 'utf8'
     };
   }
 
@@ -196,8 +196,8 @@ export class BanditSpawner extends TestSpawnerBase {
             if (current_suite.parent) {
               current_suite = current_suite.parent;
             } else {
-              let msg =
-                  `Fehlender Parent bei node mit der id "${current_suite.id}"`;
+              const msg =
+                  '\n' + Messages.getMissingNodeParent(current_suite.id);
               Logger.instance.error(msg);
               throw new Error(msg);
             }
@@ -215,13 +215,10 @@ export class BanditSpawner extends TestSpawnerBase {
                 asTestGroup(current_suite.findByLabel(newLabel));
             if (!existingGroup) {
               node = current_suite = current_suite.addSuite(newLabel);
-              result.messages.push(
-                  Message.debug('Neue Gruppe', `"${node.id}"`));
+              result.messages.push(Messages.getInfoNewGroup(node.id));
             } else {
-              let msg = `Eine Gruppe mit dem Label "${
-                  newLabel}" existiert bereits in der Gruppe "${
-                  current_suite.id}"`;
-              result.messages.push(Message.warn('Mehrdeutige Testgruppe', msg));
+              result.messages.push(
+                  Messages.getAmbiguousGroup(newLabel, current_suite.id));
               node = current_suite = existingGroup;
             }
           } else if (lineIsTest) {
@@ -232,20 +229,16 @@ export class BanditSpawner extends TestSpawnerBase {
             let newLabel = parseTestLabel(line);
             let invalidLabel = newLabel.trim().length == 0;
             if (invalidLabel) {
-              let msg = `Ein Test fehlerhaftem leeren Namen wurde in Gruppe "${
-                  current_suite.id}" gefunden. Test wird ignoriert.`;
-              result.messages.push(Message.warn('Ungültiger Test', msg));
+              result.messages.push(
+                  Messages.getEmptyNodeLabel(current_suite.id));
             } else {
               let existingTest = asTest(current_suite.findByLabel(newLabel));
               if (!existingTest) {
                 node = current_suite.addTest(newLabel);
-                result.messages.push(
-                    Message.debug('Neuer Test', `"${node.id}"`));
+                result.messages.push(Messages.getInfoNewTest(node.id));
               } else {
-                let msg = `Ein Test mit dem Label "${
-                    newLabel}" existiert bereits in der Gruppe "${
-                    current_suite.id}"`;
-                result.messages.push(Message.warn('Mehrdeutiger Test', msg));
+                result.messages.push(
+                    Messages.getAmbiguousTest(newLabel, current_suite.id));
                 node = existingTest;
               }
             }
@@ -282,8 +275,8 @@ export class BanditSpawner extends TestSpawnerBase {
             if (lines[0].match(requiredLineStart)) {
               node.message = `${node.displayTitle}:\n\n${
                   lines.slice(1, lines.length).join('\n').replace(/\n$/, '')}`;
-              result.messages.push(Message.info(
-                  'Fehlermeldung für Test erkannt', `${node.message}`));
+              result.messages.push(
+                  Messages.getInfoErrorsDetected(node.id, node.message));
             }
           }
         }
