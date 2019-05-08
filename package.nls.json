@@ -1,3 +1,10 @@
 {
-  "command.start_test_filtered": "Start test(s) with filter"
+  "command.start_test_filtered": "Start test(s) with filter",
+  "properties.banditTestExplorer.testsuites": "The configuration of your bandit test projects. Either a single JSON configuration object or a path to the JSON configuration file (relative to the workspace folder or absolute path).",
+  "properties.banditTestExplorer.parallelProcessLimit": "The limit of parallel processes startet during a test run.",
+  "properties.banditTestExplorer.watchTimeoutSec": "A timeout in seconds that helps to prevent the auto run when watched files are compiled often.",
+  "properties.banditTestExplorer.allowKillProcess": "Allows to hard kill running processes when a test run is cancelled or aborted.",
+  "properties.banditTestExplorer.logpanel": "Enables the output of diagnostic logs to the integrated output panel.",
+  "properties.banditTestExplorer.logfile": "Enables the output of diagnostic logs to the specified file if provided.",
+  "properties.banditTestExplorer.loglevel": "The logging level used to filter notifications. All notifications of the same or higher level will be logged."
 }

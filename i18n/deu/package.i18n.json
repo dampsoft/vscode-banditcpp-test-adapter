@@ -1,3 +1,10 @@
 {
-  "command.start_test_filtered": "Starte Test(s) mit Filter"
+  "command.start_test_filtered": "Starte Test(s) mit Filter",
+  "properties.banditTestExplorer.testsuites": "Die Konfiguration der Bandit Testprojekte. Entweder ein JSON-Konfiguraionsobjekt oder ein Pfad zu einer JSON Konfigurationsdatei (relativ zum Workspace oder als absoluter Pfad).",
+  "properties.banditTestExplorer.parallelProcessLimit": "Das Limit parallel ausgeführter Test-Prozesse während eines Testlaufs.",
+  "properties.banditTestExplorer.watchTimeoutSec": "Ein Timeout in Sekunden um den Autorun bei häufigen Projektänderungen zu verzögern.",
+  "properties.banditTestExplorer.allowKillProcess": "Freigabe, dass laufende Test-Prozesse beim Abbruch hart beendet werden dürfen.",
+  "properties.banditTestExplorer.logpanel": "Aktiviert die Ausgabe von Logmeldungen im integrierten Ausgabefenster.",
+  "properties.banditTestExplorer.logfile": "Aktiviert die Ausgabe der Logmeldungen in der angegebenen Logdatei.",
+  "properties.banditTestExplorer.loglevel": "Das Loglevel zur Ausgabe von Logmeldungen. Alle Meldungen mit gleichem oder höherem Level werden ausgegeben."
 }

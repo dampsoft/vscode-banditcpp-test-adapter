@@ -81,7 +81,7 @@
       "title": "Bandit Test Explorer configuration",
       "properties": {
         "banditTestExplorer.testsuites": {
-          "description": "The configuration of your bandit test projects. Either a single configuration object or a path to the JSON configuration file (relative to the workspace folder or absolute path).",
+          "description": "%configuration.banditTestExplorer.testsuites%",
           "type": [
             "string",
             "array",
@@ -90,34 +90,34 @@
           "scope": "resource"
         },
         "banditTestExplorer.parallelProcessLimit": {
-          "description": "The limit of parallel processes startet during a test run.",
+          "description": "%properties.banditTestExplorer.parallelProcessLimit%",
           "type": "integer",
           "scope": "resource",
           "default": 1
         },
         "banditTestExplorer.watchTimeoutSec": {
-          "description": "A timeout in seconds that helps to prevent the auto run when watched files are compiled often.",
+          "description": "%properties.banditTestExplorer.watchTimeoutSec%",
           "type": "number",
           "default": 5,
           "scope": "resource"
         },
         "banditTestExplorer.allowKillProcess": {
-          "description": "Allows to hard kill running processes when a test run is cancelled or aborted.",
+          "description": "%properties.banditTestExplorer.allowKillProcess%",
           "type": "boolean",
           "scope": "resource"
         },
         "banditTestExplorer.logpanel": {
-          "description": "Enables the output of diagnostic logs to the integrated output panel.",
+          "description": "%properties.banditTestExplorer.logpanel%",
           "type": "boolean",
           "scope": "resource"
         },
         "banditTestExplorer.logfile": {
-          "description": "Enables the output of diagnostic logs to the specified file if provided.",
+          "description": "%properties.banditTestExplorer.logfile%",
           "type": "string",
           "scope": "resource"
         },
         "banditTestExplorer.loglevel": {
-          "description": "The logging level used to filter notifications. All notifications of the same or higher level will be logged.",
+          "description": "%properties.banditTestExplorer.loglevel%",
           "type": "string",
           "scope": "resource",
           "default": "error",
