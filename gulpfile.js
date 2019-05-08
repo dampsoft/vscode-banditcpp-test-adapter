@@ -30,7 +30,7 @@ function compile(buildNls) {
     .js.pipe(buildNls ? nls.rewriteLocalizeCalls() : es.through())
     .pipe(
       buildNls
-        ? nls.createAdditionalLanguageFiles(languages, "i18n", "out")
+        ? nls.createAdditionalLanguageFiles(languages, "i18n", outDest)
         : es.through()
     );
 
@@ -42,7 +42,7 @@ function compile(buildNls) {
         // no inlined source
         includeContent: inlineSource,
         // Return relative source map root directories per file.
-        sourceRoot: "../gulp.src"
+        sourceRoot: "../src"
       })
     );
   }

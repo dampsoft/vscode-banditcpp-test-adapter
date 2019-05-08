@@ -1,15 +1,32 @@
+import * as nls from 'vscode-nls';
+
 import {MessageWrapper} from '../locale/MessageWrapper';
 
+const localize = nls.config({messageFormat: nls.MessageFormat.file})();
+
 export class Messages {
-  private static wrapperLoadingStatusTitle =
-      new MessageWrapper('progress.loading.title', 'Loading test projects');
+  private static wrapperLoadingStatusTitle = new MessageWrapper(
+      localize('progress.loading.title', 'Loading test projects'));
+  private static wrapperLoadingStatusProgress = new MessageWrapper(
+      localize(
+          'progress.loading.text', '{0} tests, {1} errors, {2} warnings',
+          '_tests_', '_errors_', '_warnings_'),
+      ['_tests_', '_errors_', '_warnings_']);
+  private static wrapperRunningStatusTitle =
+      new MessageWrapper(localize('progress.running.title', 'Running tests'));
+  private static wrapperRunningStatusProgress = new MessageWrapper(
+      localize(
+          'progress.running.text',
+          '{0} started, {1} passed, {2} failed, {3} skipped', '_started_',
+          '_passed_', '_failed_', '_skipped_'),
+      ['_started_', '_passed_', '_failed_', '_skipped_']);
+
+
   public static getLoadingStatusTitle(): string {
     const msg = Messages.wrapperLoadingStatusTitle.get();
     return msg;
   }
 
-  private static wrapperLoadingStatusProgress = new MessageWrapper(
-      'progress.loading.text', '{0} tests, {1} errors, {2} warnings', 3);
   public static getLoadingStatusProgress(
       tests: number, errors: number, warnings: number): string {
     const msg =
@@ -17,16 +34,11 @@ export class Messages {
     return msg;
   }
 
-  private static wrapperRunningStatusTitle =
-      new MessageWrapper('progress.running.title', 'Running tests');
   public static getRunningStatusTitle(): string {
     const msg = Messages.wrapperRunningStatusTitle.get();
     return msg;
   }
 
-  private static wrapperRunningStatusProgress = new MessageWrapper(
-      'progress.running.text',
-      '{0} started, {1} passed, {2} failed, {3} skipped', 4);
   public static getRunningStatusProgress(
       started: number, passed: number, failed: number,
       skipped: number): string {

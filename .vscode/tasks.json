@@ -7,17 +7,44 @@
       "type": "npm",
       "script": "watch",
       "isBackground": true,
-      "problemMatcher": ["$tsc-watch"]
+      "problemMatcher": [
+        "$tsc-watch"
+      ]
     },
     {
       "type": "npm",
       "script": "build",
-      "problemMatcher": ["$tsc"]
+      "problemMatcher": [
+        "$tsc"
+      ]
     },
     {
       "type": "gulp",
       "task": "build",
-      "problemMatcher": ["$gulp-tsc"]
+      "problemMatcher": [
+        "$gulp-tsc"
+      ]
+    },
+    {
+      "type": "gulp",
+      "task": "compile",
+      "problemMatcher": [
+        "$gulp-tsc"
+      ]
+    },
+    {
+      "type": "gulp",
+      "task": "package",
+      "problemMatcher": [
+        "$gulp-tsc"
+      ]
+    },
+    {
+      "type": "npm",
+      "script": "package",
+      "problemMatcher": [
+        "$gulp-tsc"
+      ]
     }
   ]
 }
