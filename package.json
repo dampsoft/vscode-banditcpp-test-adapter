@@ -81,7 +81,7 @@
       "title": "Bandit Test Explorer configuration",
       "properties": {
         "banditTestExplorer.testsuites": {
-          "description": "%configuration.banditTestExplorer.testsuites%",
+          "description": "%properties.banditTestExplorer.testsuites%",
           "type": [
             "string",
             "array",
