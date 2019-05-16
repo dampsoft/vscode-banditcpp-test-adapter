@@ -54,6 +54,19 @@ export class Messages {
   private static wrapperTestSpawnerDetectFrameworkVersionTitle =
       new MessageWrapper(localize(
           'testspawner.detect_version.title', 'Detecting framework version'));
+
+  private static wrapperTestSpawnerFactoryDetectFrameworkErrorTitle =
+      new MessageWrapper(localize(
+          'testspawnerfactory.detect_framework_error.title',
+          'Framework error'));
+  private static wrapperTestSpawnerFactoryDetectFrameworkErrorBody =
+      new MessageWrapper(
+          localize(
+              'testspawnerfactory.detect_framework_error.text',
+              'The configured framework of project with id "{0}" invalid: "{1}"',
+              '_id_', '_framework_'),
+          ['_id_', '_framework_']);
+
   private static wrapperTestSpawnerDetectFrameworkVersionStartBody =
       new MessageWrapper(
           localize(
@@ -198,6 +211,18 @@ export class Messages {
   public static getTestQueueExecutionError(id: string): Message {
     const title = Messages.wrapperTestQueueExecutionErrorTitle.get();
     const body = Messages.wrapperTestQueueExecutionErrorBody.get(id);
+    return Message.error(title, body);
+  }
+
+
+  /*************************** Framework detection ***************************/
+
+  public static getTestSpawnerFactoryDetectFrameworkError(
+      id: string, framework: string): Message {
+    const title =
+        Messages.wrapperTestSpawnerFactoryDetectFrameworkErrorTitle.get();
+    const body = Messages.wrapperTestSpawnerFactoryDetectFrameworkErrorBody.get(
+        id, framework);
     return Message.error(title, body);
   }
 

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 
-import {BanditSpawner} from './banditcpp/bandit';
-import {Configuration, Property} from './configuration/configuration';
+import {Configuration} from './configuration/configuration';
+import {TestSpawnerFactory} from './execution/testspawner';
 import {closeLoadingProgress, LoadingProgress, showLoadingProgress, updateLoadingProgress} from './progress/loading'
 import {closeRunningProgress, RunningProgress, showRunningProgress, updateRunningProgress} from './progress/running'
 import {asTest, asTestGroup, Test, TestGroup, TestNodeI} from './project/test';
@@ -25,8 +25,10 @@ export class BanditTestAdapter implements TestAdapter {
                               TestSuiteEvent|TestEvent>();
   private readonly reloadEmitter = new vscode.EventEmitter<void>();
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
-  private config =
-      new Configuration('banditTestExplorer', this.workspaceFolder);
+  private config = new Configuration(
+      'banditTestExplorer', this.workspaceFolder, (hardReset: boolean) => {
+        this.onConfigChanged(hardReset);
+      });
   private testSuites: TestSuite[] = [];
 
   /**
@@ -40,7 +42,6 @@ export class BanditTestAdapter implements TestAdapter {
     this.disposables.push(this.testStatesEmitter);
     this.disposables.push(this.reloadEmitter);
     this.disposables.push(this.autorunEmitter);
-    this.createConfigWatch();
     this.registerCommands();
   }
 
@@ -170,6 +171,7 @@ export class BanditTestAdapter implements TestAdapter {
     this.disposables = [];
     this.disposeArray(this.testSuites);
     this.testSuites = [];
+    this.config.dispose();
   }
 
   /**
@@ -204,9 +206,7 @@ export class BanditTestAdapter implements TestAdapter {
       this.load();
     };
     for (let tsconfig of this.config.testsuites) {
-      let spawner =
-          new BanditSpawner(tsconfig);  // Später: Spawner über Factory anhand
-                                        // der tsconfig.framework Eigenschaft
+      let spawner = TestSpawnerFactory.createSpawner(tsconfig);
       let suite = new TestSuite(
           tsconfig, spawner, onSuiteChange, onStatusChange, onMessage);
       this.testSuites.push(suite);
@@ -222,23 +222,12 @@ export class BanditTestAdapter implements TestAdapter {
     Logger.instance.level = this.config.loglevel;
   }
 
-  /**
-   * Erzeugt einen Konfigurations-Watch
-   */
-  private createConfigWatch() {
-    let watch = vscode.workspace.onDidChangeConfiguration(configChange => {
-      let affects = (property: Property): boolean => {
-        return configChange.affectsConfiguration(
-            this.config.fullname(property), this.workspaceFolder.uri);
-      };
-      if (this.config.propertiesHardReset.some(affects)) {
-        // Komplettes Neuladen wenn folgende Konfigurationen geändert wurden:
-        this.load();
-      } else {
-        this.reloadConfiguration();
-      }
-    });
-    this.disposables.push(watch);
+  private onConfigChanged(hardReset: boolean) {
+    if (hardReset) {
+      this.load();
+    } else {
+      this.reloadConfiguration();
+    }
   }
 
   /**

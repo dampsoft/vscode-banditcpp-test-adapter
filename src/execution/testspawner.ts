@@ -1,3 +1,4 @@
+import {BanditSpawner} from '../banditcpp/bandit';
 import {TestSuiteConfiguration} from '../configuration/configuration';
 import {SymbolResolverI} from '../configuration/symbol';
 import {TestGroup, TestNodeI} from '../project/test';
@@ -21,6 +22,18 @@ export interface TestSpawnerI {
   run(node: TestNodeI,
       runtimeResolvers?: SymbolResolverI[]): Promise<TestNodeI[]>;
   stop(): void;
+}
+
+export class TestSpawnerFactory {
+  public static createSpawner(tsconfig: TestSuiteConfiguration): TestSpawnerI {
+    if (tsconfig.framework == 'bandit') {
+      return new BanditSpawner(tsconfig);
+    }
+    throw new Error(Messages
+                        .getTestSpawnerFactoryDetectFrameworkError(
+                            tsconfig.name, tsconfig.framework)
+                        .format());
+  }
 }
 
 /**

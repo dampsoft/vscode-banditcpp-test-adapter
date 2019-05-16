@@ -66,7 +66,7 @@ gulp.task("add-i18n", () => {
 });
 
 gulp.task("vsce:publish", () => {
-  // return vsce.publish();
+  return vsce.publish();
 });
 
 gulp.task("vsce:package", () => {

@@ -45,6 +45,13 @@
       "problemMatcher": [
         "$gulp-tsc"
       ]
+    },
+    {
+      "type": "gulp",
+      "task": "publish",
+      "problemMatcher": [
+        "$gulp-tsc"
+      ]
     }
   ]
 }

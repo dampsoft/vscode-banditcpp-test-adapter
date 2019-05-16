@@ -53,7 +53,7 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
             .then(result => {
               const duration = now() - startTime;
               result.testsuite.label = this.name;
-              this.testsuite = result.testsuite;
+              this.testsuite = result.testsuite;  // TODO?: partial update?
               Message.log(Messages.getTestsuiteReloadFinishedValid(
                   this.name, duration));
               this.resetWatch();

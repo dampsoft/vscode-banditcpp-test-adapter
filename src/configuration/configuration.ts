@@ -2,9 +2,11 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import {DisposableI} from '../util/disposable';
 import {switchOs} from '../util/helper';
 import {LogLevel} from '../util/logger';
-import {CanNotifyMessages, NotifyMessageHandler} from '../util/message';
+import {CanNotifyMessages, Message, NotifyMessageHandler} from '../util/message';
+import {DisposableWatcher} from '../util/watch';
 
 import {EnvProperty, mergeEnv} from './environment';
 import {Messages} from './messages';
@@ -42,6 +44,8 @@ interface TestSuiteJsonConfigurationI {
   osx?: TestSuiteJsonPlatformConfigurationI;
 }
 
+export type TestFramework = 'bandit'
+
 export class TestSuiteConfiguration {
   private isValid: boolean = true;
 
@@ -55,6 +59,10 @@ export class TestSuiteConfiguration {
 
   public get name() {
     return this.jsonConfig.name;
+  }
+
+  public get framework(): TestFramework {
+    return 'bandit';
   }
 
   public get cmd() {
@@ -153,16 +161,23 @@ export class TestSuiteConfiguration {
   }
 }
 
-export class Configuration extends CanNotifyMessages {
+export type NotifyConfigChangeHandler = (hardReset: boolean) => void;
+
+export class Configuration extends CanNotifyMessages implements DisposableI {
   private propertyGetter = new Map<string, () => any>();
   private testSuiteConfigs = new Array<TestSuiteConfiguration>();
   public readonly symbolResolver: SymbolResolverI;
+  private coreConfigWatch: DisposableI|undefined;
+  private testsuiteConfigWatch: DisposableI|undefined;
 
   constructor(
       public readonly baseConfigurationName: string,
       public readonly workspaceFolder: vscode.WorkspaceFolder,
+      private onConfigChangedHandler: NotifyConfigChangeHandler,
       notificationHandler?: NotifyMessageHandler) {
     super(notificationHandler);
+
+    this.createCoreWatch();
 
     this.symbolResolver = new WorkspaceSymbolResolver(this.workspaceFolder);
 
@@ -187,6 +202,17 @@ export class Configuration extends CanNotifyMessages {
     });
 
     this.reload();
+  }
+
+  public dispose() {
+    if (this.testsuiteConfigWatch) {
+      this.testsuiteConfigWatch.dispose();
+      this.testsuiteConfigWatch = undefined;
+    }
+    if (this.coreConfigWatch) {
+      this.coreConfigWatch.dispose();
+      this.coreConfigWatch = undefined;
+    }
   }
 
   public reload() {
@@ -261,14 +287,17 @@ export class Configuration extends CanNotifyMessages {
     let conf = this.config.get<string|TestSuiteJsonConfigurationI[]>(
         PropertyTestsuites);
     let jsonConfig: TestSuiteJsonConfigurationI[] = [];
+    let jsonConfigPath: string|undefined;
     if (typeof conf === 'string') {
       try {
-        jsonConfig = fs.readJsonSync(this.resolvePath(conf));
+        jsonConfigPath = this.resolvePath(conf);
+        jsonConfig = fs.readJsonSync(jsonConfigPath);
       } catch (e) {
       }
     } else {
       jsonConfig = conf as TestSuiteJsonConfigurationI[];
     }
+    this.resetTestsuiteConfigWatch(jsonConfigPath);
     this.testSuiteConfigs = [];
     let configNames = new Set<string>();
     for (let config of jsonConfig) {
@@ -321,5 +350,55 @@ export class Configuration extends CanNotifyMessages {
       }
     }
     return mergeEnv(process.env, resolvedEnv);
+  }
+
+  /**
+   * Erzeugt einen Konfigurations-Watch
+   */
+  private createCoreWatch() {
+    if (this.coreConfigWatch) {
+      this.coreConfigWatch.dispose();
+      this.coreConfigWatch = undefined;
+    }
+    this.coreConfigWatch =
+        vscode.workspace.onDidChangeConfiguration(configChange => {
+          let affects = (property: Property): boolean => {
+            return configChange.affectsConfiguration(
+                this.config.fullname(property), this.workspaceFolder.uri);
+          };
+          this.onConfigChangedHandler(this.propertiesHardReset.some(affects));
+        });
+  }
+
+  /**
+   * Erzeugt einen Datei-Watch für die JSON-Testsuite-Konfiguration wenn ein
+   * solcher Pfad als Testsuite angegeben wurde. Bei Änderungen an den
+   * beobachteten Test-Dateien wird `onSuiteChange()` getriggert.
+   */
+  private resetTestsuiteConfigWatch(jsonConfigPath: string|undefined) {
+    if (this.testsuiteConfigWatch) {
+      this.testsuiteConfigWatch.dispose();
+      this.testsuiteConfigWatch = undefined;
+    }
+    if (jsonConfigPath) {
+      let paths: string[] = [];
+      paths.push(jsonConfigPath);
+      const onReady = () => {
+        Message.log(
+            Messages.getTestsuiteConfigurationWatchReady(jsonConfigPath));
+      };
+      const onChange = (path: string, stats: any) => {
+        Message.log(
+            Messages.getTestsuiteConfigurationWatchTrigger(jsonConfigPath));
+        this.onConfigChangedHandler(
+            true);  // TODO? Check if hard reset necessary
+      };
+      const onError = () => {
+        Message.log(
+            Messages.getTestsuiteConfigurationWatchError(jsonConfigPath));
+      };
+      this.testsuiteConfigWatch =
+          new DisposableWatcher(paths, onReady, onChange, onError);
+    }
   }
 }
