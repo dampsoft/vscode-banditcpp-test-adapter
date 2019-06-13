@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import {DisposableI} from '../util/disposable';
 import {switchOs} from '../util/helper';
 import {LogLevel} from '../util/logger';
-import {CanNotifyMessages, Message, NotifyMessageHandler} from '../util/message';
+import {CanNotifyMessages, NotifyMessageHandler} from '../util/message';
 import {DisposableWatcher} from '../util/watch';
 
 import {EnvProperty, mergeEnv} from './environment';

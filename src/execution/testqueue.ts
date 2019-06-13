@@ -2,7 +2,6 @@ import {Mutex} from 'async-mutex';
 
 import {BaseSymbolResolver} from '../configuration/symbol';
 import {TestNodeI} from '../project/test';
-import {Message} from '../util/message';
 
 import {Messages} from './messages';
 import {TestSpawnerI} from './testspawner';

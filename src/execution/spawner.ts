@@ -1,7 +1,5 @@
 import * as cp from 'child_process';
 
-import {Message} from '../util/message';
-
 import {Messages} from './messages';
 
 export class SpawnResult {

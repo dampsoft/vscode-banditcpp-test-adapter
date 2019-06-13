@@ -3,7 +3,7 @@ var now = require('performance-now');
 import {ParseResult, TestSpawnerI} from '../execution/testspawner';
 import {TestSuiteConfiguration} from '../configuration/configuration';
 import {DisposableI} from '../util/disposable';
-import {CanNotifyMessages, NotifyMessageHandler, Message} from '../util/message';
+import {CanNotifyMessages, NotifyMessageHandler} from '../util/message';
 import {TestGroup, TestNodeI} from './test';
 import {DisposableWatcher} from '../util/watch';
 import {TestQueue, SlotSymbolResolver} from '../execution/testqueue';
