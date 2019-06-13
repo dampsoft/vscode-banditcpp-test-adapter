@@ -139,6 +139,7 @@ and use it like:
 ## What's next?
 
 - Enable/disable configured projects
+- Integrate custom vscode tasks to the execution process (e.g. triggered when a test run started or ended)
 - Filtering the tree
 - Enable Debugging (Set Breakpoint inside it or describe and start debugging session)
 
