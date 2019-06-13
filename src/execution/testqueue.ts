@@ -107,7 +107,7 @@ export class TestQueue {
             this.finish(entry);
           })
           .catch(() => {
-            Message.notify(Messages.getTestQueueExecutionError(entry.node.id));
+            Messages.getTestQueueExecutionError(entry.node.id).notify();
             this.finish(entry);
           });
     });

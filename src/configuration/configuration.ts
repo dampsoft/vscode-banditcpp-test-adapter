@@ -384,18 +384,15 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
       let paths: string[] = [];
       paths.push(jsonConfigPath);
       const onReady = () => {
-        Message.log(
-            Messages.getTestsuiteConfigurationWatchReady(jsonConfigPath));
+        Messages.getTestsuiteConfigurationWatchReady(jsonConfigPath).log();
       };
       const onChange = (path: string, stats: any) => {
-        Message.log(
-            Messages.getTestsuiteConfigurationWatchTrigger(jsonConfigPath));
+        Messages.getTestsuiteConfigurationWatchTrigger(jsonConfigPath).log();
         this.onConfigChangedHandler(
             true);  // TODO? Check if hard reset necessary
       };
       const onError = () => {
-        Message.log(
-            Messages.getTestsuiteConfigurationWatchError(jsonConfigPath));
+        Messages.getTestsuiteConfigurationWatchError(jsonConfigPath).log();
       };
       this.testsuiteConfigWatch =
           new DisposableWatcher(paths, onReady, onChange, onError);

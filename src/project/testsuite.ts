@@ -47,23 +47,23 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
   public reload(): Promise<ParseResult> {
     return new Promise((resolve, reject) => {
       this.cancel().then(() => {
-        Message.log(Messages.getTestsuiteReloadStart(this.name));
+        Messages.getTestsuiteReloadStart(this.name).log();
         let startTime = now();
         this.spawner.dry([new SlotSymbolResolver(0)])
             .then(result => {
               const duration = now() - startTime;
               result.testsuite.label = this.name;
               this.testsuite = result.testsuite;  // TODO?: partial update?
-              Message.log(Messages.getTestsuiteReloadFinishedValid(
-                  this.name, duration));
+              Messages.getTestsuiteReloadFinishedValid(this.name, duration)
+                  .log();
               this.resetWatch();
               result.messages.forEach(m => this.notify(m, false));
               resolve(result);
             })
             .catch(e => {
               const duration = now() - startTime;
-              Message.log(Messages.getTestsuiteReloadFinishedInvalid(
-                  this.name, duration));
+              Messages.getTestsuiteReloadFinishedInvalid(this.name, duration)
+                  .log();
               reject(e);
             });
       });
@@ -86,7 +86,7 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
           });
         });
       });
-      Message.log(Messages.getTestsuiteRunStart(this.name, startingNodes.size));
+      Messages.getTestsuiteRunStart(this.name, startingNodes.size).log();
       let nodes = Array.from(startingNodes.values());
       this.queue.push(nodes);
       resolve(nodes);
@@ -100,7 +100,7 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
    */
   public cancel(): Promise<void> {
     return new Promise(resolve => {
-      Message.log(Messages.getTestsuiteRunCancel(this.name));
+      Messages.getTestsuiteRunCancel(this.name).log();
       this.testsuite.cancel().map(this.onStatusChange, this);
       this.queue.stop();
       this.spawner.stop();
@@ -138,10 +138,10 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
       this.configuration.watches.map((p: string) => paths.push(p));
     }
     const onReady = () => {
-      Message.log(Messages.getTestsuiteWatchReady(this.name));
+      Messages.getTestsuiteWatchReady(this.name).log();
     };
     const onChange = (path: string, stats: any) => {
-      Message.log(Messages.getTestsuiteWatchTrigger(this.name, path));
+      Messages.getTestsuiteWatchTrigger(this.name, path).log();
       if (this.changeTimeout) {
         clearTimeout(this.changeTimeout);
         this.changeTimeout = undefined;
@@ -151,7 +151,7 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
       }, this.configuration.watchTimeoutSec * 1000);
     };
     const onError = () => {
-      Message.log(Messages.getTestsuiteWatchError(this.name));
+      Messages.getTestsuiteWatchError(this.name).log();
     };
     this.watch = new DisposableWatcher(paths, onReady, onChange, onError);
   }

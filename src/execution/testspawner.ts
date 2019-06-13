@@ -1,4 +1,3 @@
-import {BanditSpawner} from '../banditcpp/bandit';
 import {TestSuiteConfiguration} from '../configuration/configuration';
 import {SymbolResolverI} from '../configuration/symbol';
 import {TestGroup, TestNodeI} from '../project/test';
@@ -24,17 +23,6 @@ export interface TestSpawnerI {
   stop(): void;
 }
 
-export class TestSpawnerFactory {
-  public static createSpawner(tsconfig: TestSuiteConfiguration): TestSpawnerI {
-    if (tsconfig.framework == 'bandit') {
-      return new BanditSpawner(tsconfig);
-    }
-    throw new Error(Messages
-                        .getTestSpawnerFactoryDetectFrameworkError(
-                            tsconfig.name, tsconfig.framework)
-                        .format());
-  }
-}
 
 /**
  * Basisklasse für Test-Spawner.
@@ -68,8 +56,8 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
    */
   public initVersion() {
     if (!this.detectedVersion) {
-      Message.log(
-          Messages.getTestSpawnerDetectFrameworkVersionStart(this.config.name));
+      Messages.getTestSpawnerDetectFrameworkVersionStart(this.config.name)
+          .log();
       let spawnArgs = this.createSpawnArgumentsVersion();
       Spawner.instance.spawn(spawnArgs)
           .then((ret: SpawnResult) => {
@@ -83,18 +71,22 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
           .then(v => {
             this.detectedVersion = v ? v : this.fallbackVersion;
             if (v) {
-              Message.log(
-                  Messages.getTestSpawnerDetectFrameworkVersionFinishedValid(
-                      this.config.name, v.toString()));
+              Messages
+                  .getTestSpawnerDetectFrameworkVersionFinishedValid(
+                      this.config.name, v.toString())
+                  .log();
             } else {
-              Message.log(
-                  Messages.getTestSpawnerDetectFrameworkVersionFinishedInvalid(
-                      this.config.name, this.detectedVersion.toString()));
+              Messages
+                  .getTestSpawnerDetectFrameworkVersionFinishedInvalid(
+                      this.config.name, this.detectedVersion.toString())
+                  .log();
             }
           })
           .catch(error => {
-            Message.log(Messages.getTestSpawnerDetectFrameworkVersionError(
-                this.config.name, error));
+            Messages
+                .getTestSpawnerDetectFrameworkVersionError(
+                    this.config.name, error)
+                .log();
           });
     }
   }
@@ -112,19 +104,19 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
       Spawner.instance.spawn(spawnArgs)
           .then((ret: SpawnResult) => {
             if (ret.status < 0) {
-              Message.log(Messages.getTestSpawnerDryRunFinishedInvalid(
-                  this.config.name));
+              Messages.getTestSpawnerDryRunFinishedInvalid(this.config.name)
+                  .log();
               reject(ret.error);
             } else {
-              Message.log(
-                  Messages.getTestSpawnerDryRunFinishedValid(this.config.name));
+              Messages.getTestSpawnerDryRunFinishedValid(this.config.name)
+                  .log();
               resolve(this.parseSpawnResult(ret));
             }
           })
           .catch((error: SpawnResult) => {
             let msg = Messages.getTestSpawnerDryRunError(
                 this.config.name, error.error);
-            Message.log(msg);
+            msg.log();
             reject(error.error || new Error(msg.format()));
           });
     });
@@ -145,10 +137,10 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
           .then((ret: SpawnResult) => {
             if (!ret.cancelled && ret.status < 0) {
               let msg = Messages.getTestSpawnerTestRunFinishedInvalid(node.id);
-              Message.log(msg);
+              msg.log();
               resolve(node.finish(TestStatusFailed, msg.format()));
             } else {
-              Message.log(Messages.getTestSpawnerTestRunFinishedValid(node.id));
+              Messages.getTestSpawnerTestRunFinishedValid(node.id).log();
               if (ret.cancelled) {
                 resolve(node.cancel());
               } else {
@@ -159,7 +151,7 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
           .catch((error: SpawnResult) => {
             let msg =
                 Messages.getTestSpawnerTestRunError(this.config.name, error);
-            Message.log(msg);
+            msg.log();
             resolve(node.finish(TestStatusFailed, msg.format()));
           });
     });
@@ -170,8 +162,10 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
    * `allowKillProcess` aktiviert ist, werden laufende Prozesse hart beendet.
    */
   public stop() {
-    Message.notify(Messages.getTestSpawnerStopRunningProcesses(
-        this.config.name, this.config.allowKillProcess));
+    Messages
+        .getTestSpawnerStopRunningProcesses(
+            this.config.name, this.config.allowKillProcess)
+        .notify();
     if (this.config.allowKillProcess) {
       Spawner.instance.killAll();
     }
@@ -189,11 +183,11 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
     let nodes = new Array<TestNodeI>();
     let resultNode = ret.testsuite.find(node.id);
     if (resultNode) {
-      Message.log(Messages.getTestSpawnerTestResultUpdateValid(
-          node.id, resultNode.status));
+      Messages.getTestSpawnerTestResultUpdateValid(node.id, resultNode.status)
+          .log();
       nodes = node.finish(resultNode.status, resultNode.message);
     } else {
-      Message.log(Messages.getTestSpawnerTestResultUpdateInvalid(node.id));
+      Messages.getTestSpawnerTestResultUpdateInvalid(node.id).log();
       nodes = node.finish(TestStatusSkipped);
     }
     return nodes;

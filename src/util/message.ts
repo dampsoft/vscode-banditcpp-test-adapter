@@ -34,6 +34,14 @@ export class Message {
     return `${this.title}: \n${this.description}`;
   }
 
+  public log() {
+    Message.log(this);
+  }
+
+  public notify(forceLog?: boolean) {
+    Message.notify(this, forceLog);
+  }
+
   static debug(title: string, description: string, details?: string) {
     return new Message(title, description, details, MessageTypeDebug);
   }

@@ -2,7 +2,8 @@ import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 
 import {Configuration} from './configuration/configuration';
-import {TestSpawnerFactory} from './execution/testspawner';
+import {TestSpawnerFactory} from './execution/testspawnerfactory';
+import {Messages} from './messages'
 import {closeLoadingProgress, LoadingProgress, showLoadingProgress, updateLoadingProgress} from './progress/loading'
 import {closeRunningProgress, RunningProgress, showRunningProgress, updateRunningProgress} from './progress/running'
 import {asTest, asTestGroup, Test, TestGroup, TestNodeI} from './project/test';
@@ -36,7 +37,7 @@ export class BanditTestAdapter implements TestAdapter {
    * @param workspaceFolder Arbeitsplatz-Ordner
    */
   constructor(public readonly workspaceFolder: vscode.WorkspaceFolder) {
-    Logger.instance.info('Initialisiere den Bandit Test-Adapter');
+    Messages.getAdapterInitializeInfo().log();
     this.reloadConfiguration();
     this.disposables.push(this.testsEmitter);
     this.disposables.push(this.testStatesEmitter);
@@ -69,7 +70,7 @@ export class BanditTestAdapter implements TestAdapter {
     return new Promise((resolve) => {
       if (!this.loadingActive) {
         this.loadingActive = true;
-        Logger.instance.info('Lade Bandit Tests');
+        Messages.getAdapterLoadInfo().log();
         this.reset();
         this.notifyLoadStart();
         let progress = new LoadingProgress(0, this.testSuites.length);
@@ -91,14 +92,7 @@ export class BanditTestAdapter implements TestAdapter {
               resolve();
             })
             .catch(e => {
-              let error: string|undefined;
-              if (e instanceof Error) {
-                Logger.instance.error(e.message);
-                error = e.message;
-              } else {
-                Logger.instance.error(
-                    'Unbekannter Fehler beim Laden der Tests');
-              }
+              let error = (e instanceof Error) ? e.message : undefined;
               this.notifyLoadFailed(error);
               this.loadingActive = false;
               resolve();
@@ -113,24 +107,22 @@ export class BanditTestAdapter implements TestAdapter {
    * Startet einen Testlauf für ausgewählte Tests
    * @param tests Test-Ids oder reguläre Ausdrücke zum Ermitteln der Tests
    */
-  public run(tests: (string|RegExp)[]): Promise<void> {
+  public run(filters: (string|RegExp)[]): Promise<void> {
     return new Promise((resolve, reject) => {
-      Logger.instance.info(`Starte Bandit Tests ${JSON.stringify(tests)}`);
-      if (tests.length == 1 && tests[0] === 'root') {
-        tests = [/.*/];
+      Messages.getAdapterStartInfo(JSON.stringify(filters)).log();
+      if (filters.length == 1 && filters[0] === 'root') {
+        filters = [/.*/];
       }
-      Promise.all(this.testSuites.map((t) => t.start(tests)))
+      Promise.all(this.testSuites.map((t) => t.start(filters)))
           .then((nodes) => {
-            this.notifyTestrunStart(flatten(nodes));
+            this.notifyTestrunStart(filters, flatten(nodes));
             resolve();
           })
           .catch(e => {
-            if (e instanceof Error) {
-              Logger.instance.error(e.message);
-            } else {
-              Logger.instance.error(
-                  'Unbekannter Fehler beim Starten der Tests');
-            }
+            this.getErrorMessage(
+                    e, Messages.getAdapterStartError,
+                    Messages.getAdapterStartErrorUnknown)
+                .log();
             this.notifyTestrunFinish();
             reject(e);
           });
@@ -142,7 +134,7 @@ export class BanditTestAdapter implements TestAdapter {
    * @param tests Test-Ids oder reguläre Ausdrücke zum Ermitteln der Tests
    */
   public debug(tests: (string|RegExp)[]): Promise<void> {
-    Logger.instance.warn('Das Debugging ist noch nicht implementiert!');
+    Messages.getAdapterDebugNotImplementedWarning().log();
     return Promise.resolve();
   }
 
@@ -153,11 +145,10 @@ export class BanditTestAdapter implements TestAdapter {
    */
   public cancel() {
     Promise.all(this.testSuites.map((t) => t.cancel())).catch(e => {
-      if (e instanceof Error) {
-        Logger.instance.error(e.message);
-      } else {
-        Logger.instance.error('Unbekannter Fehler beim Abbrechen der Tests');
-      }
+      this.getErrorMessage(
+              e, Messages.getAdapterCancelError,
+              Messages.getAdapterCancelErrorUnknown)
+          .log();
       this.notifyTestrunFinish();
     });
   }
@@ -199,7 +190,7 @@ export class BanditTestAdapter implements TestAdapter {
         Logger.instance.log(
             `${message.title}: ${message.description}`, message.type);
       } else {
-        Message.notify(message);
+        message.notify();
       }
     };
     let onSuiteChange = () => {
@@ -241,7 +232,7 @@ export class BanditTestAdapter implements TestAdapter {
           vscode.window
               .showInputBox({
                 placeHolder:
-                    'Geben Sie hier einen Filter zum Ausführen von Tests oder der Testgruppen ein.'
+                    Messages.getAdapterCommandRunTestsFilteredPlaceholder()
               })
               .then(t => {
                 if (t) {
@@ -278,17 +269,22 @@ export class BanditTestAdapter implements TestAdapter {
     this.testsEmitter.fire(
         <TestLoadFinishedEvent>{type: 'finished', errorMessage: error});
     closeLoadingProgress();
-    Message.notify(
-        new Message(
-            'Laden der Testprojekte', `fehlgeschlagen ${error || ''}`, 'error'),
-        true);
+    this.getErrorMessage(
+            error, Messages.getAdapterLoadError,
+            Messages.getAdapterLoadErrorUnknown)
+        .notify(true);
   }
 
   private lastTestrunStatus = TestStatusIdle;
 
   private runningProgress: RunningProgress|undefined;
 
-  private notifyTestrunStart(nodes: TestNodeI[]) {
+  private notifyTestrunStart(filters: (string|RegExp)[], nodes: TestNodeI[]) {
+    if (nodes.length == 0) {
+      let filter = '[' + filters.map(f => f.toString()).join(', ') + ']';
+      Messages.getAdapterCommandRunTestsFilteredError(filter).notify();
+      return;
+    }
     if (this.lastTestrunStatus == TestStatusIdle) {
       if (this.testSuites.some(
               (testsuite) => testsuite.status == TestStatusRunning)) {
@@ -381,5 +377,17 @@ export class BanditTestAdapter implements TestAdapter {
       state: status,
       message: group.message
     } as TestSuiteEvent;
+  }
+
+  private getErrorMessage(
+      error: any, messageCallback: (message: string) => Message,
+      messageCallbackUnknown: () => Message): Message {
+    if (error instanceof Error) {
+      return messageCallback(error.message);
+    } else if (typeof error === 'string') {
+      return messageCallback(error);
+    } else {
+      return messageCallbackUnknown();
+    }
   }
 }

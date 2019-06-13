@@ -32,14 +32,16 @@ export class Spawner {
   private spawnedProcesses = new Map<string, SpawnTokenI>();
 
   public spawn(args: SpawnArguments): Promise<SpawnResult> {
-    Message.log(Messages.getSpawnerProcessRequest(args.id));
+    Messages.getSpawnerProcessRequest(args.id).log();
     if (this.exists(args.id)) {
       let msg = Messages.getSpawnerProcessIdAlreadyExists(args.id);
-      Message.log(msg);
+      msg.log();
       throw new Error(msg.format());
     }
-    Message.log(Messages.getSpawnerProcessStart(
-        args.id, args.cmd + (args.args ? ' ' + args.args.join(' ') : '')));
+    Messages
+        .getSpawnerProcessStart(
+            args.id, args.cmd + (args.args ? ' ' + args.args.join(' ') : ''))
+        .log();
     return new Promise((resolve, reject) => {
       const command = cp.spawn(args.cmd, args.args || [], args.options || {});
       const ret = new SpawnResult(command.pid);
@@ -61,15 +63,14 @@ export class Spawner {
         ret.signal = signal;
         this.remove(args.id);
         if (ret.isFailed()) {
-          Message.log(
-              Messages.getSpawnerProcessFinishedInvalid(args.id, signal, code));
+          Messages.getSpawnerProcessFinishedInvalid(args.id, signal, code)
+              .log();
           if (!ret.error) {
             ret.error = new Error(ret.stderr);
           }
           reject(ret);
         } else {
-          Message.log(
-              Messages.getSpawnerProcessFinishedValid(args.id, signal, code));
+          Messages.getSpawnerProcessFinishedValid(args.id, signal, code).log();
           resolve(ret);
         }
       });
