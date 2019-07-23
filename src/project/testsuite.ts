@@ -20,7 +20,7 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
   private watch: DisposableI|undefined;
   private changeTimeout: NodeJS.Timer|undefined;
   private testsuite = new TestGroup(undefined, this.name);
-  private queue = new TestQueue(this.configuration, this.spawner, node => {
+  private queue = new TestQueue(this.configuration, node => {
     this.onStatusChange(node);
   });
 
@@ -88,7 +88,7 @@ export class TestSuite extends CanNotifyMessages implements DisposableI {
       });
       Messages.getTestsuiteRunStart(this.name, startingNodes.size).log();
       let nodes = Array.from(startingNodes.values());
-      this.queue.push(nodes);
+      this.queue.push(nodes, this.spawner);
       resolve(nodes);
     });
   }

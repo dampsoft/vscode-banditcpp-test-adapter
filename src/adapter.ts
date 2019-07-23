@@ -196,12 +196,11 @@ export class BanditTestAdapter implements TestAdapter {
     let onSuiteChange = () => {
       this.load();
     };
-    for (let tsconfig of this.config.testsuites) {
-      let spawner = TestSpawnerFactory.createSpawner(tsconfig);
-      let suite = new TestSuite(
-          tsconfig, spawner, onSuiteChange, onStatusChange, onMessage);
-      this.testSuites.push(suite);
-    }
+    this.testSuites = this.config.testsuites.filter(t => t.enabled).map(t => {
+      let spawner = TestSpawnerFactory.createSpawner(t);
+      return new TestSuite(
+          t, spawner, onSuiteChange, onStatusChange, onMessage);
+    });
   }
 
   private resetConfiguration() {

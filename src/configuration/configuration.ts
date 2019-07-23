@@ -21,6 +21,7 @@ export const PropertyAllowKillProcess: Property = 'allowKillProcess';
 export const PropertyLoglevel: Property = 'loglevel';
 
 interface TestSuiteJsonPlatformConfigurationI {
+  disabled?: boolean;
   cmd?: string;
   cwd?: string;
   options?: string[];
@@ -32,6 +33,7 @@ interface TestSuiteJsonPlatformConfigurationI {
 
 interface TestSuiteJsonConfigurationI {
   name: string;
+  disabled?: boolean;
   cmd: string;
   cwd?: string;
   options?: string[];
@@ -63,6 +65,14 @@ export class TestSuiteConfiguration {
 
   public get framework(): TestFramework {
     return 'bandit';
+  }
+
+  public get disabled() {
+    return this.resolveDisabled();
+  }
+
+  public get enabled() {
+    return !this.disabled;
   }
 
   public get cmd() {
@@ -99,6 +109,11 @@ export class TestSuiteConfiguration {
 
   public get valid(): boolean {
     return this.isValid;
+  }
+
+  private resolveDisabled() {
+    let disabled = switchOs<boolean>(this.jsonConfig, 'disabled');
+    return disabled || this.jsonConfig.disabled || false;
   }
 
   private resolveCwd() {

@@ -5,7 +5,7 @@ import {resolveSymbols, SymbolResolverI} from '../configuration/symbol';
 import {SpawnArguments, SpawnResult} from '../execution/spawner';
 import {ParseResult, TestSpawnerBase} from '../execution/testspawner';
 import {asTest, asTestGroup, TestGroup, TestNodeI} from '../project/test';
-import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusSkipped} from '../project/teststatus';
+import {TestStatus, TestStatusFailed, TestStatusPassed, TestStatusSkipped} from '../project/teststatus';
 import {escapeRegExp, removeDuplicates} from '../util/helper';
 import {Logger} from '../util/logger';
 import {Version} from '../util/version';
@@ -148,9 +148,9 @@ export class BanditSpawner extends TestSpawnerBase {
     };
     let parseStatus = (line: string): TestStatus|undefined => {
       var matches =
-          line.match(/(.*) \.\.\. (error|failure|failed|ok|skipped)/i);
-      if (matches && matches.length >= 2) {
-        var status = matches[2].toLowerCase();
+          line.match(/(?<=\s|^)(ERROR|FAILURE|FAILED|OK|SKIPPED)(?=\s|$)/);
+      if (matches && matches.length >= 1) {
+        var status = matches[1].toLowerCase();
         if (status == 'ok') {
           return TestStatusPassed;
         } else if (status == 'skipped') {
@@ -160,20 +160,25 @@ export class BanditSpawner extends TestSpawnerBase {
           return TestStatusFailed;
         }
       }
-      return messages.length > 0 ? TestStatusFailed : TestStatusIdle;
+      return undefined;
+    };
+    let parseMessage = (line: string): string => {
+      let message = line.replace(
+          / *(\.\.\.)? *(ERROR|FAILURE|FAILED|OK|SKIPPED)(?=\s|$)/g, '');
+      message = message.replace(/(?<=\s|^)[ \t]*((- it)|describe) .*/g, '');
+      return message;
     };
     let clearMessages = () => {
       messages = [];
     };
     let getMessage = (): string => {
-      return messages.join('\n');
+      return messages.filter(l => l != '').join('\n');
     };
     let error_nodes = new Array<TestNodeI>();
     let finishNode =
         (node: TestNodeI|undefined, status: TestStatus|undefined) => {
           if (status && node) {
-            node.message = getMessage();
-            let nodes = node.finish(status);
+            let nodes = node.finish(status, getMessage());
             if (status == TestStatusFailed) {
               error_nodes = error_nodes.concat(nodes);
             }
@@ -244,15 +249,20 @@ export class BanditSpawner extends TestSpawnerBase {
             }
           }
         } else {
-          messages.push(line);
+          messages.push(parseMessage(line));
         }
+
         // Ergebnis verarbeiten:
         if (node && !lineIsGroup) {
           let status = parseStatus(line);
-          finishNode(node, status);
+          if (status) {
+            finishNode(node, status);
+            node = undefined;
+          }
         }
-        last_indentation = indentation;
-        node = undefined;
+        if (lineIsGroup || lineIsTest) {
+          last_indentation = indentation;
+        }
       }
     }
     // Nachfolgende Fehlermeldungen verarbeiten:
@@ -273,8 +283,15 @@ export class BanditSpawner extends TestSpawnerBase {
             labels = labels.map(escapeRegExp).reverse();
             let requiredLineStart = `^${labels.join('[ ]+')}:.*`;
             if (lines[0].match(requiredLineStart)) {
-              node.message = `${node.displayTitle}:\n\n${
-                  lines.slice(1, lines.length).join('\n').replace(/\n$/, '')}`;
+              let title = `${node.displayTitle.trim()}:`;
+              let internal_error = node.message || '';
+              let bandit_error = lines.slice(1, lines.length)
+                                     .filter(l => l != '')
+                                     .join('\n')
+                                     .replace(/\n$/, '');
+              node.message = [title, internal_error, bandit_error]
+                                 .filter(m => m != '')
+                                 .join('\n\n');
               result.messages.push(
                   Messages.getInfoErrorsDetected(node.id, node.message));
             }

@@ -36,16 +36,15 @@ export class TestQueue {
 
   constructor(
       private readonly config: TestQueueConfigurationI,
-      private readonly spawner: TestSpawnerI,
       private readonly notifyChanged: (node: TestNodeI) => void) {}
 
-  public push(nodes: TestNodeI[]) {
+  public push(nodes: TestNodeI[], spawner: TestSpawnerI) {
     nodes.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     this.queueMutex.acquire().then((release) => {
       try {
         nodes.forEach(node => {
           if (!this.nodeAlreadyExists(node)) {
-            this.queue.set(node.id, new TestQueueEntry(node));
+            this.queue.set(node.id, new TestQueueEntry(node, spawner));
           }
         });
       } finally {
@@ -100,7 +99,7 @@ export class TestQueue {
         release();
       }
       this.notifyChanged(entry.node);
-      this.spawner.run(entry.node, [new SlotSymbolResolver(entry.slot || 0)])
+      entry.spawner.run(entry.node, [new SlotSymbolResolver(entry.slot || 0)])
           .then(nodes => {
             nodes.map(this.notifyChanged, this);
             this.finish(entry);
@@ -138,7 +137,7 @@ export class TestQueue {
   public stop() {
     this.queueMutex.acquire().then((release) => {
       try {
-        this.spawner.stop();
+        this.getRunningEntries().forEach(e => e.spawner.stop());
         this.queue.clear();
       } finally {
         release();
@@ -152,6 +151,6 @@ export class TestQueue {
  */
 class TestQueueEntry {
   constructor(
-      public node: TestNodeI, public slot?: number,
-      public running: boolean = false) {}
+      public node: TestNodeI, public spawner: TestSpawnerI,
+      public slot?: number, public running: boolean = false) {}
 }
