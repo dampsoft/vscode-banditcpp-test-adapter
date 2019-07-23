@@ -38,11 +38,13 @@ export class Messages {
 
   private static wrapperAdapterCancelErrorBody = new MessageWrapper(
       localize(
-          'adapter.cancel.text', 'Error while cancelling tests: {0}',
+          'adapter.cancel_error.text', 'Error while cancelling tests: {0}',
           '_message_'),
       ['_message_']);
-  private static wrapperAdapterCancelErrorUnknownBody = new MessageWrapper(
-      localize('adapter.cancel.text', 'Unknown error while cancelling tests'));
+  private static wrapperAdapterCancelErrorUnknownBody =
+      new MessageWrapper(localize(
+          'adapter.cancel_error_unknown.text',
+          'Unknown error while cancelling tests'));
 
 
   private static wrapperAdapterCommandRunTestsFilteredTitle =

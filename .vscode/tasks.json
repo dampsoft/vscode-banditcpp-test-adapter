@@ -52,6 +52,11 @@
       "problemMatcher": [
         "$gulp-tsc"
       ]
+    },
+    {
+      "type": "gulp",
+      "task": "clean",
+      "problemMatcher": []
     }
   ]
 }
