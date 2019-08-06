@@ -1,7 +1,7 @@
 // The module 'assert' provides assertion methods from node
 import * as assert from 'assert';
 
-import {escapeRegExp, flatten, formatTimeDuration, isLinux, isOsx, isWindows, removeDuplicates, switchOs} from '../util/helper';
+import {escapeRegExp, flatten, formatTimeDuration, isLinux, isOsx, isWindows, removeDuplicates, sortString, switchOs} from '../util/helper';
 
 suite('Helper Tests', function() {
   test('escapeRegExp', function() {
@@ -36,6 +36,52 @@ suite('Helper Tests', function() {
     let a: Dup[] = [{id: 'a'}, {id: 'b'}, {id: 'b'}, {id: 'c'}];
     let b: Dup[] = [{id: 'a'}, {id: 'b'}, {id: 'c'}];
     assert.deepEqual(removeDuplicates(a, 'id'), b);
+  });
+
+  test('sortString-1', function() {
+    let items: string[] = ['aa', 'bb', 'AA', 'BB', 'Aa', 'AB', 'aB'];
+    let sorted: string[] = ['aa', 'Aa', 'AA', 'aB', 'AB', 'bb', 'BB'];
+    sortString(items, false);
+    assert.deepEqual(items, sorted);
+  });
+
+  test('sortString-2', function() {
+    let items: string[] = ['aa', 'bb', 'AA', 'BB', 'Aa', 'AB', 'aB'];
+    let sorted: string[] = ['aa', 'AA', 'Aa', 'AB', 'aB', 'bb', 'BB'];
+    sortString(items, true);
+    assert.deepEqual(items, sorted);
+  });
+
+  test('sortString-3', function() {
+    interface Dup {
+      id: string
+    }
+    let items: Dup[] = [
+      {id: 'aa'}, {id: 'bb'}, {id: 'AA'}, {id: 'BB'}, {id: 'Aa'}, {id: 'AB'},
+      {id: 'aB'}
+    ];
+    let sorted: Dup[] = [
+      {id: 'aa'}, {id: 'Aa'}, {id: 'AA'}, {id: 'aB'}, {id: 'AB'}, {id: 'bb'},
+      {id: 'BB'}
+    ];
+    sortString(items, false, 'id')
+    assert.deepEqual(items, sorted);
+  });
+
+  test('sortString-4', function() {
+    interface Dup {
+      id: string
+    }
+    let items: Dup[] = [
+      {id: 'aa'}, {id: 'bb'}, {id: 'AA'}, {id: 'BB'}, {id: 'Aa'}, {id: 'AB'},
+      {id: 'aB'}
+    ];
+    let sorted: Dup[] = [
+      {id: 'aa'}, {id: 'AA'}, {id: 'Aa'}, {id: 'AB'}, {id: 'aB'}, {id: 'bb'},
+      {id: 'BB'}
+    ];
+    sortString(items, true, 'id')
+    assert.deepEqual(items, sorted);
   });
 
   test('formatTimeDuration', function() {

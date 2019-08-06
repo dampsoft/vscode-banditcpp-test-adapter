@@ -20,6 +20,41 @@ export function removeDuplicates(values: any[], prop: string) {
   });
 }
 
+export function sortString(
+    items: any[], ignoreCase: boolean = false, property?: string): any[] {
+  return items.sort((a, b) => {
+    let propA: Optional<string>;
+    let propB: Optional<string>;
+    if (property) {
+      propA = getOptional(a, property);
+      propB = getOptional(b, property);
+    } else {
+      if (typeof a === 'string') {
+        propA = a;
+      }
+      if (typeof b === 'string') {
+        propB = b;
+      }
+    }
+    if (ignoreCase && propA) {
+      propA = propA.toUpperCase();
+    }
+    if (ignoreCase && propB) {
+      propB = propB.toUpperCase();
+    }
+    if (propA && propB) {
+      return propA.localeCompare(propB);
+      // return propA < propB ? -1 : propA > propB ? 1 : 0;
+    } else if (propB) {
+      return -1;
+    } else if (propA) {
+      return 1;
+    } else {
+      return 0;
+    }
+  });
+}
+
 export function formatTimeDuration(millis: number): string {
   let h = millis / (1000 * 60 * 60);
   if (Math.floor(h)) {

@@ -1,5 +1,7 @@
 import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 
+import {sortString} from '../util/helper';
+
 import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './teststatus';
 
 export type TestNodeType = 'test'|'suite';
@@ -62,7 +64,7 @@ abstract class TestNode implements TestNodeI {
 
 /************************************************************************/
 /**
- * Testgroup-Klasse
+ * TestGroup-Klasse
  */
 export class TestGroup extends TestNode {
   public children = new Array<TestNodeI>();
@@ -114,8 +116,7 @@ export class TestGroup extends TestNode {
 
   public add(node: TestNodeI): TestNodeI {
     this.children.push(node);
-    this.children.sort(
-        (a, b) => a.label < b.label ? -1 : a.label > b.label ? 1 : 0);
+    this.children = sortString(this.children, true, 'label');
     node.parent = this;
     return node;
   }

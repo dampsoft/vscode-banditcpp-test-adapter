@@ -2,6 +2,7 @@ import {Mutex} from 'async-mutex';
 
 import {BaseSymbolResolver} from '../configuration/symbol';
 import {TestNodeI} from '../project/test';
+import {sortString} from '../util/helper';
 
 import {Messages} from './messages';
 import {TestSpawnerI} from './testspawner';
@@ -39,10 +40,9 @@ export class TestQueue {
       private readonly notifyChanged: (node: TestNodeI) => void) {}
 
   public push(nodes: TestNodeI[], spawner: TestSpawnerI) {
-    nodes.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
     this.queueMutex.acquire().then((release) => {
       try {
-        nodes.forEach(node => {
+        sortString(nodes, true, 'id').forEach(node => {
           if (!this.nodeAlreadyExists(node)) {
             this.queue.set(node.id, new TestQueueEntry(node, spawner));
           }

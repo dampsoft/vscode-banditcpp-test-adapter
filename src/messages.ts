@@ -59,7 +59,7 @@ export class Messages {
           localize(
               'adapter.command.run_filtered_error.text',
               'No test could be found for search strings "{0}".', '_filter_'),
-          ['_filter']);
+          ['_filter_']);
 
   private static wrapperAdapterDebugNotImplementedErrorBody =
       new MessageWrapper(localize(
