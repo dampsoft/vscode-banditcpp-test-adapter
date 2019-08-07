@@ -24,11 +24,13 @@ export function sortString(
     items: any[], ignoreCase: boolean = false, property?: string): any[] {
   return items.sort((a, b) => {
     let propA: Optional<string>;
-    let propB: Optional<string>;
-    if (property) {
+    let propB: Optional<string>
+        // Get the required values:
+        if (property) {
       propA = getOptional(a, property);
       propB = getOptional(b, property);
-    } else {
+    }
+    else {
       if (typeof a === 'string') {
         propA = a;
       }
@@ -36,15 +38,10 @@ export function sortString(
         propB = b;
       }
     }
-    if (ignoreCase && propA) {
-      propA = propA.toUpperCase();
-    }
-    if (ignoreCase && propB) {
-      propB = propB.toUpperCase();
-    }
+    // Compare:
     if (propA && propB) {
-      return propA.localeCompare(propB);
-      // return propA < propB ? -1 : propA > propB ? 1 : 0;
+      let options = ignoreCase ? {caseFirst: 'upper'} : undefined;
+      return propA.localeCompare(propB, undefined, options);
     } else if (propB) {
       return -1;
     } else if (propA) {

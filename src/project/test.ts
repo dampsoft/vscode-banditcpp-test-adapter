@@ -116,7 +116,7 @@ export class TestGroup extends TestNode {
 
   public add(node: TestNodeI): TestNodeI {
     this.children.push(node);
-    this.children = sortString(this.children, true, 'label');
+    sortString(this.children, true, 'label');
     node.parent = this;
     return node;
   }

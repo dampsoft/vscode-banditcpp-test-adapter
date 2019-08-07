@@ -38,21 +38,21 @@ suite('Helper Tests', function() {
     assert.deepEqual(removeDuplicates(a, 'id'), b);
   });
 
-  test('sortString-1', function() {
+  test('sortString-normal-case-sensitive', function() {
     let items: string[] = ['aa', 'bb', 'AA', 'BB', 'Aa', 'AB', 'aB'];
-    let sorted: string[] = ['aa', 'Aa', 'AA', 'aB', 'AB', 'bb', 'BB'];
+    let expected: string[] = ['aa', 'Aa', 'AA', 'aB', 'AB', 'bb', 'BB'];
     sortString(items, false);
-    assert.deepEqual(items, sorted);
+    assert.deepEqual(items, expected);
   });
 
-  test('sortString-2', function() {
+  test('sortString-normal-case-insensitive', function() {
     let items: string[] = ['aa', 'bb', 'AA', 'BB', 'Aa', 'AB', 'aB'];
-    let sorted: string[] = ['aa', 'AA', 'Aa', 'AB', 'aB', 'bb', 'BB'];
+    let expected: string[] = ['AA', 'Aa', 'aa', 'AB', 'aB', 'BB', 'bb'];
     sortString(items, true);
-    assert.deepEqual(items, sorted);
+    assert.deepEqual(items, expected);
   });
 
-  test('sortString-3', function() {
+  test('sortString-property-case-sensitive', function() {
     interface Dup {
       id: string
     }
@@ -60,15 +60,15 @@ suite('Helper Tests', function() {
       {id: 'aa'}, {id: 'bb'}, {id: 'AA'}, {id: 'BB'}, {id: 'Aa'}, {id: 'AB'},
       {id: 'aB'}
     ];
-    let sorted: Dup[] = [
+    let expected: Dup[] = [
       {id: 'aa'}, {id: 'Aa'}, {id: 'AA'}, {id: 'aB'}, {id: 'AB'}, {id: 'bb'},
       {id: 'BB'}
     ];
     sortString(items, false, 'id')
-    assert.deepEqual(items, sorted);
+    assert.deepEqual(items, expected);
   });
 
-  test('sortString-4', function() {
+  test('sortString-property-case-insensitive', function() {
     interface Dup {
       id: string
     }
@@ -76,12 +76,12 @@ suite('Helper Tests', function() {
       {id: 'aa'}, {id: 'bb'}, {id: 'AA'}, {id: 'BB'}, {id: 'Aa'}, {id: 'AB'},
       {id: 'aB'}
     ];
-    let sorted: Dup[] = [
-      {id: 'aa'}, {id: 'AA'}, {id: 'Aa'}, {id: 'AB'}, {id: 'aB'}, {id: 'bb'},
-      {id: 'BB'}
+    let expected: Dup[] = [
+      {id: 'AA'}, {id: 'Aa'}, {id: 'aa'}, {id: 'AB'}, {id: 'aB'}, {id: 'BB'},
+      {id: 'bb'}
     ];
     sortString(items, true, 'id')
-    assert.deepEqual(items, sorted);
+    assert.deepEqual(items, expected);
   });
 
   test('formatTimeDuration', function() {

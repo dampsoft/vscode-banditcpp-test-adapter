@@ -42,7 +42,8 @@ export class TestQueue {
   public push(nodes: TestNodeI[], spawner: TestSpawnerI) {
     this.queueMutex.acquire().then((release) => {
       try {
-        sortString(nodes, true, 'id').forEach(node => {
+        sortString(nodes, true, 'id');
+        nodes.forEach(node => {
           if (!this.nodeAlreadyExists(node)) {
             this.queue.set(node.id, new TestQueueEntry(node, spawner));
           }
