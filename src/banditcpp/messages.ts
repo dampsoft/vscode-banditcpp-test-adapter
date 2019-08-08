@@ -76,7 +76,7 @@ export class Messages {
       Message {
     const title = Messages.wrapperAmbiguousTestTitle.get();
     const body = Messages.wrapperAmbiguousTestBody.get(ambiguousId, parentId);
-    return Message.warn(title, body);
+    return Message.error(title, body);
   }
 
   public static getEmptyNodeLabel(parentId: string): Message {

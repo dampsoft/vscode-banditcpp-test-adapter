@@ -211,6 +211,8 @@ export class BanditSpawner extends TestSpawnerBase {
           // Node hinzufügen:
           if (lineIsGroup) {
             if (node) {
+              // Alte Messages dem letzten Knoten zuweisen, bevor weitergemacht
+              // wird.
               node.message = getMessage();
             }
             clearMessages();
@@ -228,6 +230,8 @@ export class BanditSpawner extends TestSpawnerBase {
             }
           } else if (lineIsTest) {
             if (node) {
+              // Alte Messages dem letzten Knoten zuweisen, bevor weitergemacht
+              // wird.
               node.message = getMessage();
             }
             clearMessages();
@@ -244,7 +248,7 @@ export class BanditSpawner extends TestSpawnerBase {
               } else {
                 result.messages.push(
                     Messages.getAmbiguousTest(newLabel, current_suite.id));
-                node = existingTest;
+                node = undefined;
               }
             }
           }

@@ -20,36 +20,38 @@ export function removeDuplicates(values: any[], prop: string) {
   });
 }
 
+function compareString(
+    a: any, b: any, ignoreCase: boolean = false, property?: string): number {
+  let propA: Optional<string>;
+  let propB: Optional<string>;
+  // Get the required values:
+  if (property) {
+    propA = getOptional(a, property);
+    propB = getOptional(b, property);
+  } else {
+    if (typeof a === 'string') {
+      propA = a;
+    }
+    if (typeof b === 'string') {
+      propB = b;
+    }
+  }
+  // Compare:
+  if (propA && propB) {
+    let options = ignoreCase ? {caseFirst: 'upper'} : undefined;
+    return propA.localeCompare(propB, undefined, options);
+  } else if (propB) {
+    return -1;
+  } else if (propA) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 export function sortString(
-    items: any[], ignoreCase: boolean = false, property?: string): any[] {
-  return items.sort((a, b) => {
-    let propA: Optional<string>;
-    let propB: Optional<string>
-        // Get the required values:
-        if (property) {
-      propA = getOptional(a, property);
-      propB = getOptional(b, property);
-    }
-    else {
-      if (typeof a === 'string') {
-        propA = a;
-      }
-      if (typeof b === 'string') {
-        propB = b;
-      }
-    }
-    // Compare:
-    if (propA && propB) {
-      let options = ignoreCase ? {caseFirst: 'upper'} : undefined;
-      return propA.localeCompare(propB, undefined, options);
-    } else if (propB) {
-      return -1;
-    } else if (propA) {
-      return 1;
-    } else {
-      return 0;
-    }
-  });
+    items: any[], ignoreCase: boolean = false, property?: string) {
+  items.sort((a, b) => compareString(a, b, ignoreCase, property));
 }
 
 export function formatTimeDuration(millis: number): string {

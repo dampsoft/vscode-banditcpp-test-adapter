@@ -2,7 +2,6 @@ import {Mutex} from 'async-mutex';
 
 import {BaseSymbolResolver} from '../configuration/symbol';
 import {TestNodeI} from '../project/test';
-import {sortString} from '../util/helper';
 
 import {Messages} from './messages';
 import {TestSpawnerI} from './testspawner';
@@ -40,9 +39,9 @@ export class TestQueue {
       private readonly notifyChanged: (node: TestNodeI) => void) {}
 
   public push(nodes: TestNodeI[], spawner: TestSpawnerI) {
+    // sortString(nodes, true, 'id');
     this.queueMutex.acquire().then((release) => {
       try {
-        sortString(nodes, true, 'id');
         nodes.forEach(node => {
           if (!this.nodeAlreadyExists(node)) {
             this.queue.set(node.id, new TestQueueEntry(node, spawner));
