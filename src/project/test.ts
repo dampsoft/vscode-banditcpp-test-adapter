@@ -1,7 +1,5 @@
 import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
 
-import {sortString} from '../util/helper';
-
 import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './teststatus';
 
 export type TestNodeType = 'test'|'suite';
@@ -114,9 +112,20 @@ export class TestGroup extends TestNode {
     return test_children;
   }
 
+  public get groups(): Array<TestGroup> {
+    let group_children = new Array<TestGroup>();
+    for (let child of this.children) {
+      let group = asTestGroup(child);
+      if (group) {
+        group_children.push(group);
+        group_children = group_children.concat(group.groups);
+      }
+    }
+    return group_children;
+  }
+
   public add(node: TestNodeI): TestNodeI {
     this.children.push(node);
-    sortString(this.children, true, 'label');
     node.parent = this;
     return node;
   }
@@ -132,6 +141,12 @@ export class TestGroup extends TestNode {
     var suite = new TestGroup(this, name, file, line);
     this.add(suite);
     return suite;
+  }
+
+  public sort() {
+    this.children.sort(
+        (a, b) => (a.id.localeCompare(b.id, undefined, {caseFirst: 'upper'})));
+    this.groups.forEach(g => g.sort());
   }
 
   public findAll(id: string|RegExp): Array<TestNodeI> {

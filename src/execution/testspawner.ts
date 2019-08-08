@@ -110,7 +110,9 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
             } else {
               Messages.getTestSpawnerDryRunFinishedValid(this.config.name)
                   .log();
-              resolve(this.parseSpawnResult(ret));
+              let res = this.parseSpawnResult(ret);
+              res.testsuite.sort();
+              resolve(res);
             }
           })
           .catch((error: SpawnResult) => {
