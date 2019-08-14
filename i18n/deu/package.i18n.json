@@ -6,5 +6,6 @@
   "properties.banditTestExplorer.allowKillProcess": "Freigabe, dass laufende Test-Prozesse beim Abbruch hart beendet werden dürfen.",
   "properties.banditTestExplorer.logpanel": "Aktiviert die Ausgabe von Logmeldungen im integrierten Ausgabefenster.",
   "properties.banditTestExplorer.logfile": "Aktiviert die Ausgabe der Logmeldungen in der angegebenen Logdatei.",
-  "properties.banditTestExplorer.loglevel": "Das Loglevel zur Ausgabe von Logmeldungen. Alle Meldungen mit gleichem oder höherem Level werden ausgegeben."
+  "properties.banditTestExplorer.loglevel": "Das Loglevel zur Ausgabe von Logmeldungen. Alle Meldungen mit gleichem oder höherem Level werden ausgegeben.",
+  "properties.banditTestExplorer.progressVisualization": "Darstellungsform für die Fortschrittsanzeige. Mit `dialogBox` wird der Fortschritt über ein Dialog-Popup dargestellt, mit `statusBar` etwas dezenter über die Statusleite (Standard: dialogBox)."
 }

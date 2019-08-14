@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
 
 import {Configuration} from './configuration/configuration';
+import {ParseResult} from './execution/testspawner';
 import {TestSpawnerFactory} from './execution/testspawnerfactory';
 import {Messages} from './messages'
 import {closeLoadingProgress, LoadingProgress, showLoadingProgress, updateLoadingProgress} from './progress/loading'
@@ -75,17 +76,32 @@ export class BanditTestAdapter implements TestAdapter {
         this.notifyLoadStart();
         let progress = new LoadingProgress(0, this.testSuites.length);
         this.notifyLoadProgress(progress);
+        let handleParseResult = (result?: ParseResult) => {
+          progress.steps += 1;
+          if (result) {
+            progress.tests += result.testsuite.tests.length;
+            progress.errors +=
+                result.messages.filter((m: Message) => m.isError()).length;
+            progress.warnings +=
+                result.messages.filter((m: Message) => m.isWarning()).length;
+          }
+          this.notifyLoadProgress(progress);
+        };
         Promise
-            .all(this.testSuites.map((t) => t.reload().then((result) => {
-              progress.steps += 1;
-              progress.tests += result.testsuite.tests.length;
-              progress.errors +=
-                  result.messages.filter((m: Message) => m.isError()).length;
-              progress.warnings +=
-                  result.messages.filter((m: Message) => m.isWarning()).length;
-              this.notifyLoadProgress(progress);
-              return result.testsuite;
-            })))
+            .all(this.testSuites.map(
+                (t) => t.reload()
+                           .then((result) => {
+                             handleParseResult(result);
+                             return result.testsuite;
+                           })
+                           .catch(() => {
+                             handleParseResult(undefined);
+                             return undefined;
+                           })))
+            .then(groups => {
+              // Fehlerhafte Projekte nicht laden:
+              return groups.filter(group => group !== undefined) as TestGroup[];
+            })
             .then(testinfo => {
               this.notifyLoadSuccessful(testinfo);
               this.loadingActive = false;
@@ -245,7 +261,7 @@ export class BanditTestAdapter implements TestAdapter {
     this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
     showLoadingProgress(() => {
       this.cancel();
-    });
+    }, this.config.progressVisualization);
   }
 
   private notifyLoadProgress(progress: LoadingProgress) {
@@ -295,7 +311,7 @@ export class BanditTestAdapter implements TestAdapter {
     if (!this.runningProgress) {
       showRunningProgress(() => {
         this.cancel();
-      });
+      }, this.config.progressVisualization);
       this.runningProgress = new RunningProgress(0, nodes.length);
     } else {
       this.runningProgress.stepsMax += nodes.length;

@@ -1,5 +1,6 @@
+import {Progress, visualizerType} from './core/progress';
+import {ProgressStatus} from './core/state';
 import {Messages} from './messages';
-import {ProgressBox, ProgressStatus} from './progress';
 
 export class RunningProgress extends ProgressStatus {
   constructor(
@@ -9,19 +10,22 @@ export class RunningProgress extends ProgressStatus {
   }
 }
 
-export function showRunningProgress(cancellationHandler?: () => void) {
-  ProgressBox.show<RunningProgress>(
-      'running',
-      Messages.getRunningStatusTitle(), (status: RunningProgress) => {
-        return Messages.getRunningStatusProgress(
-            status.stepsMax, status.passed, status.failed, status.skipped);
-      }, cancellationHandler);
+export function showRunningProgress(
+    cancellationHandler?: () => void,
+    visualization: visualizerType = 'dialogBox') {
+  let progressFormatter = (status: RunningProgress) => {
+    return Messages.getRunningStatusProgress(
+        status.stepsMax, status.passed, status.failed, status.skipped);
+  };
+  Progress.show(
+      'running', Messages.getRunningStatusTitle(), progressFormatter,
+      cancellationHandler, visualization);
 }
 
 export function updateRunningProgress(status: RunningProgress) {
-  ProgressBox.progress('running', status);
+  Progress.progress('running', status);
 }
 
 export function closeRunningProgress() {
-  ProgressBox.close('running');
+  Progress.close('running');
 }

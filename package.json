@@ -127,6 +127,16 @@
             "warning",
             "error"
           ]
+        },
+        "banditTestExplorer.progressVisualization": {
+          "description": "%properties.banditTestExplorer.progressVisualization%",
+          "type": "string",
+          "scope": "resource",
+          "default": "dialogBox",
+          "enum": [
+            "dialogBox",
+            "statusBar"
+          ]
         }
       }
     },

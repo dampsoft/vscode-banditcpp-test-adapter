@@ -2,6 +2,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import {visualizerType} from '../progress/core/progress';
 import {DisposableI} from '../util/disposable';
 import {switchOs} from '../util/helper';
 import {LogLevel} from '../util/logger';
@@ -13,12 +14,13 @@ import {Messages} from './messages';
 import {resolveSymbols, SymbolResolverI, WorkspaceSymbolResolver} from './symbol';
 
 export type Property =|'testsuites'|'parallelProcessLimit'|'watchTimeoutSec'|
-    'allowKillProcess'|'loglevel';
+    'allowKillProcess'|'loglevel'|'progressVisualization';
 export const PropertyTestsuites: Property = 'testsuites';
 export const PropertyParallelProcessLimit: Property = 'parallelProcessLimit';
 export const PropertyWatchTimeoutSec: Property = 'watchTimeoutSec';
 export const PropertyAllowKillProcess: Property = 'allowKillProcess';
 export const PropertyLoglevel: Property = 'loglevel';
+export const PropertyProgressVisualization: Property = 'progressVisualization';
 
 interface TestSuiteJsonPlatformConfigurationI {
   disabled?: boolean;
@@ -216,6 +218,11 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
       return this.config.get<LogLevel>(PropertyLoglevel, 'error');
     });
 
+    this.propertyGetter.set(PropertyProgressVisualization, () => {
+      return this.config.get<visualizerType>(
+          PropertyProgressVisualization, 'dialogBox');
+    });
+
     this.reload();
   }
 
@@ -263,6 +270,10 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
     return this.get(PropertyLoglevel);
   }
 
+  public get progressVisualization(): visualizerType {
+    return this.get(PropertyProgressVisualization);
+  }
+
   public get cwd(): string {
     return this.workspaceFolder.uri.fsPath;
   }
@@ -270,14 +281,14 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
   public get properties(): Property[] {
     return [
       PropertyTestsuites, PropertyWatchTimeoutSec, PropertyParallelProcessLimit,
-      PropertyAllowKillProcess, PropertyLoglevel
+      PropertyAllowKillProcess, PropertyLoglevel, PropertyProgressVisualization
     ];
   }
 
   public get propertiesSoftReset(): Property[] {
     return [
       PropertyWatchTimeoutSec, PropertyParallelProcessLimit,
-      PropertyAllowKillProcess, PropertyLoglevel
+      PropertyAllowKillProcess, PropertyLoglevel, PropertyProgressVisualization
     ];
   }
 
@@ -314,16 +325,18 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
     }
     this.resetTestsuiteConfigWatch(jsonConfigPath);
     this.testSuiteConfigs = [];
-    let configNames = new Set<string>();
-    for (let config of jsonConfig) {
-      let tsConfig = new TestSuiteConfiguration(this, config);
-      if (configNames.has(tsConfig.name)) {
-        this.notify(Messages.getTestsuiteIdAmbiguous(tsConfig.name));
-      } else if (!tsConfig.valid) {
-        this.notify(Messages.getTestsuiteConfigInvalid(tsConfig.name));
-      } else {
-        configNames.add(tsConfig.name);
-        this.testSuiteConfigs.push(tsConfig);
+    if (Array.isArray(jsonConfig)) {
+      let configNames = new Set<string>();
+      for (let config of jsonConfig) {
+        let tsConfig = new TestSuiteConfiguration(this, config);
+        if (configNames.has(tsConfig.name)) {
+          this.notify(Messages.getTestsuiteIdAmbiguous(tsConfig.name));
+        } else if (!tsConfig.valid) {
+          this.notify(Messages.getTestsuiteConfigInvalid(tsConfig.name));
+        } else {
+          configNames.add(tsConfig.name);
+          this.testSuiteConfigs.push(tsConfig);
+        }
       }
     }
   }
@@ -379,7 +392,7 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
         vscode.workspace.onDidChangeConfiguration(configChange => {
           let affects = (property: Property): boolean => {
             return configChange.affectsConfiguration(
-                this.config.fullname(property), this.workspaceFolder.uri);
+                this.fullname(property), this.workspaceFolder.uri);
           };
           this.onConfigChangedHandler(this.propertiesHardReset.some(affects));
         });

@@ -1,5 +1,6 @@
+import {Progress, visualizerType} from './core/progress';
+import {ProgressStatus, ProgressStatusI} from './core/state';
 import {Messages} from './messages';
-import {ProgressBox, ProgressStatus} from './progress';
 
 export class LoadingProgress extends ProgressStatus {
   constructor(
@@ -9,19 +10,23 @@ export class LoadingProgress extends ProgressStatus {
   }
 }
 
-export function showLoadingProgress(cancellationHandler?: () => void) {
-  ProgressBox.show<LoadingProgress>(
-      'loading',
-      Messages.getLoadingStatusTitle(), (status: LoadingProgress) => {
-        return Messages.getLoadingStatusProgress(
-            status.tests, status.errors, status.warnings);
-      }, cancellationHandler);
+export function showLoadingProgress(
+    cancellationHandler?: () => void,
+    visualization: visualizerType = 'dialogBox') {
+  let progressFormatter = (status: ProgressStatusI) => {
+    let loadingStatus = status as LoadingProgress;
+    return Messages.getLoadingStatusProgress(
+        loadingStatus.tests, loadingStatus.errors, loadingStatus.warnings);
+  };
+  Progress.show(
+      'loading', Messages.getLoadingStatusTitle(), progressFormatter,
+      cancellationHandler, visualization);
 }
 
 export function updateLoadingProgress(status: LoadingProgress) {
-  ProgressBox.progress('loading', status);
+  Progress.progress('loading', status);
 }
 
 export function closeLoadingProgress() {
-  ProgressBox.close('loading');
+  Progress.close('loading');
 }
