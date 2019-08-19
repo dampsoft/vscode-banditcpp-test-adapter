@@ -14,21 +14,34 @@ Run your Bandit-C++ tests using the
 
 ## Requirements
 
-You only need to configure your test executables in VS Code's settings (see below)
+You only need to configure your compiled test executables with the `banditTestExplorer.testsuites` property in VS Code's settings (see below)
+
+## Progress Visualization
+
+With the `banditTestExplorer.progressVisualization` property you can specify how the the loading and running progress will be displayed.
+
+By default it is shown as a popup dialog box:
+
+![Progress-DialogBox](img/progress-running-dialog.gif)
+
+But you can also use the more unobtrusive way in the status bar:
+
+![Progress-Statusbar](img/progress-running-status.gif)
 
 ## Configuration
 
 Next to global settings the configuration contains test projects. A test project is a single executable containing tests.
 
-| Property                                  | Description                                                                                                                                                                                                                                   |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `banditTestExplorer.testsuites`           | The configuration of your bandit test projects. <br>Either a single configuration object or a path to the JSON configuration file (relative to the workspace folder or absolute path). <br>_A detailed structure follows in the table below._ |
-| `banditTestExplorer.parallelProcessLimit` | The limit of parallel processes started during a test run.                                                                                                                                                                                    |
-| `banditTestExplorer.watchTimeoutSec`      | A timeout in seconds that helps to prevent the auto run when watched files are compiled often.                                                                                                                                                |
-| `banditTestExplorer.allowKillProcess`     | Allows to hard kill running processes when a test run is cancelled or aborted.                                                                                                                                                                |
-| `banditTestExplorer.logpanel`             | Enables the output of diagnostic logs to the integrated output panel.                                                                                                                                                                         |
-| `banditTestExplorer.logfile`              | Enables the output of diagnostic logs to the specified file if provided.                                                                                                                                                                      |
-| `banditTestExplorer.loglevel`             | The logging level used to filter notifications. All notifications of the same or higher level will be logged. <br>Supported values are: `debug`, `info`, `warning`, `error`                                                                   |
+| Property                                   | Description                                                                                                                                                                                                                                      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `banditTestExplorer.testsuites`            | The configuration of your bandit test projects. <br/> Either a single configuration object or a path to the JSON configuration file (relative to the workspace folder or absolute path). <br/>_A detailed structure follows in the table below._ |
+| `banditTestExplorer.parallelProcessLimit`  | The limit of parallel processes started during a test run.                                                                                                                                                                                       |
+| `banditTestExplorer.watchTimeoutSec`       | A timeout in seconds that helps to prevent the auto run when watched files are compiled often.                                                                                                                                                   |
+| `banditTestExplorer.allowKillProcess`      | Allows to hard kill running processes when a test run is cancelled or aborted.                                                                                                                                                                   |
+| `banditTestExplorer.logpanel`              | Enables the output of diagnostic logs to the integrated output panel.                                                                                                                                                                            |
+| `banditTestExplorer.logfile`               | Enables the output of diagnostic logs to the specified file if provided.                                                                                                                                                                         |
+| `banditTestExplorer.loglevel`              | The logging level used to filter notifications. All notifications of the same or higher level will be logged. <br>Supported values are: `debug`, `info`, `warning`, `error`                                                                      |
+| `banditTestExplorer.progressVisualization` | Determines how the loading and running progress will be displayed. Either as an additional entry in the status bar (`statusBar`) or as a popup dialog box (`dialogBox`, default).                                                                |
 
 The JSON configuration to define tests. It contains multiple definitions that are structured as followed:
 
@@ -55,7 +68,7 @@ All configuration elements can be modified with configuration symbols:
 | `${env:NAME}`        | Uses an environment variable present to visual studio code                                                                                                                                        | `"env": { "PATH": "${env:PATH}:My/Path" }`          |
 | `${processNumber}`   | The zero-based index of the spawned process, in the range of: <br>`0 <= ${processNumber} < parallelProcessLimit`. <br>Useful for connection strings when using parallelized tests with databases. | `"options": [ "-database", "db_${processNumber}" ]` |
 
-### Example:
+### Example configuration
 
 ```json
 "banditTestExplorer.testsuites": [
