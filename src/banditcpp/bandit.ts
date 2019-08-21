@@ -1,16 +1,16 @@
-import {SpawnSyncOptions} from 'child_process';
+import { SpawnSyncOptions } from 'child_process';
 
-import {TestSuiteConfiguration} from '../configuration/configuration';
-import {resolveSymbols, SymbolResolverI} from '../configuration/symbol';
-import {SpawnArguments, SpawnResult} from '../execution/spawner';
-import {ParseResult, TestSpawnerBase} from '../execution/testspawner';
-import {asTest, asTestGroup, TestGroup, TestNodeI} from '../project/test';
-import {TestStatus, TestStatusFailed, TestStatusPassed, TestStatusSkipped} from '../project/teststatus';
-import {escapeRegExp, removeDuplicates} from '../util/helper';
-import {Logger} from '../util/logger';
-import {Version} from '../util/version';
+import { TestSuiteConfiguration } from '../configuration/configuration';
+import { resolveSymbols, SymbolResolverI } from '../configuration/symbol';
+import { SpawnArguments, SpawnResult } from '../execution/spawner';
+import { ParseResult, TestSpawnerBase } from '../execution/testspawner';
+import { asTest, asTestGroup, TestGroup, TestNodeI } from '../project/test';
+import { TestStatus, TestStatusFailed, TestStatusPassed, TestStatusSkipped } from '../project/teststatus';
+import { escapeRegExp, removeDuplicates } from '../util/helper';
+import { Logger } from '../util/logger';
+import { Version } from '../util/version';
 
-import {Messages} from './messages';
+import { Messages } from './messages';
 
 
 const uuid = require('uuid/v4');
@@ -66,7 +66,7 @@ export class BanditSpawner extends TestSpawnerBase {
    * Erzeugt die speziellen Parameter für den Probelauf
    */
   protected createSpawnArgumentsDryRun(runtimeResolvers?: SymbolResolverI[]):
-      SpawnArguments {
+    SpawnArguments {
     let execArguments = this.createDefaultExecutionArguments();
     execArguments.push('--dry-run');
     execArguments.push(`"--only=${uuid()}"`);  // Ein extrem seltener String
@@ -86,7 +86,7 @@ export class BanditSpawner extends TestSpawnerBase {
    * Erzeugt die speziellen Parameter für Testlauf eines Testknotens
    */
   protected createSpawnArgumentsTestRun(
-      node: TestNodeI, runtimeResolvers?: SymbolResolverI[]): SpawnArguments {
+    node: TestNodeI, runtimeResolvers?: SymbolResolverI[]): SpawnArguments {
     let execArguments = this.createDefaultExecutionArguments();
     // Finde den längstmöglichen Teilstring zwischen Unicode-Zeichen und
     // verwende ihn als Testlauf-Filter:
@@ -127,7 +127,7 @@ export class BanditSpawner extends TestSpawnerBase {
     let isTest = (line: string): boolean => {
       return line.trim().startsWith('- it ');
     };
-    let getFailureBlock = (text: string): string|undefined => {
+    let getFailureBlock = (text: string): string | undefined => {
       const start = '\nThere were failures!';
       const end = '\nTest run complete.';
       let blockStartIdx = text.indexOf(start);
@@ -146,9 +146,9 @@ export class BanditSpawner extends TestSpawnerBase {
     let parseTestLabel = (line: string): string => {
       return line.trim().replace(/- it (.*)\.\.\..*/i, '$1').trim();
     };
-    let parseStatus = (line: string): TestStatus|undefined => {
+    let parseStatus = (line: string): TestStatus | undefined => {
       var matches =
-          line.match(/(?<=\s|^)(ERROR|FAILURE|FAILED|OK|SKIPPED)(?=\s|$)/);
+        line.match(/(?<=\s|^)(ERROR|FAILURE|FAILED|OK|SKIPPED)(?=\s|$)/);
       if (matches && matches.length >= 1) {
         var status = matches[1].toLowerCase();
         if (status == 'ok') {
@@ -156,7 +156,7 @@ export class BanditSpawner extends TestSpawnerBase {
         } else if (status == 'skipped') {
           return TestStatusSkipped;
         } else if (
-            status == 'error' || status == 'failure' || status == 'failed') {
+          status == 'error' || status == 'failure' || status == 'failed') {
           return TestStatusFailed;
         }
       }
@@ -164,7 +164,7 @@ export class BanditSpawner extends TestSpawnerBase {
     };
     let parseMessage = (line: string): string => {
       let message = line.replace(
-          / *(\.\.\.)? *(ERROR|FAILURE|FAILED|OK|SKIPPED)(?=\s|$)/g, '');
+        / *(\.\.\.)? *(ERROR|FAILURE|FAILED|OK|SKIPPED)(?=\s|$)/g, '');
       message = message.replace(/(?<=\s|^)[ \t]*((- it)|describe) .*/g, '');
       return message;
     };
@@ -176,16 +176,16 @@ export class BanditSpawner extends TestSpawnerBase {
     };
     let error_nodes = new Array<TestNodeI>();
     let finishNode =
-        (node: TestNodeI|undefined, status: TestStatus|undefined) => {
-          if (status && node) {
-            let nodes = node.finish(status, getMessage());
-            if (status == TestStatusFailed) {
-              error_nodes = error_nodes.concat(nodes);
-            }
+      (node: TestNodeI | undefined, status: TestStatus | undefined) => {
+        if (status && node) {
+          let nodes = node.finish(status, getMessage());
+          if (status == TestStatusFailed) {
+            error_nodes = error_nodes.concat(nodes);
           }
-        };
+        }
+      };
     let current_suite = root;
-    let node: TestNodeI|undefined;
+    let node: TestNodeI | undefined;
     let last_indentation = 0;
     let stdout = spawnResult.stdout.replace(/\r\n/g, '\n');
     let lines = stdout.split(/[\n]+/);
@@ -202,7 +202,7 @@ export class BanditSpawner extends TestSpawnerBase {
               current_suite = current_suite.parent;
             } else {
               const msg =
-                  '\n' + Messages.getMissingNodeParent(current_suite.id);
+                '\n' + Messages.getMissingNodeParent(current_suite.id);
               Logger.instance.error(msg);
               throw new Error(msg);
             }
@@ -219,13 +219,13 @@ export class BanditSpawner extends TestSpawnerBase {
             let newLabel = parseGroupLabel(line);
             // Node already exists?
             let existingGroup =
-                asTestGroup(current_suite.findByLabel(newLabel));
+              asTestGroup(current_suite.findByLabel(newLabel));
             if (!existingGroup) {
               node = current_suite = current_suite.addSuite(newLabel);
               result.messages.push(Messages.getInfoNewGroup(node.id));
             } else {
               result.messages.push(
-                  Messages.getAmbiguousGroup(newLabel, current_suite.id));
+                Messages.getAmbiguousGroup(newLabel, current_suite.id));
               node = current_suite = existingGroup;
             }
           } else if (lineIsTest) {
@@ -239,7 +239,7 @@ export class BanditSpawner extends TestSpawnerBase {
             let invalidLabel = newLabel.trim().length == 0;
             if (invalidLabel) {
               result.messages.push(
-                  Messages.getEmptyNodeLabel(current_suite.id));
+                Messages.getEmptyNodeLabel(current_suite.id));
             } else {
               let existingTest = asTest(current_suite.findByLabel(newLabel));
               if (!existingTest) {
@@ -247,7 +247,7 @@ export class BanditSpawner extends TestSpawnerBase {
                 result.messages.push(Messages.getInfoNewTest(node.id));
               } else {
                 result.messages.push(
-                    Messages.getAmbiguousTest(newLabel, current_suite.id));
+                  Messages.getAmbiguousTest(newLabel, current_suite.id));
                 node = undefined;
               }
             }
@@ -290,14 +290,14 @@ export class BanditSpawner extends TestSpawnerBase {
               let title = `${node.displayTitle.trim()}:`;
               let internal_error = node.message || '';
               let bandit_error = lines.slice(1, lines.length)
-                                     .filter(l => l != '')
-                                     .join('\n')
-                                     .replace(/\n$/, '');
+                .filter(l => l != '')
+                .join('\n')
+                .replace(/\n$/, '');
               node.message = [title, internal_error, bandit_error]
-                                 .filter(m => m != '')
-                                 .join('\n\n');
+                .filter(m => m != '')
+                .join('\n\n');
               result.messages.push(
-                  Messages.getInfoErrorsDetected(node.id, node.message));
+                Messages.getInfoErrorsDetected(node.id, node.message));
             }
           }
         }

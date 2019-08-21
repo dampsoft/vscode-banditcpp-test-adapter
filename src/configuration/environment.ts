@@ -1,6 +1,6 @@
 
 export type EnvProperty = {
-  [prop: string]: string|undefined;
+  [prop: string]: string | undefined;
 };
 
 export function mergeEnv(...environments: EnvProperty[]): EnvProperty {

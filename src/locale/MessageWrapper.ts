@@ -6,8 +6,8 @@
  */
 export class MessageWrapper {
   constructor(
-      private readonly message: string,
-      private readonly placeholders: string[] = []) {}
+    private readonly message: string,
+    private readonly placeholders: string[] = []) { }
 
   public get(...values: (any)[]): string {
     let result = this.message;

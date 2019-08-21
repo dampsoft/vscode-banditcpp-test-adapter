@@ -1,19 +1,19 @@
 import * as vscode from 'vscode';
-import {TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo} from 'vscode-test-adapter-api';
+import { TestAdapter, TestEvent, TestLoadFinishedEvent, TestLoadStartedEvent, TestRunFinishedEvent, TestRunStartedEvent, TestSuiteEvent, TestSuiteInfo } from 'vscode-test-adapter-api';
 
-import {Configuration} from './configuration/configuration';
-import {ParseResult} from './execution/testspawner';
-import {TestSpawnerFactory} from './execution/testspawnerfactory';
-import {Messages} from './messages'
-import {closeLoadingProgress, LoadingProgress, showLoadingProgress, updateLoadingProgress} from './progress/loading'
-import {closeRunningProgress, RunningProgress, showRunningProgress, updateRunningProgress} from './progress/running'
-import {asTest, asTestGroup, Test, TestGroup, TestNodeI} from './project/test';
-import {TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './project/teststatus';
-import {TestSuite} from './project/testsuite';
-import {DisposableI} from './util/disposable';
-import {escapeRegExp, flatten} from './util/helper';
-import {Logger} from './util/logger';
-import {Message} from './util/message';
+import { Configuration } from './configuration/configuration';
+import { ParseResult } from './execution/testspawner';
+import { TestSpawnerFactory } from './execution/testspawnerfactory';
+import { Messages } from './messages'
+import { closeLoadingProgress, LoadingProgress, showLoadingProgress, updateLoadingProgress } from './progress/loading'
+import { closeRunningProgress, RunningProgress, showRunningProgress, updateRunningProgress } from './progress/running'
+import { asTest, asTestGroup, Test, TestGroup, TestNodeI } from './project/test';
+import { TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped } from './project/teststatus';
+import { TestSuite } from './project/testsuite';
+import { DisposableI } from './util/disposable';
+import { escapeRegExp, flatten } from './util/helper';
+import { Logger } from './util/logger';
+import { Message } from './util/message';
 
 /**
  * Test-Adapterklasse für Bandittests
@@ -21,16 +21,16 @@ import {Message} from './util/message';
 export class BanditTestAdapter implements TestAdapter {
   private disposables: DisposableI[] = [];
   private readonly testsEmitter =
-      new vscode.EventEmitter<TestLoadStartedEvent|TestLoadFinishedEvent>();
+    new vscode.EventEmitter<TestLoadStartedEvent | TestLoadFinishedEvent>();
   private readonly testStatesEmitter =
-      new vscode.EventEmitter<TestRunStartedEvent|TestRunFinishedEvent|
-                              TestSuiteEvent|TestEvent>();
+    new vscode.EventEmitter<TestRunStartedEvent | TestRunFinishedEvent |
+      TestSuiteEvent | TestEvent>();
   private readonly reloadEmitter = new vscode.EventEmitter<void>();
   private readonly autorunEmitter = new vscode.EventEmitter<void>();
   private config = new Configuration(
-      'banditTestExplorer', this.workspaceFolder, (hardReset: boolean) => {
-        this.onConfigChanged(hardReset);
-      });
+    'banditTestExplorer', this.workspaceFolder, (hardReset: boolean) => {
+      this.onConfigChanged(hardReset);
+    });
   private testSuites: TestSuite[] = [];
 
   /**
@@ -48,11 +48,11 @@ export class BanditTestAdapter implements TestAdapter {
   }
 
   // Schnittstellenimplementierungen
-  get tests(): vscode.Event<TestLoadStartedEvent|TestLoadFinishedEvent> {
+  get tests(): vscode.Event<TestLoadStartedEvent | TestLoadFinishedEvent> {
     return this.testsEmitter.event;
   }
-  get testStates(): vscode.Event<TestRunStartedEvent|TestRunFinishedEvent|
-                                 TestSuiteEvent|TestEvent> {
+  get testStates(): vscode.Event<TestRunStartedEvent | TestRunFinishedEvent |
+    TestSuiteEvent | TestEvent> {
     return this.testStatesEmitter.event;
   }
   get reload(): vscode.Event<void> {
@@ -81,38 +81,38 @@ export class BanditTestAdapter implements TestAdapter {
           if (result) {
             progress.tests += result.testsuite.tests.length;
             progress.errors +=
-                result.messages.filter((m: Message) => m.isError()).length;
+              result.messages.filter((m: Message) => m.isError()).length;
             progress.warnings +=
-                result.messages.filter((m: Message) => m.isWarning()).length;
+              result.messages.filter((m: Message) => m.isWarning()).length;
           }
           this.notifyLoadProgress(progress);
         };
         Promise
-            .all(this.testSuites.map(
-                (t) => t.reload()
-                           .then((result) => {
-                             handleParseResult(result);
-                             return result.testsuite;
-                           })
-                           .catch(() => {
-                             handleParseResult(undefined);
-                             return undefined;
-                           })))
-            .then(groups => {
-              // Fehlerhafte Projekte nicht laden:
-              return groups.filter(group => group !== undefined) as TestGroup[];
-            })
-            .then(testinfo => {
-              this.notifyLoadSuccessful(testinfo);
-              this.loadingActive = false;
-              resolve();
-            })
-            .catch(e => {
-              let error = (e instanceof Error) ? e.message : undefined;
-              this.notifyLoadFailed(error);
-              this.loadingActive = false;
-              resolve();
-            });
+          .all(this.testSuites.map(
+            (t) => t.reload()
+              .then((result) => {
+                handleParseResult(result);
+                return result.testsuite;
+              })
+              .catch(() => {
+                handleParseResult(undefined);
+                return undefined;
+              })))
+          .then(groups => {
+            // Fehlerhafte Projekte nicht laden:
+            return groups.filter(group => group !== undefined) as TestGroup[];
+          })
+          .then(testinfo => {
+            this.notifyLoadSuccessful(testinfo);
+            this.loadingActive = false;
+            resolve();
+          })
+          .catch(e => {
+            let error = (e instanceof Error) ? e.message : undefined;
+            this.notifyLoadFailed(error);
+            this.loadingActive = false;
+            resolve();
+          });
       } else {
         resolve();
       }
@@ -123,25 +123,25 @@ export class BanditTestAdapter implements TestAdapter {
    * Startet einen Testlauf für ausgewählte Tests
    * @param tests Test-Ids oder reguläre Ausdrücke zum Ermitteln der Tests
    */
-  public run(filters: (string|RegExp)[]): Promise<void> {
+  public run(filters: (string | RegExp)[]): Promise<void> {
     return new Promise((resolve, reject) => {
       Messages.getAdapterStartInfo(JSON.stringify(filters)).log();
       if (filters.length == 1 && filters[0] === 'root') {
         filters = [/.*/];
       }
       Promise.all(this.testSuites.map((t) => t.start(filters)))
-          .then((nodes) => {
-            this.notifyTestrunStart(filters, flatten(nodes));
-            resolve();
-          })
-          .catch(e => {
-            this.getErrorMessage(
-                    e, Messages.getAdapterStartError,
-                    Messages.getAdapterStartErrorUnknown)
-                .log();
-            this.notifyTestrunFinish();
-            reject(e);
-          });
+        .then((nodes) => {
+          this.notifyTestrunStart(filters, flatten(nodes));
+          resolve();
+        })
+        .catch(e => {
+          this.getErrorMessage(
+            e, Messages.getAdapterStartError,
+            Messages.getAdapterStartErrorUnknown)
+            .log();
+          this.notifyTestrunFinish();
+          reject(e);
+        });
     });
   }
 
@@ -149,7 +149,7 @@ export class BanditTestAdapter implements TestAdapter {
    * Startet das Debugging (aktuell noch nicht implementiert)
    * @param tests Test-Ids oder reguläre Ausdrücke zum Ermitteln der Tests
    */
-  public debug(tests: (string|RegExp)[]): Promise<void> {
+  public debug(tests: (string | RegExp)[]): Promise<void> {
     Messages.getAdapterDebugNotImplementedWarning().log();
     return Promise.resolve();
   }
@@ -162,9 +162,9 @@ export class BanditTestAdapter implements TestAdapter {
   public cancel() {
     Promise.all(this.testSuites.map((t) => t.cancel())).catch(e => {
       this.getErrorMessage(
-              e, Messages.getAdapterCancelError,
-              Messages.getAdapterCancelErrorUnknown)
-          .log();
+        e, Messages.getAdapterCancelError,
+        Messages.getAdapterCancelErrorUnknown)
+        .log();
       this.notifyTestrunFinish();
     });
   }
@@ -204,7 +204,7 @@ export class BanditTestAdapter implements TestAdapter {
       // Override the default Message.notify behavior:
       if (message.isWarning()) {
         Logger.instance.log(
-            `${message.title}: ${message.description}`, message.type);
+          `${message.title}: ${message.description}`, message.type);
       } else {
         message.notify();
       }
@@ -215,7 +215,7 @@ export class BanditTestAdapter implements TestAdapter {
     this.testSuites = this.config.testsuites.filter(t => t.enabled).map(t => {
       let spawner = TestSpawnerFactory.createSpawner(t);
       return new TestSuite(
-          t, spawner, onSuiteChange, onStatusChange, onMessage);
+        t, spawner, onSuiteChange, onStatusChange, onMessage);
     });
   }
 
@@ -243,22 +243,22 @@ export class BanditTestAdapter implements TestAdapter {
    */
   private registerCommands() {
     this.disposables.push(
-        vscode.commands.registerCommand('bandit-test-explorer.run', () => {
-          vscode.window
-              .showInputBox({
-                placeHolder:
-                    Messages.getAdapterCommandRunTestsFilteredPlaceholder()
-              })
-              .then(t => {
-                if (t) {
-                  this.run([new RegExp(`.*${escapeRegExp(t)}.*`, 'i')]);
-                }
-              });
-        }));
+      vscode.commands.registerCommand('bandit-test-explorer.run', () => {
+        vscode.window
+          .showInputBox({
+            placeHolder:
+              Messages.getAdapterCommandRunTestsFilteredPlaceholder()
+          })
+          .then(t => {
+            if (t) {
+              this.run([new RegExp(`.*${escapeRegExp(t)}.*`, 'i')]);
+            }
+          });
+      }));
   }
 
   private notifyLoadStart() {
-    this.testsEmitter.fire(<TestLoadStartedEvent>{type: 'started'});
+    this.testsEmitter.fire(<TestLoadStartedEvent>{ type: 'started' });
     showLoadingProgress(() => {
       this.cancel();
     }, this.config.progressVisualization);
@@ -276,25 +276,25 @@ export class BanditTestAdapter implements TestAdapter {
       children: nodes.map(n => n.getTestInfo())
     };
     this.testsEmitter.fire(
-        <TestLoadFinishedEvent>{type: 'finished', suite: info});
+      <TestLoadFinishedEvent>{ type: 'finished', suite: info });
     closeLoadingProgress();
   }
 
   private notifyLoadFailed(error?: string) {
     this.testsEmitter.fire(
-        <TestLoadFinishedEvent>{type: 'finished', errorMessage: error});
+      <TestLoadFinishedEvent>{ type: 'finished', errorMessage: error });
     closeLoadingProgress();
     this.getErrorMessage(
-            error, Messages.getAdapterLoadError,
-            Messages.getAdapterLoadErrorUnknown)
-        .notify(true);
+      error, Messages.getAdapterLoadError,
+      Messages.getAdapterLoadErrorUnknown)
+      .notify(true);
   }
 
   private lastTestrunStatus = TestStatusIdle;
 
-  private runningProgress: RunningProgress|undefined;
+  private runningProgress: RunningProgress | undefined;
 
-  private notifyTestrunStart(filters: (string|RegExp)[], nodes: TestNodeI[]) {
+  private notifyTestrunStart(filters: (string | RegExp)[], nodes: TestNodeI[]) {
     if (nodes.length == 0) {
       let filter = '[' + filters.map(f => f.toString()).join(', ') + ']';
       Messages.getAdapterCommandRunTestsFilteredError(filter).notify();
@@ -302,12 +302,12 @@ export class BanditTestAdapter implements TestAdapter {
     }
     if (this.lastTestrunStatus == TestStatusIdle) {
       if (this.testSuites.some(
-              (testsuite) => testsuite.status == TestStatusRunning)) {
+        (testsuite) => testsuite.status == TestStatusRunning)) {
         this.lastTestrunStatus = TestStatusRunning;
       }
     }
     this.testStatesEmitter.fire(
-        <TestRunStartedEvent>{type: 'started', tests: nodes.map(n => n.id)});
+      <TestRunStartedEvent>{ type: 'started', tests: nodes.map(n => n.id) });
     if (!this.runningProgress) {
       showRunningProgress(() => {
         this.cancel();
@@ -325,11 +325,11 @@ export class BanditTestAdapter implements TestAdapter {
 
   private notifyTestrunFinish() {
     if (this.lastTestrunStatus != TestStatusIdle &&
-        this.testSuites.every(
-            (testsuite) => testsuite.status != TestStatusRunning)) {
+      this.testSuites.every(
+        (testsuite) => testsuite.status != TestStatusRunning)) {
       this.lastTestrunStatus = TestStatusIdle;
       this.runningProgress = undefined;
-      this.testStatesEmitter.fire(<TestRunFinishedEvent>{type: 'finished'});
+      this.testStatesEmitter.fire(<TestRunFinishedEvent>{ type: 'finished' });
       closeRunningProgress();
     }
   }
@@ -395,8 +395,8 @@ export class BanditTestAdapter implements TestAdapter {
   }
 
   private getErrorMessage(
-      error: any, messageCallback: (message: string) => Message,
-      messageCallbackUnknown: () => Message): Message {
+    error: any, messageCallback: (message: string) => Message,
+    messageCallbackUnknown: () => Message): Message {
     if (error instanceof Error) {
       return messageCallback(error.message);
     } else if (typeof error === 'string') {

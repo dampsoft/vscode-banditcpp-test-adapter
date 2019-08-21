@@ -1,8 +1,8 @@
-import {TestInfo, TestSuiteInfo} from 'vscode-test-adapter-api';
+import { TestInfo, TestSuiteInfo } from 'vscode-test-adapter-api';
 
-import {TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped} from './teststatus';
+import { TestStatus, TestStatusFailed, TestStatusIdle, TestStatusPassed, TestStatusRunning, TestStatusSkipped } from './teststatus';
 
-export type TestNodeType = 'test'|'suite';
+export type TestNodeType = 'test' | 'suite';
 export const TestNodeTypeTest: TestNodeType = 'test';
 export const TestNodeTypeSuite: TestNodeType = 'suite';
 
@@ -15,7 +15,7 @@ export interface TestNodeI {
   cancel(): TestNodeI[];
   finish(status: TestStatus, message?: string): TestNodeI[];
   readonly parents: Array<TestGroup>;
-  getTestInfo(): TestSuiteInfo|TestInfo;
+  getTestInfo(): TestSuiteInfo | TestInfo;
   readonly displayTitle: string;
   parent?: TestGroup;
   message?: string;
@@ -40,7 +40,7 @@ abstract class TestNode implements TestNodeI {
   public abstract cancel(): TestNodeI[];
   public abstract finish(status: TestStatus, message?: string): TestNodeI[];
   // Konstruktor
-  constructor(public parent: TestGroup|undefined) {}
+  constructor(public parent: TestGroup | undefined) { }
   public get parents(): Array<TestGroup> {
     let parents = new Array<TestGroup>();
     let p = this.parent;
@@ -50,7 +50,7 @@ abstract class TestNode implements TestNodeI {
     }
     return parents.reverse();
   }
-  public abstract getTestInfo(): TestSuiteInfo|TestInfo;
+  public abstract getTestInfo(): TestSuiteInfo | TestInfo;
   public get displayTitle(): string {
     if (this.parent) {
       return `${this.parent.displayTitle} ${this.label}`;
@@ -69,11 +69,11 @@ export class TestGroup extends TestNode {
   public readonly type = TestNodeTypeSuite;
 
   constructor(
-      parent: TestGroup|undefined,  //
-      public label: string,         //
-      public file?: string,         //
-      public line?: number,         //
-      public message?: string) {
+    parent: TestGroup | undefined,  //
+    public label: string,         //
+    public file?: string,         //
+    public line?: number,         //
+    public message?: string) {
     super(parent);
   }
 
@@ -89,8 +89,8 @@ export class TestGroup extends TestNode {
         } else if (node_status == TestStatusFailed) {
           aggr_status = TestStatusFailed;
         } else if (
-            aggr_status == TestStatusSkipped &&
-            node_status == TestStatusPassed) {
+          aggr_status == TestStatusSkipped &&
+          node_status == TestStatusPassed) {
           aggr_status = TestStatusPassed;
         }
       }
@@ -131,7 +131,7 @@ export class TestGroup extends TestNode {
   }
 
   public addTest(name: string, file?: string, line?: number, skipped?: boolean):
-      Test {
+    Test {
     var test = new Test(this, name, file, line, skipped);
     this.add(test);
     return test;
@@ -145,11 +145,11 @@ export class TestGroup extends TestNode {
 
   public sort() {
     this.children.sort(
-        (a, b) => (a.id.localeCompare(b.id, undefined, {caseFirst: 'upper'})));
+      (a, b) => (a.id.localeCompare(b.id, undefined, { caseFirst: 'upper' })));
     this.groups.forEach(g => g.sort());
   }
 
-  public findAll(id: string|RegExp): Array<TestNodeI> {
+  public findAll(id: string | RegExp): Array<TestNodeI> {
     var matches = new Array<TestNodeI>();
     if (typeof id === 'string' ? this.id === id : this.id.match(id)) {
       matches = this.tests;
@@ -168,23 +168,23 @@ export class TestGroup extends TestNode {
     return matches;
   }
 
-  public find(id: string|RegExp): TestNodeI|undefined {
+  public find(id: string | RegExp): TestNodeI | undefined {
     var matches = this.findAll(id);
     return matches ? matches[0] : undefined;
   }
 
-  public findAllByLabel(label: string|RegExp): Array<TestNodeI> {
+  public findAllByLabel(label: string | RegExp): Array<TestNodeI> {
     var matches = new Array<TestNodeI>();
     for (var child of this.children) {
       if (typeof label === 'string' ? child.label === label :
-                                      child.label.match(label)) {
+        child.label.match(label)) {
         matches.push(child);
       }
     }
     return matches;
   }
 
-  public findByLabel(label: string|RegExp): TestNodeI|undefined {
+  public findByLabel(label: string | RegExp): TestNodeI | undefined {
     var matches = this.findAllByLabel(label);
     return matches ? matches[0] : undefined;
   }
@@ -213,8 +213,8 @@ export class TestGroup extends TestNode {
     return nodes;
   }
 
-  public getTestInfo(): TestSuiteInfo|TestInfo {
-    let child_info = new Array<TestInfo|TestSuiteInfo>();
+  public getTestInfo(): TestSuiteInfo | TestInfo {
+    let child_info = new Array<TestInfo | TestSuiteInfo>();
     for (let child of this.children) {
       child_info.push(child.getTestInfo());
     }
@@ -238,12 +238,12 @@ export class Test extends TestNode {
   private test_status: TestStatus = TestStatusIdle;
 
   constructor(
-      parent: TestGroup|undefined,  //
-      public label: string,         //
-      public file?: string,         //
-      public line?: number,         //
-      public skipped?: boolean,     //
-      public message?: string) {
+    parent: TestGroup | undefined,  //
+    public label: string,         //
+    public file?: string,         //
+    public line?: number,         //
+    public skipped?: boolean,     //
+    public message?: string) {
     super(parent);
   }
 
@@ -281,7 +281,7 @@ export class Test extends TestNode {
     return nodes;
   }
 
-  public getTestInfo(): TestSuiteInfo|TestInfo {
+  public getTestInfo(): TestSuiteInfo | TestInfo {
     return {
       type: 'test',
       id: this.id,
@@ -293,10 +293,10 @@ export class Test extends TestNode {
   }
 }
 
-export function asTest(node: any): Test|undefined {
+export function asTest(node: any): Test | undefined {
   return node instanceof Test ? (node as Test) : undefined;
 }
 
-export function asTestGroup(node: any): TestGroup|undefined {
+export function asTestGroup(node: any): TestGroup | undefined {
   return node instanceof TestGroup ? (node as TestGroup) : undefined;
 }

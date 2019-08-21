@@ -1,7 +1,7 @@
-import {Log} from 'vscode-test-adapter-util';
-import {DisposableI} from './disposable';
+import { Log } from 'vscode-test-adapter-util';
+import { DisposableI } from './disposable';
 
-export type LogLevel = 'debug'|'info'|'warning'|'error';
+export type LogLevel = 'debug' | 'info' | 'warning' | 'error';
 export const LogLevelDebug: LogLevel = 'debug';
 export const LogLevelInfo: LogLevel = 'info';
 export const LogLevelWarning: LogLevel = 'warning';
@@ -10,7 +10,7 @@ export const LogLevelError: LogLevel = 'error';
 export class Logger implements DisposableI {
   public static instance = new Logger();
 
-  private logger: Log|undefined;
+  private logger: Log | undefined;
   public level: LogLevel = LogLevelWarning;
 
   public setLog(logger: Log) {

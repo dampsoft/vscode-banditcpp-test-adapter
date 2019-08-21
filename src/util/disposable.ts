@@ -7,7 +7,7 @@ export function isDisposable(object: any): object is DisposableI {
 }
 
 export function using<T extends DisposableI>(
-    resource: T, func: (resource: T) => void) {
+  resource: T, func: (resource: T) => void) {
   try {
     func(resource);
   } finally {

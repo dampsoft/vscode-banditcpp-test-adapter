@@ -1,14 +1,14 @@
-import {homedir} from 'os';
+import { homedir } from 'os';
 import * as vscode from 'vscode';
 const uuid = require('uuid/v4');
 
-type CallableRegexSymbolResolver = (p: RegExpMatchArray) => string|undefined;
-type CallableSymbolResolver = () => string|undefined;
+type CallableRegexSymbolResolver = (p: RegExpMatchArray) => string | undefined;
+type CallableSymbolResolver = () => string | undefined;
 type Symbol = RegExp;
 type SymbolMap =
-    [Symbol, string | CallableRegexSymbolResolver | CallableSymbolResolver][];
+  [Symbol, string | CallableRegexSymbolResolver | CallableSymbolResolver][];
 
-export interface SymbolValueProvider {}
+export interface SymbolValueProvider { }
 
 
 /**
@@ -88,16 +88,16 @@ export abstract class BaseSymbolResolver implements SymbolResolverI {
 
   private resolveString(value: string): string {
     for (let i = 0; i < this.symbols.length; ++i) {
-      let match: RegExpMatchArray|null;
+      let match: RegExpMatchArray | null;
       let replaced = '';
       let lastAppend = 0;
       while ((match = this.symbols[i][0].exec(value)) != null) {
-        let replacement: string|undefined;
+        let replacement: string | undefined;
         if (typeof this.symbols[i][1] === 'string') {
           replacement = this.symbols[i][1] as string;
         } else {
           let regexResolver =
-              (this.symbols[i][1] as CallableRegexSymbolResolver);
+            (this.symbols[i][1] as CallableRegexSymbolResolver);
           if (regexResolver) {
             replacement = regexResolver(match);
           } else {
@@ -105,7 +105,7 @@ export abstract class BaseSymbolResolver implements SymbolResolverI {
           }
         }
         replaced +=
-            value.substring(lastAppend, match.index) + (replacement || '');
+          value.substring(lastAppend, match.index) + (replacement || '');
         lastAppend = this.symbols[i][0].lastIndex;
       }
       replaced += value.substring(lastAppend);
@@ -115,8 +115,8 @@ export abstract class BaseSymbolResolver implements SymbolResolverI {
   }
 
   protected registerSymbol(
-      symbol: Symbol,
-      resolver: string|CallableRegexSymbolResolver|CallableSymbolResolver) {
+    symbol: Symbol,
+    resolver: string | CallableRegexSymbolResolver | CallableSymbolResolver) {
     this.symbols.push([symbol, resolver]);
   }
 }
@@ -129,14 +129,14 @@ export class WorkspaceSymbolResolver extends BaseSymbolResolver {
   constructor(private readonly workspaceFolder: vscode.WorkspaceFolder) {
     super();
     this.registerSymbol(
-        /\${workspaceDirectory}/g, this.workspaceFolder.uri.fsPath);
+      /\${workspaceDirectory}/g, this.workspaceFolder.uri.fsPath);
     this.registerSymbol(
-        /\${workspaceFolder}/g, this.workspaceFolder.uri.fsPath);
+      /\${workspaceFolder}/g, this.workspaceFolder.uri.fsPath);
     this.registerSymbol(/\${UserDir}/g, homedir());
     this.registerSymbol(/\${HomeDir}/g, homedir());
     this.registerSymbol(/~(?=$|\/|\\)/g, homedir());
     this.registerSymbol(/\${env:(\w+)}/g, (matches: RegExpMatchArray) => {
-      let result: string|undefined;
+      let result: string | undefined;
       if (matches && matches.length > 0) {
         result = process.env[matches[1]];
       }

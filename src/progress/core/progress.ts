@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
-import {ProgressLocation, window} from 'vscode';
-import {ProgressStatusI} from './state';
+import { ProgressLocation, window } from 'vscode';
+import { ProgressStatusI } from './state';
 
 
-export type visualizerType = 'dialogBox'|'statusBar';
+export type visualizerType = 'dialogBox' | 'statusBar';
 
 
 interface ProgressVisualizerI {
@@ -17,17 +17,17 @@ var autoCloseTimeout = 2000;
 
 // DialogBox Variant
 class ProgressDialogBox<T extends ProgressStatusI> implements
-    ProgressVisualizerI {
+  ProgressVisualizerI {
   private lastProgress = 0;
   constructor(
-      private readonly progressHandler:
-          (increment: number, message: string) => void,
-      private readonly progressFormatter: (status: T) => string,
-      private readonly closeHandler: () => void) {}
+    private readonly progressHandler:
+      (increment: number, message: string) => void,
+    private readonly progressFormatter: (status: T) => string,
+    private readonly closeHandler: () => void) { }
 
   public progress(status: T) {
     let increment =
-        (status.progress > this.lastProgress) ? status.increment : 0;
+      (status.progress > this.lastProgress) ? status.increment : 0;
     this.lastProgress = status.progress;
     let message = this.progressFormatter(status);
     this.progressHandler(100 * increment, message);
@@ -38,67 +38,67 @@ class ProgressDialogBox<T extends ProgressStatusI> implements
   }
 
   public static show<T extends ProgressStatusI>(
-      id: string, title: string, progressFormatter: (status: T) => string,
-      cancellationHandler?: () => void) {
+    id: string, title: string, progressFormatter: (status: T) => string,
+    cancellationHandler?: () => void) {
     window.withProgress(
-        {
-          location: ProgressLocation.Notification,
-          title: title,
-          cancellable: cancellationHandler != undefined
-        },
-        (progress, token) => {
-          return new Promise(resolve => {
-            // Final no response timeout:
-            let createTimeout = (time: number) => {
-              return setTimeout(() => {
-                resolve();
-              }, time);
-            };
-            let timeout = createTimeout(30000);
-            token.onCancellationRequested(() => {
-              clearTimeout(timeout);
-              if (cancellationHandler) {
-                cancellationHandler();
-              }
+      {
+        location: ProgressLocation.Notification,
+        title: title,
+        cancellable: cancellationHandler != undefined
+      },
+      (progress, token) => {
+        return new Promise(resolve => {
+          // Final no response timeout:
+          let createTimeout = (time: number) => {
+            return setTimeout(() => {
               resolve();
-            });
-            // progress.report({increment: 0});
-            let progressHandler = (increment: number, message: string) => {
-              clearTimeout(timeout);
-              timeout = createTimeout(30000);
-              progress.report({increment: increment, message: message});
-            };
-            let closeHandler = () => {
-              clearTimeout(timeout);
-              timeout = createTimeout(autoCloseTimeout);
-            };
-            Progress.addVisualizer(
-                id,
-                new ProgressDialogBox(
-                    progressHandler, progressFormatter, closeHandler));
+            }, time);
+          };
+          let timeout = createTimeout(30000);
+          token.onCancellationRequested(() => {
+            clearTimeout(timeout);
+            if (cancellationHandler) {
+              cancellationHandler();
+            }
+            resolve();
           });
+          // progress.report({increment: 0});
+          let progressHandler = (increment: number, message: string) => {
+            clearTimeout(timeout);
+            timeout = createTimeout(30000);
+            progress.report({ increment: increment, message: message });
+          };
+          let closeHandler = () => {
+            clearTimeout(timeout);
+            timeout = createTimeout(autoCloseTimeout);
+          };
+          Progress.addVisualizer(
+            id,
+            new ProgressDialogBox(
+              progressHandler, progressFormatter, closeHandler));
         });
+      });
   }
 }
 
 
 // ProgressBar Variant
 class ProgressStatusBarItem<T extends ProgressStatusI> implements
-    ProgressVisualizerI {
+  ProgressVisualizerI {
   private statusBarItem: vscode.StatusBarItem;
 
   constructor(
-      private readonly title: string,
-      private readonly progressFormatter: (status: T) => string,
-      private readonly closeHandler?: () => void,
-      private readonly maxSize: number = 10) {
+    private readonly title: string,
+    private readonly progressFormatter: (status: T) => string,
+    private readonly closeHandler?: () => void,
+    private readonly maxSize: number = 10) {
     this.statusBarItem =
-        vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+      vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
   }
 
   public progress(status: T) {
     this.statusBarItem.text = `${this.title} (${status.steps}/${
-        status.stepsMax}) ${this.getAsciiProgress(status)}`;
+      status.stepsMax}) ${this.getAsciiProgress(status)}`;
     this.statusBarItem.tooltip = this.progressFormatter(status);
     this.statusBarItem.show();
   }
@@ -124,12 +124,12 @@ class ProgressStatusBarItem<T extends ProgressStatusI> implements
   }
 
   public static show<T extends ProgressStatusI>(
-      id: string, title: string, progressFormatter: (status: T) => string,
-      cancellationHandler?: () => void) {
+    id: string, title: string, progressFormatter: (status: T) => string,
+    cancellationHandler?: () => void) {
     Progress.addVisualizer(
-        id,
-        new ProgressStatusBarItem<T>(
-            title, progressFormatter, cancellationHandler));
+      id,
+      new ProgressStatusBarItem<T>(
+        title, progressFormatter, cancellationHandler));
   }
 }
 
@@ -137,15 +137,15 @@ class ProgressStatusBarItem<T extends ProgressStatusI> implements
 // Progress class
 export class Progress {
   public static show<T extends ProgressStatusI>(
-      id: string, title: string, progressFormatter: (status: T) => string,
-      cancellationHandler?: () => void,
-      visualization: visualizerType = 'dialogBox') {
+    id: string, title: string, progressFormatter: (status: T) => string,
+    cancellationHandler?: () => void,
+    visualization: visualizerType = 'dialogBox') {
     if (visualization == 'dialogBox') {
       ProgressDialogBox.show<T>(
-          id, title, progressFormatter, cancellationHandler);
+        id, title, progressFormatter, cancellationHandler);
     } else {
       ProgressStatusBarItem.show(
-          id, title, progressFormatter, cancellationHandler);
+        id, title, progressFormatter, cancellationHandler);
     }
   }
 

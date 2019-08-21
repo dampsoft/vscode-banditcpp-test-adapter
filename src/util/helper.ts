@@ -1,9 +1,9 @@
 import * as p from 'path';
-import {getOptional, Optional} from './optional';
+import { getOptional, Optional } from './optional';
 
 export function escapeRegExp(text: string): string {
   return text.replace(
-      /[.*+?^${}()|[\]\\]/g, '\\$&');  // $& means the whole matched string
+    /[.*+?^${}()|[\]\\]/g, '\\$&');  // $& means the whole matched string
 }
 
 export function cleanPath(path: string): string {
@@ -21,7 +21,7 @@ export function removeDuplicates(values: any[], prop: string) {
 }
 
 function compareString(
-    a: any, b: any, ignoreCase: boolean = false, property?: string): number {
+  a: any, b: any, ignoreCase: boolean = false, property?: string): number {
   let propA: Optional<string>;
   let propB: Optional<string>;
   // Get the required values:
@@ -38,7 +38,7 @@ function compareString(
   }
   // Compare:
   if (propA && propB) {
-    let options = ignoreCase ? {caseFirst: 'upper'} : undefined;
+    let options = ignoreCase ? { caseFirst: 'upper' } : undefined;
     return propA.localeCompare(propB, undefined, options);
   } else if (propB) {
     return -1;
@@ -50,7 +50,7 @@ function compareString(
 }
 
 export function sortString(
-    items: any[], ignoreCase: boolean = false, property?: string) {
+  items: any[], ignoreCase: boolean = false, property?: string) {
   items.sort((a, b) => compareString(a, b, ignoreCase, property));
 }
 
@@ -105,11 +105,11 @@ export type OsSetting = {
  * @returns        Gefundener Einstellwert oder undefined
  */
 export function switchOs<T>(
-    setting: OsSetting, property?: string, fallback?: T): Optional<T> {
+  setting: OsSetting, property?: string, fallback?: T): Optional<T> {
   let osSetting =                             //
-      isLinux() ? setting.linux :             //
+    isLinux() ? setting.linux :             //
       isWindows() ? setting.windows :         //
-          isOsx() ? setting.osx : undefined;  //
+        isOsx() ? setting.osx : undefined;  //
   if (property) {
     return getOptional<T>(osSetting, property, fallback)
   } else {

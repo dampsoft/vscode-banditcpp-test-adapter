@@ -1,13 +1,13 @@
 export class Version {
   constructor(
-      public readonly major: number, public readonly minor: number,
-      public readonly build: number) {}
+    public readonly major: number, public readonly minor: number,
+    public readonly build: number) { }
 
-  static fromString(str: string): Version|undefined {
+  static fromString(str: string): Version | undefined {
     let matches = str.match(/(\d+)\.(\d+)\.(\d+)/i);
     if (matches && matches.length == 4) {
       return new Version(
-          parseInt(matches[1]), parseInt(matches[2]), parseInt(matches[3]));
+        parseInt(matches[1]), parseInt(matches[2]), parseInt(matches[3]));
     }
     return undefined;
   }
@@ -31,8 +31,8 @@ export class Version {
 
   public equal(other: Version): boolean {
     return (
-        this.major == other.major && this.minor == other.minor &&
-        this.build == other.build);
+      this.major == other.major && this.minor == other.minor &&
+      this.build == other.build);
   }
 
   public lessThan(other: Version): boolean {

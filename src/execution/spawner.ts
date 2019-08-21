@@ -1,12 +1,12 @@
 import * as cp from 'child_process';
 
-import {Messages} from './messages';
+import { Messages } from './messages';
 
 export class SpawnResult {
   constructor(
-      public pid: number = 0, public stdout: string = '',
-      public stderr: string = '', public status: number = 0,
-      public signal: string = '', public cancelled: boolean = false) {}
+    public pid: number = 0, public stdout: string = '',
+    public stderr: string = '', public status: number = 0,
+    public signal: string = '', public cancelled: boolean = false) { }
   public error?: Error;
 
   public isFailed(): boolean {
@@ -37,9 +37,9 @@ export class Spawner {
       throw new Error(msg.format());
     }
     Messages
-        .getSpawnerProcessStart(
-            args.id, args.cmd + (args.args ? ' ' + args.args.join(' ') : ''))
-        .log();
+      .getSpawnerProcessStart(
+        args.id, args.cmd + (args.args ? ' ' + args.args.join(' ') : ''))
+      .log();
     return new Promise((resolve, reject) => {
       const command = cp.spawn(args.cmd, args.args || [], args.options || {});
       const ret = new SpawnResult(command.pid);
@@ -62,7 +62,7 @@ export class Spawner {
         this.remove(args.id);
         if (ret.isFailed()) {
           Messages.getSpawnerProcessFinishedInvalid(args.id, signal, code)
-              .log();
+            .log();
           if (!ret.error) {
             ret.error = new Error(ret.stderr);
           }

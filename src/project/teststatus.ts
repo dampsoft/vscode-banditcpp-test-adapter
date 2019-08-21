@@ -1,4 +1,4 @@
-export type TestStatus = 'idle'|'running'|'ok'|'failed'|'skipped';
+export type TestStatus = 'idle' | 'running' | 'ok' | 'failed' | 'skipped';
 export const TestStatusIdle: TestStatus = 'idle';
 export const TestStatusRunning: TestStatus = 'running';
 export const TestStatusPassed: TestStatus = 'ok';

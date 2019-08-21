@@ -1,15 +1,15 @@
-import {TestSuiteConfiguration} from '../configuration/configuration';
-import {SymbolResolverI} from '../configuration/symbol';
-import {TestGroup, TestNodeI} from '../project/test';
-import {TestStatusFailed, TestStatusSkipped} from '../project/teststatus';
-import {Message} from '../util/message';
-import {Version} from '../util/version';
+import { TestSuiteConfiguration } from '../configuration/configuration';
+import { SymbolResolverI } from '../configuration/symbol';
+import { TestGroup, TestNodeI } from '../project/test';
+import { TestStatusFailed, TestStatusSkipped } from '../project/teststatus';
+import { Message } from '../util/message';
+import { Version } from '../util/version';
 
-import {Messages} from './messages';
-import {SpawnArguments, Spawner, SpawnResult} from './spawner';
+import { Messages } from './messages';
+import { SpawnArguments, Spawner, SpawnResult } from './spawner';
 
 export class ParseResult {
-  constructor(public testsuite: TestGroup, public messages: Message[] = []) {}
+  constructor(public testsuite: TestGroup, public messages: Message[] = []) { }
 }
 
 /**
@@ -19,7 +19,7 @@ export interface TestSpawnerI {
   readonly version: Version;
   dry(runtimeResolvers?: SymbolResolverI[]): Promise<ParseResult>;
   run(node: TestNodeI,
-      runtimeResolvers?: SymbolResolverI[]): Promise<TestNodeI[]>;
+    runtimeResolvers?: SymbolResolverI[]): Promise<TestNodeI[]>;
   stop(): void;
 }
 
@@ -28,19 +28,19 @@ export interface TestSpawnerI {
  * Basisklasse für Test-Spawner.
  */
 export abstract class TestSpawnerBase implements TestSpawnerI {
-  private detectedVersion: Version|undefined;
+  private detectedVersion: Version | undefined;
   constructor(
-      protected readonly config: TestSuiteConfiguration,
-      private readonly versionRegex: RegExp,
-      private readonly fallbackVersion: Version) {
+    protected readonly config: TestSuiteConfiguration,
+    private readonly versionRegex: RegExp,
+    private readonly fallbackVersion: Version) {
     this.initVersion();
   }
 
   protected abstract createSpawnArgumentsVersion(): SpawnArguments;
   protected abstract createSpawnArgumentsDryRun(
-      runtimeResolvers?: SymbolResolverI[]): SpawnArguments;
+    runtimeResolvers?: SymbolResolverI[]): SpawnArguments;
   protected abstract createSpawnArgumentsTestRun(
-      node: TestNodeI, runtimeResolvers?: SymbolResolverI[]): SpawnArguments;
+    node: TestNodeI, runtimeResolvers?: SymbolResolverI[]): SpawnArguments;
   protected abstract parseSpawnResult(spawnResult: SpawnResult): ParseResult;
 
   /**
@@ -57,37 +57,37 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
   public initVersion() {
     if (!this.detectedVersion) {
       Messages.getTestSpawnerDetectFrameworkVersionStart(this.config.name)
-          .log();
+        .log();
       let spawnArgs = this.createSpawnArgumentsVersion();
       Spawner.instance.spawn(spawnArgs)
-          .then((ret: SpawnResult) => {
-            let matches = ret.stdout.match(this.versionRegex);
-            if (matches && matches.length == 2) {
-              return Version.fromString(matches[1]);
-            } else {
-              return Version.fromString(ret.stdout);
-            }
-          })
-          .then(v => {
-            this.detectedVersion = v ? v : this.fallbackVersion;
-            if (v) {
-              Messages
-                  .getTestSpawnerDetectFrameworkVersionFinishedValid(
-                      this.config.name, v.toString())
-                  .log();
-            } else {
-              Messages
-                  .getTestSpawnerDetectFrameworkVersionFinishedInvalid(
-                      this.config.name, this.detectedVersion.toString())
-                  .log();
-            }
-          })
-          .catch(error => {
+        .then((ret: SpawnResult) => {
+          let matches = ret.stdout.match(this.versionRegex);
+          if (matches && matches.length == 2) {
+            return Version.fromString(matches[1]);
+          } else {
+            return Version.fromString(ret.stdout);
+          }
+        })
+        .then(v => {
+          this.detectedVersion = v ? v : this.fallbackVersion;
+          if (v) {
             Messages
-                .getTestSpawnerDetectFrameworkVersionError(
-                    this.config.name, error)
-                .log();
-          });
+              .getTestSpawnerDetectFrameworkVersionFinishedValid(
+                this.config.name, v.toString())
+              .log();
+          } else {
+            Messages
+              .getTestSpawnerDetectFrameworkVersionFinishedInvalid(
+                this.config.name, this.detectedVersion.toString())
+              .log();
+          }
+        })
+        .catch(error => {
+          Messages
+            .getTestSpawnerDetectFrameworkVersionError(
+              this.config.name, error)
+            .log();
+        });
     }
   }
 
@@ -102,25 +102,25 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
     return new Promise((resolve, reject) => {
       let spawnArgs = this.createSpawnArgumentsDryRun(runtimeResolvers);
       Spawner.instance.spawn(spawnArgs)
-          .then((ret: SpawnResult) => {
-            if (ret.status < 0) {
-              Messages.getTestSpawnerDryRunFinishedInvalid(this.config.name)
-                  .log();
-              reject(ret.error);
-            } else {
-              Messages.getTestSpawnerDryRunFinishedValid(this.config.name)
-                  .log();
-              let res = this.parseSpawnResult(ret);
-              res.testsuite.sort();
-              resolve(res);
-            }
-          })
-          .catch((error: SpawnResult) => {
-            let msg = Messages.getTestSpawnerDryRunError(
-                this.config.name, error.error);
-            msg.log();
-            reject(error.error || new Error(msg.format()));
-          });
+        .then((ret: SpawnResult) => {
+          if (ret.status < 0) {
+            Messages.getTestSpawnerDryRunFinishedInvalid(this.config.name)
+              .log();
+            reject(ret.error);
+          } else {
+            Messages.getTestSpawnerDryRunFinishedValid(this.config.name)
+              .log();
+            let res = this.parseSpawnResult(ret);
+            res.testsuite.sort();
+            resolve(res);
+          }
+        })
+        .catch((error: SpawnResult) => {
+          let msg = Messages.getTestSpawnerDryRunError(
+            this.config.name, error.error);
+          msg.log();
+          reject(error.error || new Error(msg.format()));
+        });
     });
   }
 
@@ -132,30 +132,30 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
    *                          nach der Ausführung zurück.
    */
   public run(node: TestNodeI, runtimeResolvers?: SymbolResolverI[]):
-      Promise<TestNodeI[]> {
+    Promise<TestNodeI[]> {
     return new Promise(resolve => {
       let spawnArgs = this.createSpawnArgumentsTestRun(node, runtimeResolvers);
       Spawner.instance.spawn(spawnArgs)
-          .then((ret: SpawnResult) => {
-            if (!ret.cancelled && ret.status < 0) {
-              let msg = Messages.getTestSpawnerTestRunFinishedInvalid(node.id);
-              msg.log();
-              resolve(node.finish(TestStatusFailed, msg.format()));
-            } else {
-              Messages.getTestSpawnerTestRunFinishedValid(node.id).log();
-              if (ret.cancelled) {
-                resolve(node.cancel());
-              } else {
-                resolve(this.updateNode(node, this.parseSpawnResult(ret)));
-              }
-            }
-          })
-          .catch((error: SpawnResult) => {
-            let msg =
-                Messages.getTestSpawnerTestRunError(this.config.name, error);
+        .then((ret: SpawnResult) => {
+          if (!ret.cancelled && ret.status < 0) {
+            let msg = Messages.getTestSpawnerTestRunFinishedInvalid(node.id);
             msg.log();
             resolve(node.finish(TestStatusFailed, msg.format()));
-          });
+          } else {
+            Messages.getTestSpawnerTestRunFinishedValid(node.id).log();
+            if (ret.cancelled) {
+              resolve(node.cancel());
+            } else {
+              resolve(this.updateNode(node, this.parseSpawnResult(ret)));
+            }
+          }
+        })
+        .catch((error: SpawnResult) => {
+          let msg =
+            Messages.getTestSpawnerTestRunError(this.config.name, error);
+          msg.log();
+          resolve(node.finish(TestStatusFailed, msg.format()));
+        });
     });
   }
 
@@ -165,9 +165,9 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
    */
   public stop() {
     Messages
-        .getTestSpawnerStopRunningProcesses(
-            this.config.name, this.config.allowKillProcess)
-        .notify();
+      .getTestSpawnerStopRunningProcesses(
+        this.config.name, this.config.allowKillProcess)
+      .notify();
     if (this.config.allowKillProcess) {
       Spawner.instance.killAll();
     }
@@ -186,7 +186,7 @@ export abstract class TestSpawnerBase implements TestSpawnerI {
     let resultNode = ret.testsuite.find(node.id);
     if (resultNode) {
       Messages.getTestSpawnerTestResultUpdateValid(node.id, resultNode.status)
-          .log();
+        .log();
       nodes = node.finish(resultNode.status, resultNode.message);
     } else {
       Messages.getTestSpawnerTestResultUpdateInvalid(node.id).log();

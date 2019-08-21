@@ -1,7 +1,12 @@
 # Bandit-C++ Test Explorer for Visual Studio Code
 
 [![Licence](https://img.shields.io/github/license/dampsoft/vscode-banditcpp-test-adapter.svg)](https://github.com/dampsoft/vscode-banditcpp-test-adapter)
-[![VS Code Marketplace](https://vsmarketplacebadge.apphb.com/version-short/dampsoft.vscode-banditcpp-test-adapter.svg) ![Rating](https://vsmarketplacebadge.apphb.com/rating-short/dampsoft.vscode-banditcpp-test-adapter.svg) ![Downloads](https://vsmarketplacebadge.apphb.com/downloads-short/dampsoft.vscode-banditcpp-test-adapter.svg) ![Installs](https://vsmarketplacebadge.apphb.com/installs-short/dampsoft.vscode-banditcpp-test-adapter.svg)](https://marketplace.visualstudio.com/items?itemName=dampsoft.vscode-banditcpp-test-adapter)
+[![Issues](https://img.shields.io/github/issues/dampsoft/vscode-banditcpp-test-adapter.svg)](https://github.com/dampsoft/vscode-banditcpp-test-adapter/issues)
+[![VS Code Marketplace](https://vsmarketplacebadge.apphb.com/version-short/dampsoft.vscode-banditcpp-test-adapter.svg)
+![Rating](https://vsmarketplacebadge.apphb.com/rating-short/dampsoft.vscode-banditcpp-test-adapter.svg)
+![Downloads](https://vsmarketplacebadge.apphb.com/downloads-short/dampsoft.vscode-banditcpp-test-adapter.svg)
+![Installs](https://vsmarketplacebadge.apphb.com/installs-short/dampsoft.vscode-banditcpp-test-adapter.svg)](https://marketplace.visualstudio.com/items?itemName=dampsoft.vscode-banditcpp-test-adapter)
+[![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
 
 Run your Bandit-C++ tests using the
 [Test Explorer UI](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-test-explorer).

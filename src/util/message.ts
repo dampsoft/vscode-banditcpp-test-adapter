@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 
-import {Logger} from '../util/logger';
+import { Logger } from '../util/logger';
 
-type MessageType = 'debug'|'info'|'error'|'warning';
+type MessageType = 'debug' | 'info' | 'error' | 'warning';
 const MessageTypeDebug: MessageType = 'debug';
 const MessageTypeInfo: MessageType = 'info';
 const MessageTypeError: MessageType = 'error';
@@ -10,9 +10,9 @@ const MessageTypeWarning: MessageType = 'warning';
 
 export class Message {
   constructor(
-      public readonly title: string, public readonly description: string,
-      public readonly details?: string,
-      public readonly type: MessageType = MessageTypeInfo) {}
+    public readonly title: string, public readonly description: string,
+    public readonly details?: string,
+    public readonly type: MessageType = MessageTypeInfo) { }
 
   public isDebug() {
     return this.type == MessageTypeInfo;
@@ -59,7 +59,7 @@ export class Message {
   }
 
   static fromException(title: string, description: string, error: any) {
-    let details: string|undefined = '';
+    let details: string | undefined = '';
     if (typeof error === 'string') {
       if (error.length > 0) details += `\n${error}`;
     } else if (error instanceof Error) {
@@ -99,7 +99,7 @@ export class Message {
 export type NotifyMessageHandler = (e: Message, forceLog: boolean) => void;
 
 export class CanNotifyMessages {
-  constructor(protected notificationHandler?: NotifyMessageHandler) {}
+  constructor(protected notificationHandler?: NotifyMessageHandler) { }
 
   protected notify(message: Message, forceLog: boolean = false) {
     if (this.notificationHandler) {

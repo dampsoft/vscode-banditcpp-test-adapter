@@ -1,10 +1,10 @@
-import {Mutex} from 'async-mutex';
+import { Mutex } from 'async-mutex';
 
-import {BaseSymbolResolver} from '../configuration/symbol';
-import {TestNodeI} from '../project/test';
+import { BaseSymbolResolver } from '../configuration/symbol';
+import { TestNodeI } from '../project/test';
 
-import {Messages} from './messages';
-import {TestSpawnerI} from './testspawner';
+import { Messages } from './messages';
+import { TestSpawnerI } from './testspawner';
 
 /**
  * Dynamischer Symbol-Resolver für den aktuellen Prozess-Index
@@ -35,8 +35,8 @@ export class TestQueue {
   private queueMutex = new Mutex();
 
   constructor(
-      private readonly config: TestQueueConfigurationI,
-      private readonly notifyChanged: (node: TestNodeI) => void) {}
+    private readonly config: TestQueueConfigurationI,
+    private readonly notifyChanged: (node: TestNodeI) => void) { }
 
   public push(nodes: TestNodeI[], spawner: TestSpawnerI) {
     // sortString(nodes, true, 'id');
@@ -60,7 +60,7 @@ export class TestQueue {
 
   private getEntries(running: boolean): TestQueueEntry[] {
     return Array.from(this.queue.values())
-        .filter(entry => entry.running == running);
+      .filter(entry => entry.running == running);
   }
 
   private getRunningEntries(): TestQueueEntry[] {
@@ -100,20 +100,20 @@ export class TestQueue {
       }
       this.notifyChanged(entry.node);
       entry.spawner.run(entry.node, [new SlotSymbolResolver(entry.slot || 0)])
-          .then(nodes => {
-            nodes.map(this.notifyChanged, this);
-            this.finish(entry);
-          })
-          .catch(() => {
-            Messages.getTestQueueExecutionError(entry.node.id).notify();
-            this.finish(entry);
-          });
+        .then(nodes => {
+          nodes.map(this.notifyChanged, this);
+          this.finish(entry);
+        })
+        .catch(() => {
+          Messages.getTestQueueExecutionError(entry.node.id).notify();
+          this.finish(entry);
+        });
     });
   }
 
-  private getNextSlot(): number|undefined {
+  private getNextSlot(): number | undefined {
     let freeSlots = new Set<number>(
-        Array.from(Array(this.config.parallelProcessLimit).keys()));
+      Array.from(Array(this.config.parallelProcessLimit).keys()));
     let usedSlots = this.getRunningEntries().map(e => e.slot);
     usedSlots.forEach((slot) => {
       if (slot != undefined) {
@@ -151,6 +151,6 @@ export class TestQueue {
  */
 class TestQueueEntry {
   constructor(
-      public node: TestNodeI, public spawner: TestSpawnerI,
-      public slot?: number, public running: boolean = false) {}
+    public node: TestNodeI, public spawner: TestSpawnerI,
+    public slot?: number, public running: boolean = false) { }
 }
