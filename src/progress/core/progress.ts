@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { ProgressLocation, window } from 'vscode';
 import { ProgressStatusI } from './state';
+import { Icon } from '../../util/icons';
 
 
 export type visualizerType = 'dialogBox' | 'statusBar';
@@ -91,14 +92,14 @@ class ProgressStatusBarItem<T extends ProgressStatusI> implements
     private readonly title: string,
     private readonly progressFormatter: (status: T) => string,
     private readonly closeHandler?: () => void,
-    private readonly maxSize: number = 10) {
+    private readonly maxSize?: number, private readonly icon?: Icon) {
     this.statusBarItem =
       vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
   }
 
   public progress(status: T) {
-    this.statusBarItem.text = `${this.title} (${status.steps}/${
-      status.stepsMax}) ${this.getAsciiProgress(status)}`;
+    this.statusBarItem.text = `${this.getIconPlaceholder()} ${this.title} (${status.steps}/${
+      status.stepsMax}) ${this.getAsciiProgress(status)}`.trimLeft();
     this.statusBarItem.tooltip = this.progressFormatter(status);
     this.statusBarItem.show();
   }
@@ -113,7 +114,7 @@ class ProgressStatusBarItem<T extends ProgressStatusI> implements
   }
 
   private getAsciiProgress(status: T) {
-    let barCount = Math.min(status.stepsMax, this.maxSize);
+    let barCount = Math.min(status.stepsMax, this.maxSize || 15);
     let preCount = Math.floor(status.progress * barCount);
     let remCount = Math.floor((1 - status.progress) * barCount);
     let midCount = barCount - preCount - remCount;
@@ -123,30 +124,35 @@ class ProgressStatusBarItem<T extends ProgressStatusI> implements
     return `${pre}${mid}${rem}`;
   }
 
+  private getIconPlaceholder() {
+    return this.icon ? this.icon.toPlaceholder() : "";
+  }
+
   public static show<T extends ProgressStatusI>(
     id: string, title: string, progressFormatter: (status: T) => string,
-    cancellationHandler?: () => void) {
+    cancellationHandler?: () => void, icon?: Icon) {
     Progress.addVisualizer(
       id,
       new ProgressStatusBarItem<T>(
-        title, progressFormatter, cancellationHandler));
+        title, progressFormatter, cancellationHandler, undefined, icon));
   }
 }
 
 
 // Progress class
 export class Progress {
-  public static show<T extends ProgressStatusI>(
+  public static showDialogBox<T extends ProgressStatusI>(
     id: string, title: string, progressFormatter: (status: T) => string,
-    cancellationHandler?: () => void,
-    visualization: visualizerType = 'dialogBox') {
-    if (visualization == 'dialogBox') {
-      ProgressDialogBox.show<T>(
-        id, title, progressFormatter, cancellationHandler);
-    } else {
-      ProgressStatusBarItem.show(
-        id, title, progressFormatter, cancellationHandler);
-    }
+    cancellationHandler?: () => void) {
+    ProgressDialogBox.show<T>(
+      id, title, progressFormatter, cancellationHandler);
+  }
+
+  public static showStatusBar<T extends ProgressStatusI>(
+    id: string, title: string, progressFormatter: (status: T) => string,
+    cancellationHandler?: () => void, icon?: Icon) {
+    ProgressStatusBarItem.show(
+      id, title, progressFormatter, cancellationHandler, icon);
   }
 
   public static progress(id: string, status: ProgressStatusI) {

@@ -18,10 +18,15 @@ export function showRunningProgress(
     return Messages.getRunningStatusProgress(
       status.stepsMax, status.passed, status.failed, status.skipped);
   };
-  let statusTitle = Icon.placeholder(IconBeaker) + " " + Messages.getRunningStatusTitle();
-  Progress.show(
-    'running', statusTitle, progressFormatter,
-    cancellationHandler, visualization);
+  if (visualization == "dialogBox") {
+    Progress.showDialogBox(
+      'running', Messages.getRunningStatusTitle(), progressFormatter,
+      cancellationHandler);
+  } else {
+    Progress.showStatusBar(
+      'running', Messages.getRunningStatusTitle(), progressFormatter,
+      cancellationHandler, new Icon(IconBeaker));
+  }
 }
 
 export function updateRunningProgress(status: RunningProgress) {

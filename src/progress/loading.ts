@@ -19,10 +19,15 @@ export function showLoadingProgress(
     return Messages.getLoadingStatusProgress(
       loadingStatus.tests, loadingStatus.errors, loadingStatus.warnings);
   };
-  let statusTitle = Icon.placeholder(IconBeaker) + " " + Messages.getLoadingStatusTitle();
-  Progress.show(
-    'loading', statusTitle, progressFormatter,
-    cancellationHandler, visualization);
+  if (visualization == "dialogBox") {
+    Progress.showDialogBox(
+      'loading', Messages.getLoadingStatusTitle(), progressFormatter,
+      cancellationHandler);
+  } else {
+    Progress.showStatusBar(
+      'loading', Messages.getLoadingStatusTitle(), progressFormatter,
+      cancellationHandler, new Icon(IconBeaker));
+  }
 }
 
 export function updateLoadingProgress(status: LoadingProgress) {
