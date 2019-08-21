@@ -1,26 +1,28 @@
-import {Progress, visualizerType} from './core/progress';
-import {ProgressStatus, ProgressStatusI} from './core/state';
-import {Messages} from './messages';
+import { Progress, visualizerType } from './core/progress';
+import { ProgressStatus, ProgressStatusI } from './core/state';
+import { Messages } from './messages';
+import { Icon, IconBeaker } from '../util/icons';
 
 export class LoadingProgress extends ProgressStatus {
   constructor(
-      steps: number, stepsMax: number, public tests: number = 0,
-      public warnings: number = 0, public errors: number = 0) {
+    steps: number, stepsMax: number, public tests: number = 0,
+    public warnings: number = 0, public errors: number = 0) {
     super(steps, stepsMax);
   }
 }
 
 export function showLoadingProgress(
-    cancellationHandler?: () => void,
-    visualization: visualizerType = 'dialogBox') {
+  cancellationHandler?: () => void,
+  visualization: visualizerType = 'dialogBox') {
   let progressFormatter = (status: ProgressStatusI) => {
     let loadingStatus = status as LoadingProgress;
     return Messages.getLoadingStatusProgress(
-        loadingStatus.tests, loadingStatus.errors, loadingStatus.warnings);
+      loadingStatus.tests, loadingStatus.errors, loadingStatus.warnings);
   };
+  let statusTitle = Icon.placeholder(IconBeaker) + " " + Messages.getLoadingStatusTitle();
   Progress.show(
-      'loading', Messages.getLoadingStatusTitle(), progressFormatter,
-      cancellationHandler, visualization);
+    'loading', statusTitle, progressFormatter,
+    cancellationHandler, visualization);
 }
 
 export function updateLoadingProgress(status: LoadingProgress) {

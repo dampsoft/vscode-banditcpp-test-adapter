@@ -8,18 +8,18 @@
 ![Installs](https://vsmarketplacebadge.apphb.com/installs-short/dampsoft.vscode-banditcpp-test-adapter.svg)](https://marketplace.visualstudio.com/items?itemName=dampsoft.vscode-banditcpp-test-adapter)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
 
-Run your Bandit-C++ tests using the
+Run your C++ Unit Tests written with the [Bandit](https://banditcpp.github.io/bandit)-Framework using the
 [Test Explorer UI](https://marketplace.visualstudio.com/items?itemName=hbenl.vscode-test-explorer).
 
 ## Features
 
-- Shows a Test Explorer in the Test view in VS Code's sidebar with all detected tests and suites and their state
-- Shows a failed test's log when the test is selected in the explorer
-- Tests or groups of tests can be marked with auto run. They will be triggered automatically after test files have changed.
+- Shows a Test Explorer in VS Code's sidebar with all detected tests and suites and their state.
+- Opens a failed test's log when it is selected in the Test Explorer.
+- Tests or groups of tests can be marked with auto run. They will be triggered automatically after watched test files have changed.
 
 ## Requirements
 
-You only need to configure your compiled test executables with the `banditTestExplorer.testsuites` property in VS Code's settings (see below)
+You only need to configure your compiled test executables with the `banditTestExplorer.testsuites` property in VS Code's settings (see below).
 
 ## Progress Visualization
 
@@ -136,7 +136,8 @@ The following commands are available in VS Code's command palette, use the ID to
 
 ### Node.js on MacOS and DYLD-Paths:
 
-As mentioned in [this Issue](https://github.com/npm/npm/issues/13243) Node.js is not allowed to define certain environment variables on MacOS. Those are protected by the System Integrity Protection [SIP](https://en.wikipedia.org/wiki/System_Integrity_Protection).
+As mentioned in [this Issue](https://github.com/npm/npm/issues/13243) Node.js is not allowed to define certain environment variables on MacOS.
+Those are protected by the System Integrity Protection [SIP](https://en.wikipedia.org/wiki/System_Integrity_Protection).
 If you're working with MacOS an you have to specify a DYLD-Path (like `DYLD_FALLBACK_LIBRARY_PATH`) to run your test-executable,
 
 - you either have to disable the SIP (see [How to disable SIP](https://www.google.com/search?q=how+to+disable+sip+macos)),
