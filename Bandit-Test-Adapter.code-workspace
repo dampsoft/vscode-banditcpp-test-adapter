@@ -1,15 +1,19 @@
 {
-	"folders": [
-		{
-			"path": "."
-		}
-	],
+	"folders": [{
+		"path": "."
+	}],
 	"settings": {
 		"workbench.colorCustomizations": {
 			"titleBar.activeBackground": "#7a1e74",
 			"titleBar.inactiveBackground": "#7a1e7499",
 			"titleBar.activeForeground": "#e7e7e7",
 			"titleBar.inactiveForeground": "#e7e7e799"
+		},
+		"peacock.color": "#7a1e74",
+		"files.exclude": {
+			"dist/**": true,
+			"out/**": true,
+			"node_modules/**": true
 		}
 	}
 }

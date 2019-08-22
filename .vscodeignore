@@ -1,8 +1,15 @@
-src/**
-**/*.map
-package-lock.json
-tsconfig.json
-.vscode/**
-.gitignore
-out/test/**
-test/**
+*
+**/**
+
+# https://code.visualstudio.com/docs/extensions/publish-extension#_advanced-usage : Development dependencies listed in devDependencies will be automatically ignored, you don't need to add them to the .vscodeignore file.
+!node_modules
+
+!dist/**/*
+!img/**/*
+!i18n/**/*
+
+!package.json
+!package.nls.*.json
+!README.md
+!LICENSE
+!CHANGELOG.md

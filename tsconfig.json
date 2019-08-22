@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
+    "module": "commonjs",
     "target": "es2018",
     "lib": ["es2018"],
-    "module": "commonjs",
     "rootDir": "src",
     "outDir": "out",
     "importHelpers": true,
@@ -14,5 +14,10 @@
     "removeComments": true,
     "skipLibCheck": true
   },
-  "exclude": ["node_modules", ".vscode-test"]
+  "exclude": ["node_modules", ".vscode-test"],
+  "include": [
+    "src/**/*.ts",
+    "./node_modules/vscode/vscode.d.ts",
+    "./node_modules/vscode/lib/*",
+  ]
 }

@@ -15,27 +15,6 @@
       "type": "npm",
       "script": "build",
       "problemMatcher": [
-        "$tsc"
-      ]
-    },
-    {
-      "type": "gulp",
-      "task": "build",
-      "problemMatcher": [
-        "$gulp-tsc"
-      ]
-    },
-    {
-      "type": "gulp",
-      "task": "compile",
-      "problemMatcher": [
-        "$gulp-tsc"
-      ]
-    },
-    {
-      "type": "gulp",
-      "task": "package",
-      "problemMatcher": [
         "$gulp-tsc"
       ]
     },
@@ -48,15 +27,58 @@
     },
     {
       "type": "gulp",
-      "task": "publish",
+      "script": "build-nls",
+      "path": "",
+      "fileName": "gulpfile.js",
+      "uri": {
+        "$mid": 1,
+        "fsPath": "f:\\Projekte\\Visual Studio Code Extensions\\vscode-bandit-test-adapter\\gulpfile.js",
+        "_sep": 1,
+        "external": "file:///f%3A/Projekte/Visual%20Studio%20Code%20Extensions/vscode-bandit-test-adapter/gulpfile.js",
+        "path": "/f:/Projekte/Visual Studio Code Extensions/vscode-bandit-test-adapter/gulpfile.js",
+        "scheme": "file"
+      },
+      "problemMatcher": [
+        "$gulp-tsc"
+      ]
+    },
+    {
+      "type": "npm",
+      "script": "clean",
+      "problemMatcher": [
+        "$gulp-tsc"
+      ]
+    },
+    {
+      "type": "npm",
+      "script": "build-dev",
       "problemMatcher": [
         "$gulp-tsc"
       ]
     },
     {
       "type": "gulp",
-      "task": "clean",
-      "problemMatcher": []
+      "script": "build",
+      "path": "",
+      "fileName": "gulpfile.js",
+      "uri": {
+        "$mid": 1,
+        "fsPath": "f:\\Projekte\\Visual Studio Code Extensions\\vscode-bandit-test-adapter\\gulpfile.js",
+        "_sep": 1,
+        "external": "file:///f%3A/Projekte/Visual%20Studio%20Code%20Extensions/vscode-bandit-test-adapter/gulpfile.js",
+        "path": "/f:/Projekte/Visual Studio Code Extensions/vscode-bandit-test-adapter/gulpfile.js",
+        "scheme": "file"
+      },
+      "problemMatcher": [
+        "$gulp-tsc"
+      ]
+    },
+    {
+      "type": "npm",
+      "script": "check-packages",
+      "problemMatcher": [
+        "$gulp-tsc"
+      ]
     }
   ]
 }

@@ -1,3 +1,9 @@
+/**
+ * Gulp 4 documentation https://fettblog.eu/gulp-4-parallel-and-series/
+ */
+
+// ------ packages ------
+
 const del = require('del');
 const es = require('event-stream');
 const gulp = require('gulp');
@@ -7,19 +13,23 @@ const typescript = require('typescript');
 const vsce = require('vsce');
 const nls = require('vscode-nls-dev');
 
+// ------ configuration ------
+
 const tsProject = ts.createProject('./tsconfig.json', { typescript });
 
 const inlineMap = true;
 const inlineSource = false;
 const outDest = 'out';
-
-// If all VS Code langaues are support you can use nls.coreLanguages
 const languages = [{ folderName: 'deu', id: 'de' }];
 
 // ------ internal ------
 
 function clean() {
-  return del(['out/**', 'package.nls.*.json', '*.vsix']);
+  return del(['out', 'dist', 'package.nls.*.json', '*.vsix']);
+}
+
+function uninstall() {
+  return del(['node_modules', 'package-lock.json']);
 }
 
 function compile(buildNls) {
@@ -38,47 +48,49 @@ function compile(buildNls) {
         // no inlined source
         includeContent: inlineSource,
         // Return relative source map root directories per file.
-        sourceRoot: '../src',
-      }),
+        sourceRoot: '../src'
+      })
     );
   }
 
   return r.pipe(gulp.dest(outDest));
 }
 
-gulp.task('internal-compile', () => {
+function compileNoNls() {
   return compile(false);
-});
+}
 
-gulp.task('internal-nls-compile', () => {
+function compileWithNls() {
   return compile(true);
-});
+}
 
-gulp.task('add-i18n', () => {
+function addI18n() {
   return gulp
     .src(['package.nls.json'])
     .pipe(nls.createAdditionalLanguageFiles(languages, 'i18n'))
     .pipe(gulp.dest('.'));
-});
+}
 
-gulp.task('vsce:publish', () => {
+function publish() {
   return vsce.publish();
-});
+}
 
-gulp.task('vsce:package', () => {
+function package() {
   return vsce.createVSIX();
-});
+}
 
-// ------ external ------
+// ------ tasks ------
 
 gulp.task('clean', gulp.series(clean));
 
-gulp.task('compile', gulp.series(clean, 'internal-compile'));
+gulp.task('uninstall', gulp.series(uninstall));
 
-gulp.task('build', gulp.series(clean, 'internal-nls-compile', 'add-i18n'));
+gulp.task('build', gulp.series(clean, compileNoNls));
 
-gulp.task('publish', gulp.series('build', 'vsce:publish'));
+gulp.task('build-nls', gulp.series(clean, compileWithNls, addI18n));
 
-gulp.task('package', gulp.series('build', 'vsce:package'));
+gulp.task('publish', gulp.series('build-nls', publish));
 
-gulp.task('default', gulp.series('build'));
+gulp.task('package', gulp.series('build-nls', package));
+
+gulp.task('default', gulp.series('build-nls'));
