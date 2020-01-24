@@ -8,15 +8,14 @@ import { Logger } from './util/logger';
 export async function activate(context: vscode.ExtensionContext) {
   const workspaceFolder = (vscode.workspace.workspaceFolders || [])[0];
 
-  const log =
-    new Log('banditTestExplorer', workspaceFolder, 'Bandit Test Explorer');
+  const log = new Log('banditTestExplorer', workspaceFolder, 'Bandit Test Explorer');
   context.subscriptions.push(log);
   Logger.instance.setLog(log);
 
-  const testExplorerExtension =
-    vscode.extensions.getExtension<TestHub>(testExplorerExtensionId);
-  Logger.instance.info(
-    `Test Explorer ${testExplorerExtension ? '' : 'nicht '}gefunden`);
+  const testExplorerExtension = vscode.extensions.getExtension<TestHub>(testExplorerExtensionId);
+  Logger.instance.info(`Test Explorer ${testExplorerExtension ? '' : 'nicht '}gefunden`);
+
+  vscode.commands.executeCommand('vscode.executeWorkspaceSymbolProvider', '');
 
   if (testExplorerExtension) {
     if (!testExplorerExtension.isActive) {
@@ -24,8 +23,8 @@ export async function activate(context: vscode.ExtensionContext) {
     }
     const testHub = testExplorerExtension.exports;
 
-    context.subscriptions.push(new TestAdapterRegistrar(
-      testHub, workspaceFolder => new BanditTestAdapter(workspaceFolder),
-      log));
+    context.subscriptions.push(
+      new TestAdapterRegistrar(testHub, (workspaceFolder) => new BanditTestAdapter(workspaceFolder), log)
+    );
   }
 }
