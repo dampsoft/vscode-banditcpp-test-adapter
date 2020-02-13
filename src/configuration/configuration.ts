@@ -147,6 +147,7 @@ export class TestSuiteConfiguration {
     let envVariables: EnvProperty = {};
     let envFilePath = switchOs<string>(this.jsonConfig, 'envFile');
     if (envFilePath) {
+      envFilePath = this.parentConfig.resolvePath(envFilePath, this.jsonConfig.cwd)
       if (fs.existsSync(envFilePath)) {
         let envVariableBuffer: string = fs.readFileSync(envFilePath, { encoding: 'utf-8' });
         envVariableBuffer.split('\n').forEach((envVariablePairString) => {
@@ -161,11 +162,11 @@ export class TestSuiteConfiguration {
   }
 
   private resolveEnv() {
-    let envFileProperties = this.readEnvFile();
-    let envProperties = switchOs<EnvProperty>(this.jsonConfig, 'env');
-    envProperties = envProperties || this.jsonConfig.env;
-    envProperties = this.parentConfig.resolveEnv({ ...envFileProperties, ...envProperties });
-    return envProperties;
+    const osEnvProperties = switchOs<EnvProperty>(this.jsonConfig, 'env');
+    const prioritizedEnvProperties = osEnvProperties || this.jsonConfig.env;
+    const fileEnvProperties = this.readEnvFile();
+    const mergedEnvProperties = { ...fileEnvProperties, ...prioritizedEnvProperties };
+    return this.parentConfig.resolveEnv(mergedEnvProperties);
   }
 
   private resolveWatches() {
@@ -344,7 +345,7 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
       try {
         jsonConfigPath = this.resolvePath(conf);
         jsonConfig = fs.readJsonSync(jsonConfigPath);
-      } catch (e) {}
+      } catch (e) { }
     } else {
       jsonConfig = conf as TestSuiteJsonConfigurationI[];
     }
