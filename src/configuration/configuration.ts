@@ -27,6 +27,9 @@ export const PropertyAllowKillProcess: Property = 'allowKillProcess';
 export const PropertyLoglevel: Property = 'loglevel';
 export const PropertyProgressVisualization: Property = 'progressVisualization';
 
+/**
+ * Interface of a platform specific JSON config object for a test suite
+ */
 interface TestSuiteJsonPlatformConfigurationI {
   disabled?: boolean;
   cmd?: string;
@@ -38,6 +41,9 @@ interface TestSuiteJsonPlatformConfigurationI {
   parallelProcessLimit?: number;
 }
 
+/**
+ * Interface of a JSON config object for a test suite
+ */
 interface TestSuiteJsonConfigurationI {
   name: string;
   disabled?: boolean;
@@ -147,7 +153,7 @@ export class TestSuiteConfiguration {
     let envVariables: EnvProperty = {};
     let envFilePath = switchOs<string>(this.jsonConfig, 'envFile');
     if (envFilePath) {
-      envFilePath = this.parentConfig.resolvePath(envFilePath, this.jsonConfig.cwd)
+      envFilePath = this.parentConfig.resolvePath(envFilePath, this.jsonConfig.cwd);
       if (fs.existsSync(envFilePath)) {
         let envVariableBuffer: string = fs.readFileSync(envFilePath, { encoding: 'utf-8' });
         envVariableBuffer.split('\n').forEach((envVariablePairString) => {
@@ -203,15 +209,14 @@ export type NotifyConfigChangeHandler = (hardReset: boolean) => void;
  * It provides all relevant settings by parsing vscode's internal workspace configuration.
  */
 export class Configuration extends CanNotifyMessages implements DisposableI {
-  private propertyGetter = new Map<string, () => any>();
   private testSuiteConfigs = new Array<TestSuiteConfiguration>();
   public readonly symbolResolver: SymbolResolverI;
   private coreConfigWatch: DisposableI | undefined;
   private testsuiteConfigWatch: DisposableI | undefined;
 
   constructor(
-    public readonly baseConfigurationName: string,
-    public readonly workspaceFolder: vscode.WorkspaceFolder,
+    private readonly baseConfigurationName: string,
+    private readonly workspaceFolder: vscode.WorkspaceFolder,
     private onConfigChangedHandler: NotifyConfigChangeHandler,
     notificationHandler?: NotifyMessageHandler
   ) {
@@ -220,30 +225,6 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
     this.createCoreWatch();
 
     this.symbolResolver = new WorkspaceSymbolResolver(this.workspaceFolder);
-
-    this.propertyGetter.set(PropertyTestsuites, () => {
-      return this.testSuiteConfigs;
-    });
-
-    this.propertyGetter.set(PropertyParallelProcessLimit, () => {
-      return this.config.get<number>(PropertyParallelProcessLimit, 1);
-    });
-
-    this.propertyGetter.set(PropertyWatchTimeoutSec, () => {
-      return this.config.get<number>(PropertyWatchTimeoutSec, 10);
-    });
-
-    this.propertyGetter.set(PropertyAllowKillProcess, () => {
-      return this.config.get<boolean>(PropertyAllowKillProcess, false);
-    });
-
-    this.propertyGetter.set(PropertyLoglevel, () => {
-      return this.config.get<LogLevel>(PropertyLoglevel, 'error');
-    });
-
-    this.propertyGetter.set(PropertyProgressVisualization, () => {
-      return this.config.get<visualizerType>(PropertyProgressVisualization, 'dialogBox');
-    });
 
     this.reload();
   }
@@ -260,76 +241,46 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
   }
 
   public reload() {
-    this.initTestSuiteConfigs();
+    this.resetTestSuiteConfigs();
   }
 
-  public get(property: Property): any | undefined {
-    let prop = this.propertyGetter.get(property);
-    if (prop) {
-      return prop();
-    } else {
-      return undefined;
-    }
-  }
-
-  public get testsuites(): TestSuiteConfiguration[] {
-    return this.get(PropertyTestsuites);
+  public get testsuites() {
+    return this.testSuiteConfigs;
   }
 
   public get parallelProcessLimit(): number {
-    return this.get(PropertyParallelProcessLimit);
+    return this.config.get<number>(PropertyParallelProcessLimit, 1);
   }
 
   public get watchTimeoutSec(): number {
-    return this.get(PropertyWatchTimeoutSec);
+    return this.config.get<number>(PropertyWatchTimeoutSec, 10);
   }
 
   public get allowKillProcess(): boolean {
-    return this.get(PropertyAllowKillProcess);
+    return this.config.get<boolean>(PropertyAllowKillProcess, false);
   }
 
   public get loglevel(): LogLevel {
-    return this.get(PropertyLoglevel);
+    return this.config.get<LogLevel>(PropertyLoglevel, 'error');
   }
 
   public get progressVisualization(): visualizerType {
-    return this.get(PropertyProgressVisualization);
+    return this.config.get<visualizerType>(PropertyProgressVisualization, 'dialogBox');
   }
 
   public get cwd(): string {
     return this.workspaceFolder.uri.fsPath;
   }
 
-  public get properties(): Property[] {
-    return [
-      PropertyTestsuites,
-      PropertyWatchTimeoutSec,
-      PropertyParallelProcessLimit,
-      PropertyAllowKillProcess,
-      PropertyLoglevel,
-      PropertyProgressVisualization
-    ];
+  private checkHardResetForPropertyChange(propertyAffects: (property: Property) => boolean) {
+    return [PropertyTestsuites].some(propertyAffects);
   }
 
-  public get propertiesSoftReset(): Property[] {
-    return [
-      PropertyWatchTimeoutSec,
-      PropertyParallelProcessLimit,
-      PropertyAllowKillProcess,
-      PropertyLoglevel,
-      PropertyProgressVisualization
-    ];
-  }
-
-  public get propertiesHardReset(): Property[] {
-    return [PropertyTestsuites];
-  }
-
-  public getNameNameOfProperty(property: Property): string {
+  private getNameNameOfProperty(property: Property): string {
     return property;
   }
 
-  public getFullNameOfProperty(property: Property): string {
+  private getFullNameOfProperty(property: Property): string {
     return `${this.baseConfigurationName}.${this.getNameNameOfProperty(property)}`;
   }
 
@@ -337,7 +288,7 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
     return vscode.workspace.getConfiguration(this.baseConfigurationName, this.workspaceFolder.uri);
   }
 
-  private initTestSuiteConfigs() {
+  private resetTestSuiteConfigs() {
     let conf = this.config.get<string | TestSuiteJsonConfigurationI[]>(PropertyTestsuites);
     let jsonConfig: TestSuiteJsonConfigurationI[] = [];
     let jsonConfigPath: string | undefined;
@@ -345,7 +296,7 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
       try {
         jsonConfigPath = this.resolvePath(conf);
         jsonConfig = fs.readJsonSync(jsonConfigPath);
-      } catch (e) { }
+      } catch (e) {}
     } else {
       jsonConfig = conf as TestSuiteJsonConfigurationI[];
     }
@@ -418,7 +369,7 @@ export class Configuration extends CanNotifyMessages implements DisposableI {
       let affects = (property: Property): boolean => {
         return configChange.affectsConfiguration(this.getFullNameOfProperty(property), this.workspaceFolder.uri);
       };
-      this.onConfigChangedHandler(this.propertiesHardReset.some(affects));
+      this.onConfigChangedHandler(this.checkHardResetForPropertyChange(affects));
     });
   }
 
