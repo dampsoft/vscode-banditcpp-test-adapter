@@ -60,7 +60,7 @@
     "gulp-filter": "^6.0.0",
     "gulp-sourcemaps": "^2.6.5",
     "gulp-typescript": "5.0.1",
-    "mocha": "^6.2.0",
+    "mocha": "^10.2.0",
     "tslint": "^5.18.0",
     "typescript": "^3.5.3",
     "vsce": ">=1.66.0",
